@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Star, AlertTriangle, Info, TrendingDown, BookOpen, Plus, Cpu } from 'lucide-react'
+import { X, Star, AlertTriangle, Info, TrendingDown, BookOpen, Plus, Cpu, BarChart2, Loader2, Database } from 'lucide-react'
 import { getStatusColor, getStatusLabel, getPositionColor } from '../../utils/playerHelpers'
 import useResearchStore, { selectPlayerItems } from '../../store/useResearchStore'
 import ResearchCard from '../research/ResearchCard'
 import ResearchItemForm from '../research/ResearchItemForm'
 import EvalPanel from '../eval/EvalPanel'
+import { usePlayerStats } from '../../hooks/usePlayerStats'
 
 // ---------------------------------------------------------------------------
 // Watch factor derivation — purely rule-based, no AI
@@ -98,11 +99,257 @@ function SectionHeader({ children }) {
 }
 
 // ---------------------------------------------------------------------------
+// Stats tab — nflverse historical season stats
+// ---------------------------------------------------------------------------
+
+function fmt(v, decimals = 0) {
+  if (v == null || isNaN(v)) return '—'
+  return decimals > 0 ? Number(v).toFixed(decimals) : Math.round(v).toLocaleString()
+}
+
+function fmtPct(v) {
+  if (v == null || isNaN(v)) return '—'
+  return `${(v * 100).toFixed(1)}%`
+}
+
+function StatRow({ label, value, highlight }) {
+  return (
+    <div className={`flex justify-between items-center py-1.5 border-b border-[var(--color-border)] last:border-0 ${highlight ? 'opacity-100' : ''}`}>
+      <span className="text-xs text-[var(--color-text-muted)]">{label}</span>
+      <span className="text-xs font-semibold tabular-nums text-[var(--color-text)]">{value}</span>
+    </div>
+  )
+}
+
+function StatSection({ title, children }) {
+  return (
+    <div className="rounded bg-[var(--color-surface-2)] p-3">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-faint)] mb-1.5">{title}</p>
+      {children}
+    </div>
+  )
+}
+
+function QBStats({ s }) {
+  return (
+    <>
+      <StatSection title="Passing">
+        <StatRow label="Games" value={fmt(s.games)} />
+        <StatRow label="Completions / Att" value={s.attempts > 0 ? `${fmt(s.completions)}/${fmt(s.attempts)}` : '—'} />
+        <StatRow label="Completion %" value={fmtPct(s.completion_pct)} />
+        <StatRow label="Passing Yards" value={fmt(s.passing_yards)} />
+        <StatRow label="Passing TDs" value={fmt(s.passing_tds)} />
+        <StatRow label="Interceptions" value={fmt(s.interceptions)} />
+        <StatRow label="Sacks" value={fmt(s.sacks)} />
+        <StatRow label="ADOT" value={fmt(s.adot_qb, 1)} />
+      </StatSection>
+      <StatSection title="Rushing">
+        <StatRow label="Carries" value={fmt(s.carries)} />
+        <StatRow label="Rush Yards" value={fmt(s.rushing_yards)} />
+        <StatRow label="Rush TDs" value={fmt(s.rushing_tds)} />
+        {s.carries > 0 && <StatRow label="Yds / Carry" value={fmt(s.yards_per_carry, 1)} />}
+      </StatSection>
+      <StatSection title="Fantasy">
+        <StatRow label="Fantasy Pts (Std)" value={fmt(s.fantasy_points, 1)} />
+        <StatRow label="Fantasy Pts (PPR)" value={fmt(s.fantasy_points_ppr, 1)} />
+        <StatRow label="Pts / Game" value={fmt(s.fantasy_points_per_game, 1)} />
+      </StatSection>
+    </>
+  )
+}
+
+function RBStats({ s }) {
+  return (
+    <>
+      <StatSection title="Rushing">
+        <StatRow label="Games" value={fmt(s.games)} />
+        <StatRow label="Carries" value={fmt(s.carries)} />
+        <StatRow label="Rush Yards" value={fmt(s.rushing_yards)} />
+        <StatRow label="Rush TDs" value={fmt(s.rushing_tds)} />
+        {s.carries > 0 && <StatRow label="Yds / Carry" value={fmt(s.yards_per_carry, 1)} />}
+        {s.games > 0 && <StatRow label="Carries / Game" value={fmt(s.carries_per_game, 1)} />}
+      </StatSection>
+      <StatSection title="Receiving">
+        <StatRow label="Targets" value={fmt(s.targets)} />
+        <StatRow label="Receptions" value={fmt(s.receptions)} />
+        <StatRow label="Rec Yards" value={fmt(s.receiving_yards)} />
+        <StatRow label="Rec TDs" value={fmt(s.receiving_tds)} />
+        <StatRow label="Catch Rate" value={fmtPct(s.catch_rate)} />
+        {s.target_share > 0 && <StatRow label="Target Share" value={fmtPct(s.target_share)} />}
+        {s.wopr > 0 && <StatRow label="WOPR" value={fmt(s.wopr, 2)} />}
+      </StatSection>
+      <StatSection title="Fantasy">
+        <StatRow label="Fantasy Pts (Std)" value={fmt(s.fantasy_points, 1)} />
+        <StatRow label="Fantasy Pts (PPR)" value={fmt(s.fantasy_points_ppr, 1)} />
+        <StatRow label="Pts / Game" value={fmt(s.fantasy_points_per_game, 1)} />
+      </StatSection>
+    </>
+  )
+}
+
+function WRTEStats({ s }) {
+  return (
+    <>
+      <StatSection title="Receiving">
+        <StatRow label="Games" value={fmt(s.games)} />
+        <StatRow label="Targets" value={fmt(s.targets)} />
+        <StatRow label="Receptions" value={fmt(s.receptions)} />
+        <StatRow label="Rec Yards" value={fmt(s.receiving_yards)} />
+        <StatRow label="Rec TDs" value={fmt(s.receiving_tds)} />
+        {s.games > 0 && <StatRow label="Targets / Game" value={fmt(s.targets_per_game, 1)} />}
+        {s.receptions > 0 && s.receiving_yards > 0 && (
+          <StatRow label="Yds / Reception" value={fmt(s.receiving_yards / s.receptions, 1)} />
+        )}
+      </StatSection>
+      <StatSection title="Advanced">
+        <StatRow label="Catch Rate" value={fmtPct(s.catch_rate)} />
+        {s.target_share > 0 && <StatRow label="Target Share" value={fmtPct(s.target_share)} />}
+        {s.air_yards_share > 0 && <StatRow label="Air Yards Share" value={fmtPct(s.air_yards_share)} />}
+        {s.adot > 0 && <StatRow label="ADOT" value={fmt(s.adot, 1)} />}
+        {s.wopr > 0 && <StatRow label="WOPR" value={fmt(s.wopr, 2)} />}
+        {s.racr > 0 && <StatRow label="RACR" value={fmt(s.racr, 2)} />}
+      </StatSection>
+      <StatSection title="Fantasy">
+        <StatRow label="Fantasy Pts (Std)" value={fmt(s.fantasy_points, 1)} />
+        <StatRow label="Fantasy Pts (PPR)" value={fmt(s.fantasy_points_ppr, 1)} />
+        <StatRow label="Pts / Game" value={fmt(s.fantasy_points_per_game, 1)} />
+      </StatSection>
+    </>
+  )
+}
+
+function SeasonStats({ seasonData, position }) {
+  const pos = position?.toUpperCase()
+  if (pos === 'QB') return <QBStats s={seasonData} />
+  if (pos === 'RB') return <RBStats s={seasonData} />
+  if (pos === 'WR' || pos === 'TE') return <WRTEStats s={seasonData} />
+  return (
+    <p className="text-xs text-[var(--color-text-faint)]">
+      No stat breakdown available for {position}.
+    </p>
+  )
+}
+
+function StatsTab({ player }) {
+  const { history, seasons, loading, error, hasData } = usePlayerStats(player)
+  const [activeSeason, setActiveSeason] = useState(null)
+
+  // Auto-select most recent season when data loads
+  useEffect(() => {
+    if (seasons.length > 0 && !activeSeason) {
+      setActiveSeason(seasons[0])
+    }
+  }, [seasons, activeSeason])
+
+  if (!player.gsisId) {
+    return (
+      <div className="flex flex-col items-center py-10 text-center gap-2">
+        <Database size={20} className="text-[var(--color-text-faint)]" />
+        <p className="text-xs text-[var(--color-text-faint)]">Player ID unavailable.</p>
+        <p className="text-[10px] text-[var(--color-text-faint)] max-w-48 leading-relaxed">
+          No GSIS ID in Sleeper metadata for this player.
+        </p>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center py-10 gap-2">
+        <Loader2 size={18} className="text-[var(--color-accent)] animate-spin" />
+        <p className="text-xs text-[var(--color-text-faint)]">Loading historical stats…</p>
+      </div>
+    )
+  }
+
+  if (error && error.includes('preprocess')) {
+    return (
+      <div className="flex flex-col items-center py-8 text-center gap-2 px-2">
+        <Database size={20} className="text-[var(--color-text-faint)]" />
+        <p className="text-xs text-[var(--color-text-muted)] font-semibold">Historical data not loaded</p>
+        <p className="text-[10px] text-[var(--color-text-faint)] leading-relaxed max-w-56">
+          Run the preprocessing script to populate nflverse stats:
+        </p>
+        <code className="text-[10px] bg-[var(--color-surface-2)] text-[var(--color-accent)] px-2 py-1 rounded border border-[var(--color-border)]">
+          npm run preprocess-nflverse
+        </code>
+        <p className="text-[10px] text-[var(--color-text-faint)] leading-relaxed max-w-56">
+          This downloads and preprocesses nflverse player_stats for 2023–2024.
+        </p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <p className="text-xs text-[var(--color-sit)] py-4">{error}</p>
+    )
+  }
+
+  if (!hasData) {
+    return (
+      <div className="flex flex-col items-center py-10 text-center gap-2">
+        <Database size={20} className="text-[var(--color-text-faint)]" />
+        <p className="text-xs text-[var(--color-text-faint)]">No historical data for this player.</p>
+        <p className="text-[10px] text-[var(--color-text-faint)] max-w-48 leading-relaxed">
+          Could be a rookie or player not found in nflverse. Run{' '}
+          <code className="text-[var(--color-accent)]">npm run preprocess-nflverse</code> to refresh.
+        </p>
+      </div>
+    )
+  }
+
+  const currentSeason = activeSeason ?? seasons[0]
+  const seasonData = history[String(currentSeason)]
+
+  return (
+    <div className="space-y-4">
+      {/* Season selector */}
+      {seasons.length > 1 && (
+        <div className="flex gap-1.5">
+          {seasons.map((yr) => (
+            <button
+              key={yr}
+              onClick={() => setActiveSeason(yr)}
+              className={`px-2.5 py-1 text-xs font-semibold rounded transition-colors ${
+                currentSeason === yr
+                  ? 'bg-[var(--color-accent)] text-black'
+                  : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)]'
+              }`}
+            >
+              {yr}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Team context line */}
+      {seasonData?.team && (
+        <p className="text-[10px] text-[var(--color-text-faint)]">
+          {currentSeason} · {seasonData.team}
+        </p>
+      )}
+
+      {/* Stats breakdown by position */}
+      <div className="space-y-3">
+        <SeasonStats seasonData={seasonData} position={player.position} />
+      </div>
+
+      {/* Source attribution */}
+      <p className="text-[10px] text-[var(--color-text-faint)] pt-1">
+        Source: nflverse player_stats · Regular season only
+      </p>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main drawer
 // ---------------------------------------------------------------------------
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
+  { key: 'stats', label: 'Stats', icon: BarChart2 },
   { key: 'evaluate', label: 'Evaluate', icon: Cpu },
   { key: 'research', label: 'Research' },
 ]
@@ -303,6 +550,11 @@ export default function PlayerDrawer({ player, watchlist, onToggleWatch, onClose
                 )}
               </section>
             </>
+          )}
+
+          {/* ── Stats tab ─────────────────────────────────────── */}
+          {activeTab === 'stats' && (
+            <StatsTab player={player} />
           )}
 
           {/* ── Evaluate tab ──────────────────────────────────── */}

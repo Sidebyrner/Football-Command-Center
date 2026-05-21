@@ -1,0 +1,8 @@
+{
+  "_meta": {
+    "generated": null,
+    "seasons": [],
+    "source": "nflverse/nflverse-data player_stats",
+    "note": "Run `npm run preprocess-nflverse` to populate with real data"
+  }
+}
