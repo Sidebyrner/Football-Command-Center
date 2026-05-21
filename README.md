@@ -20,9 +20,9 @@ A personal fantasy football research hub built for Sleeper leagues. It pulls liv
 
 ## Before you start
 
-You need two things installed on your computer:
+You need one thing installed on your computer no matter what:
 
-### 1. Node.js (v18 or later)
+### Node.js (v18 or later)
 
 Node.js is the JavaScript runtime that powers the development server and the data preprocessing script.
 
@@ -37,16 +37,53 @@ npm --version
 
 Both commands should print a version number. If they do, you're good.
 
-### 2. Git
-
-Git lets you download the code from GitHub.
-
-- Go to [git-scm.com](https://git-scm.com) and download the installer for your OS
-- Verify: `git --version`
-
 ---
 
 ## Installation
+
+There are two ways to get the code onto your computer. **Pick one.**
+
+---
+
+### Option A — Download as a ZIP (no Git required)
+
+This is the easiest method if you've never used Git or the terminal for downloading code.
+
+**Step 1 — Download the ZIP**
+
+Go to [github.com/Sidebyrner/Football-Command-Center](https://github.com/Sidebyrner/Football-Command-Center) in your browser.
+
+Click the green **"< > Code"** button near the top right of the page, then click **"Download ZIP"**.
+
+![Download ZIP from the Code button on GitHub](https://docs.github.com/assets/cb-20363/mw-1440/images/help/repository/code-button.webp)
+
+**Step 2 — Extract the ZIP**
+
+- On **Mac**: double-click the downloaded `.zip` file. A folder called `Football-Command-Center-main` (or similar) will appear next to it.
+- On **Windows**: right-click the `.zip` file and choose **"Extract All…"**, then click **Extract**.
+
+**Step 3 — Open a terminal inside that folder**
+
+- On **Mac**: right-click the extracted folder in Finder and choose **"New Terminal at Folder"**. (If you don't see that option, open Terminal and drag the folder onto the Terminal window to set the path, then press Enter.)
+- On **Windows**: open the extracted folder in File Explorer, click the address bar at the top, type `cmd`, and press Enter. A Command Prompt window opens already pointed at that folder.
+
+**Step 4 — Install dependencies**
+
+```bash
+npm install
+```
+
+This downloads all the libraries the app needs. It may take 30–60 seconds. You only need to do this once.
+
+> **Note:** When the repo is updated you'll need to re-download the ZIP and repeat from Step 1. If you want automatic updates in the future, switch to Option B.
+
+---
+
+### Option B — Clone with Git
+
+If you have Git installed and want to pull updates easily in the future, use this method instead.
+
+Git lets you download and update the code with a single command. Install it from [git-scm.com](https://git-scm.com) if you don't have it, then verify with `git --version`.
 
 Open a terminal (on Mac: search Spotlight for "Terminal"; on Windows: search for "Command Prompt" or "PowerShell").
 
@@ -69,6 +106,12 @@ npm install
 ```
 
 This downloads all the libraries the app needs. It may take 30–60 seconds. You only need to do this once.
+
+**To pull future updates**, run this from inside the project folder:
+
+```bash
+git pull
+```
 
 ---
 
