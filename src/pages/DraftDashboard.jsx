@@ -3,6 +3,7 @@ import Header from '../components/layout/Header'
 import DraftFilters from '../components/draft/DraftFilters'
 import PlayerTable from '../components/draft/PlayerTable'
 import PlayerDrawer from '../components/draft/PlayerDrawer'
+import ScoringProfileManager from '../components/eval/ScoringProfileManager'
 import { useDraftPlayers } from '../hooks/useDraftPlayers'
 import useResearchStore, { buildResearchIndex } from '../store/useResearchStore'
 
@@ -94,6 +95,10 @@ export default function DraftDashboard() {
       />
 
       <DraftFilters filters={filters} onChange={setFilters} teams={allTeams} />
+
+      <div className="px-4 py-2 border-b border-[var(--color-border)]">
+        <ScoringProfileManager />
+      </div>
 
       {error && (
         <div className="px-4 py-2 text-xs text-[var(--color-sit)] bg-[var(--color-surface)] border-b border-[var(--color-border)]">
