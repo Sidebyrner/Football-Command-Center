@@ -3,6 +3,8 @@ import { TrendingUp, BarChart2, AlertTriangle, Info, Zap, Shield, ChevronDown, C
 import { evaluateWeekly, evaluateDraft } from '../../utils/evaluationEngine'
 import useScoringProfileStore from '../../store/useScoringProfileStore'
 import { getPositionColor } from '../../utils/playerHelpers'
+import { usePlayerStats } from '../../hooks/usePlayerStats'
+import { toEvalMetrics } from '../../services/nflverseService'
 
 // ── Designation badge ────────────────────────────────────────────────────────
 const DESIGNATION_STYLES = {
@@ -277,13 +279,21 @@ export default function EvalPanel({ player }) {
   const activeProfile = useScoringProfileStore((s) => s.activeProfile)
   const posColor = getPositionColor(player.position)
 
+  // Pull most recent nflverse season stats to feed real metrics into the engine
+  const { history, seasons } = usePlayerStats(player)
+  const mostRecentSeason = seasons[0] ?? null
+  const realMetrics = useMemo(() => {
+    if (!history || !mostRecentSeason) return null
+    return toEvalMetrics(history[String(mostRecentSeason)])
+  }, [history, mostRecentSeason])
+
   const weeklyResult = useMemo(
-    () => evaluateWeekly(player, activeProfile),
-    [player, activeProfile]
+    () => evaluateWeekly(player, activeProfile, realMetrics),
+    [player, activeProfile, realMetrics]
   )
   const draftResult = useMemo(
-    () => evaluateDraft(player, activeProfile),
-    [player, activeProfile]
+    () => evaluateDraft(player, activeProfile, realMetrics),
+    [player, activeProfile, realMetrics]
   )
 
   return (
@@ -309,12 +319,20 @@ export default function EvalPanel({ player }) {
         ))}
       </div>
 
-      {/* Mock data notice */}
+      {/* Data source notice */}
       <div className="flex items-start gap-1.5 px-2.5 py-2 rounded bg-[var(--color-surface-2)] border border-[var(--color-border)]">
         <Zap size={11} className="text-[var(--color-accent)] flex-shrink-0 mt-px" />
-        <p className="text-[10px] text-[var(--color-text-faint)] leading-relaxed">
-          Advanced metrics are synthetic — replace <code>mockPlayerMetrics.js</code> with a real feed when available.
-        </p>
+        {realMetrics ? (
+          <p className="text-[10px] text-[var(--color-text-faint)] leading-relaxed">
+            Using nflverse {mostRecentSeason} season data for available metrics. Untracked inputs (YPRR, separation, OL grade) use position defaults.
+          </p>
+        ) : (
+          <p className="text-[10px] text-[var(--color-text-faint)] leading-relaxed">
+            Using synthetic position defaults. Run{' '}
+            <code className="text-[var(--color-accent)]">npm run preprocess-nflverse</code>{' '}
+            to load real historical metrics.
+          </p>
+        )}
       </div>
 
       {/* Panel content */}

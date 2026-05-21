@@ -61,6 +61,8 @@ export function useDraftPlayers() {
           college: p.college ?? null,
           depthChartOrder: p.depth_chart_order ?? null,
           number: p.number ?? null,
+          // Join key for nflverse data lookup
+          gsisId: p.gsis_id ?? null,
         }))
 
       setPlayers(list)

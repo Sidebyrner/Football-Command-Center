@@ -208,9 +208,16 @@ function weeklyDesignation(score, injuryStatus) {
   return 'High Risk / High Upside'
 }
 
-export function evaluateWeekly(player, profile) {
+// Merge real nflverse metrics over mock defaults.
+// Only overrides fields that nflverse actually provides.
+function mergeMetrics(mockMetrics, realMetrics) {
+  if (!realMetrics) return mockMetrics
+  return { ...mockMetrics, ...realMetrics, isMock: false }
+}
+
+export function evaluateWeekly(player, profile, realMetrics = null) {
   const position = player.position
-  const metrics = getPlayerMetrics(player.id, position)
+  const metrics = mergeMetrics(getPlayerMetrics(player.id, position), realMetrics)
   const peers = getPositionPeers(position)
   const baseWeights = WEEKLY_WEIGHTS[position] ?? WEEKLY_WEIGHTS.WR
   const weights = applyProfileToWeeklyWeights(baseWeights, profile)
@@ -349,9 +356,9 @@ function riskLabel(metrics, player) {
   return 'Very High'
 }
 
-export function evaluateDraft(player, profile) {
+export function evaluateDraft(player, profile, realMetrics = null) {
   const position = player.position
-  const metrics = getPlayerMetrics(player.id, position)
+  const metrics = mergeMetrics(getPlayerMetrics(player.id, position), realMetrics)
   const peers = getPositionPeers(position)
   const baseWeights = DRAFT_WEIGHTS[position] ?? DRAFT_WEIGHTS.WR
   const weights = applyProfileToDraftWeights(baseWeights, profile)

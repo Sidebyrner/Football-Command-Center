@@ -17,4 +17,8 @@ export const sleeperApi = {
   getTrendingAdds: () => get(`/players/nfl/trending/add?limit=25`),
   getTrendingDrops: () => get(`/players/nfl/trending/drop?limit=25`),
   getTransactions: (leagueId, week) => get(`/league/${leagueId}/transactions/${week}`),
+  getDrafts: (leagueId) => get(`/league/${leagueId}/drafts`),
+  getDraftPicks: (draftId) => get(`/draft/${draftId}/picks`),
+  getTradedPicks: (leagueId) => get(`/league/${leagueId}/traded_picks`),
+  getDraft: (draftId) => get(`/draft/${draftId}`),
 }

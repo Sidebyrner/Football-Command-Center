@@ -31,4 +31,5 @@ export const TTL = {
   TRENDING: 15 * 60 * 1000,        // 15 minutes
   ODDS: 10 * 60 * 1000,            // 10 minutes
   ROSTER: 5 * 60 * 1000,           // 5 minutes
+  NFLVERSE: 7 * 24 * 60 * 60 * 1000, // 7 days (preprocessed static file)
 }
