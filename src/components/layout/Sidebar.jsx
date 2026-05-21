@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, ArrowLeftRight, TrendingUp, Settings, Zap, ClipboardList } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, TrendingUp, Settings, Zap, ClipboardList, BookOpen } from 'lucide-react'
 import useAppStore from '../../store/useAppStore'
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/draft', icon: ClipboardList, label: 'Draft' },
+  { to: '/research', icon: BookOpen, label: 'Research' },
   { to: '/sit-start', icon: Zap, label: 'Sit / Start' },
   { to: '/trade', icon: ArrowLeftRight, label: 'Trade' },
   { to: '/odds', icon: TrendingUp, label: 'Odds' },

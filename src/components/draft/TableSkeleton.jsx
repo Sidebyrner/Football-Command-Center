@@ -31,6 +31,8 @@ export default function TableSkeleton({ rows = 20 }) {
           <td className="px-3 py-2.5">
             <div className="h-5 w-14 rounded bg-[var(--color-surface-2)] animate-pulse" />
           </td>
+          {/* Research indicator */}
+          <td className="px-3 py-2.5 text-center" />
           {/* Watchlist */}
           <td className="px-3 py-2.5 text-center">
             <div className="h-4 w-4 rounded bg-[var(--color-surface-2)] animate-pulse mx-auto" />

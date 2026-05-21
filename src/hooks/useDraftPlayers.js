@@ -57,6 +57,10 @@ export function useDraftPlayers() {
           trending: addSet.has(p.player_id) ? 'add' : dropSet.has(p.player_id) ? 'drop' : null,
           age: p.age ?? null,
           yearsExp: p.years_exp ?? null,
+          // Extra fields used by the player drawer
+          college: p.college ?? null,
+          depthChartOrder: p.depth_chart_order ?? null,
+          number: p.number ?? null,
         }))
 
       setPlayers(list)

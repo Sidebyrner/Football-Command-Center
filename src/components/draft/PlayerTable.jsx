@@ -11,6 +11,7 @@ const COLUMNS = [
   { key: 'byeWeek', label: 'Bye', align: 'right', sortable: true },
   { key: 'injuryStatus', label: 'Injury', align: 'left', sortable: true },
   { key: 'trending', label: 'Trend', align: 'left', sortable: true },
+  { key: 'research', label: '', align: 'center', sortable: false },
   { key: 'watchlist', label: '', align: 'center', sortable: false },
 ]
 
@@ -101,9 +102,16 @@ function InjuryCell({ status }) {
   )
 }
 
-const PAGE_SIZE = 100
-
-export default function PlayerTable({ players, loading, sort, onSort, watchlist, onToggleWatch }) {
+export default function PlayerTable({
+  players,
+  loading,
+  sort,
+  onSort,
+  watchlist,
+  onToggleWatch,
+  onSelectPlayer,
+  researchIndex,
+}) {
   const sorted = sortPlayers(players, sort)
 
   function handleSort(col) {
@@ -111,7 +119,7 @@ export default function PlayerTable({ players, loading, sort, onSort, watchlist,
     if (sort.col === col) {
       onSort({ col, dir: sort.dir === 'asc' ? 'desc' : 'asc' })
     } else {
-      onSort({ col, dir: col === 'rank' || col === 'byeWeek' ? 'asc' : 'asc' })
+      onSort({ col, dir: 'asc' })
     }
   }
 
@@ -119,7 +127,7 @@ export default function PlayerTable({ players, loading, sort, onSort, watchlist,
 
   return (
     <div className="flex-1 overflow-auto">
-      <table className="w-full text-sm border-collapse min-w-[700px]">
+      <table className="w-full text-sm border-collapse min-w-[760px]">
         <thead>
           <tr className="sticky top-0 z-10 bg-[var(--color-surface)] border-b border-[var(--color-border)]">
             {COLUMNS.map((col) => (
@@ -151,10 +159,15 @@ export default function PlayerTable({ players, loading, sort, onSort, watchlist,
           ) : (
             sorted.map((p) => {
               const isWatched = watchlist.has(p.id)
+              const researchCount =
+                (researchIndex?.[p.id] || 0) +
+                (researchIndex?.[`name:${p.name.toLowerCase()}`] || 0)
+
               return (
                 <tr
                   key={p.id}
-                  className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)] transition-colors"
+                  onClick={() => onSelectPlayer?.(p)}
+                  className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
                 >
                   {/* Player name */}
                   <td className="px-3 py-2 font-medium text-[var(--color-text)] whitespace-nowrap">
@@ -199,10 +212,19 @@ export default function PlayerTable({ players, loading, sort, onSort, watchlist,
                     <TrendBadge value={p.trending} />
                   </td>
 
+                  {/* Research indicator */}
+                  <td className="px-3 py-2 text-center">
+                    {researchCount > 0 ? (
+                      <span className="inline-flex items-center justify-center w-4 h-4 text-[9px] font-bold rounded-full bg-[var(--color-accent)] text-black tabular-nums">
+                        {researchCount > 9 ? '9+' : researchCount}
+                      </span>
+                    ) : null}
+                  </td>
+
                   {/* Watchlist */}
                   <td className="px-3 py-2 text-center">
                     <button
-                      onClick={() => onToggleWatch(p.id)}
+                      onClick={(e) => { e.stopPropagation(); onToggleWatch(p.id) }}
                       className={`transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent)] rounded ${
                         isWatched
                           ? 'text-[var(--color-accent)]'
