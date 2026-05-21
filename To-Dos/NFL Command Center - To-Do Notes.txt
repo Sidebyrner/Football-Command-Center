@@ -1,0 +1,16 @@
+NFL Command Center - Notes for future updates
+- getting nflverse to autoload
+- side load is good, but will need to integrate in a way where user can scroll down chart while card remains open. Click would populate new player (make it more seamless, rather than a pane experience).
+- light mode color scheme
+- area to upload league scoring system needs to be moved/copied over to settings
+-- a trigger point for the program to determine the league's ppr (no,.5,full)
+- need area for user to have their team shown against the league
+-- user should be able to see teams that have lacking areas based on formula scores which can identify trade opportunities
+- Mock Draft section for user to input players for every position with notes that will benefit the user during draft to determine selection order along with substitution picks if their player is chosen before user
+- Gracefully tie in odds markets to players in charting. useful implementation against league scoring system
+
+---
+
+need to update formula to isolate each position for strengths and weaknesses then create and upload individual formula to populate with player based on player type
+-- this score would be something next to each player in the chart that the user can use as a filter
+
