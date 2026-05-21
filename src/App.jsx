@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import useAppStore from './store/useAppStore'
 import Sidebar from './components/layout/Sidebar'
 import Dashboard from './pages/Dashboard'
+import DraftDashboard from './pages/DraftDashboard'
 import SitStart from './pages/SitStart'
 import TradeAnalyzer from './pages/TradeAnalyzer'
 import Odds from './pages/Odds'
@@ -76,6 +77,14 @@ export default function App() {
                 <Odds />
               </AppLayout>
             </RequireConfig>
+          }
+        />
+        <Route
+          path="/draft"
+          element={
+            <AppLayout>
+              <DraftDashboard />
+            </AppLayout>
           }
         />
         <Route path="*" element={<Navigate to="/" replace />} />
