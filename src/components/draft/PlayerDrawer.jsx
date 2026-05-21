@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Star, AlertTriangle, Info, TrendingDown, BookOpen, Plus } from 'lucide-react'
+import { X, Star, AlertTriangle, Info, TrendingDown, BookOpen, Plus, Cpu } from 'lucide-react'
 import { getStatusColor, getStatusLabel, getPositionColor } from '../../utils/playerHelpers'
 import useResearchStore, { selectPlayerItems } from '../../store/useResearchStore'
 import ResearchCard from '../research/ResearchCard'
 import ResearchItemForm from '../research/ResearchItemForm'
+import EvalPanel from '../eval/EvalPanel'
 
 // ---------------------------------------------------------------------------
 // Watch factor derivation — purely rule-based, no AI
@@ -100,8 +101,15 @@ function SectionHeader({ children }) {
 // Main drawer
 // ---------------------------------------------------------------------------
 
+const TABS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'evaluate', label: 'Evaluate', icon: Cpu },
+  { key: 'research', label: 'Research' },
+]
+
 export default function PlayerDrawer({ player, watchlist, onToggleWatch, onClose }) {
   const [addingItem, setAddingItem] = useState(false)
+  const [activeTab, setActiveTab] = useState('overview')
   const drawerRef = useRef(null)
 
   const { items, notes, addItem, pinItem, archiveItem, deleteItem, updateNote } = useResearchStore()
@@ -216,118 +224,151 @@ export default function PlayerDrawer({ player, watchlist, onToggleWatch, onClose
           </div>
         </div>
 
+        {/* Tab navigation */}
+        <div className="flex-shrink-0 flex border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+          {TABS.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors relative ${
+                activeTab === key
+                  ? 'text-[var(--color-accent)]'
+                  : 'text-[var(--color-text-faint)] hover:text-[var(--color-text-muted)]'
+              }`}
+            >
+              {Icon && <Icon size={11} />}
+              {label}
+              {activeTab === key && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-accent)] rounded-t" />
+              )}
+            </button>
+          ))}
+        </div>
+
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
 
-          {/* Context grid */}
-          <section>
-            <SectionHeader>Context</SectionHeader>
-            <div className="grid grid-cols-4 gap-3 p-3 rounded bg-[var(--color-surface-2)]">
-              <ContextPill label="Rank" value={player.rank ?? '—'} />
-              <ContextPill label="Bye" value={player.byeWeek ?? '—'} />
-              <ContextPill label="Age" value={player.age ?? '—'} />
-              <ContextPill label="Exp" value={expLabel(player.yearsExp) ?? '—'} />
-              {player.depthChartOrder != null && (
-                <ContextPill label="Depth" value={`#${player.depthChartOrder}`} />
-              )}
-              {player.college && (
-                <div className="col-span-3 flex flex-col gap-0.5">
-                  <span className="text-[10px] text-[var(--color-text-faint)] uppercase tracking-wide">College</span>
-                  <span className="text-xs font-medium text-[var(--color-text)] truncate">{player.college}</span>
+          {/* ── Overview tab ─────────────────────────────────── */}
+          {activeTab === 'overview' && (
+            <>
+              {/* Context grid */}
+              <section>
+                <SectionHeader>Context</SectionHeader>
+                <div className="grid grid-cols-4 gap-3 p-3 rounded bg-[var(--color-surface-2)]">
+                  <ContextPill label="Rank" value={player.rank ?? '—'} />
+                  <ContextPill label="Bye" value={player.byeWeek ?? '—'} />
+                  <ContextPill label="Age" value={player.age ?? '—'} />
+                  <ContextPill label="Exp" value={expLabel(player.yearsExp) ?? '—'} />
+                  {player.depthChartOrder != null && (
+                    <ContextPill label="Depth" value={`#${player.depthChartOrder}`} />
+                  )}
+                  {player.college && (
+                    <div className="col-span-3 flex flex-col gap-0.5">
+                      <span className="text-[10px] text-[var(--color-text-faint)] uppercase tracking-wide">College</span>
+                      <span className="text-xs font-medium text-[var(--color-text)] truncate">{player.college}</span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </section>
+              </section>
 
-          {/* Watch factors */}
-          {watchFactors.length > 0 && (
-            <section>
-              <SectionHeader>Watch Factors</SectionHeader>
-              <ul className="space-y-1.5">
-                {watchFactors.map((f, i) => (
-                  <li key={i} className="flex items-start gap-2 text-xs text-[var(--color-text-muted)]">
-                    <FactorIcon level={f.level} />
-                    {f.text}
-                  </li>
-                ))}
-              </ul>
-            </section>
+              {/* Watch factors */}
+              {watchFactors.length > 0 && (
+                <section>
+                  <SectionHeader>Watch Factors</SectionHeader>
+                  <ul className="space-y-1.5">
+                    {watchFactors.map((f, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-[var(--color-text-muted)]">
+                        <FactorIcon level={f.level} />
+                        {f.text}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              {/* Personal notes */}
+              <section>
+                <SectionHeader>Your Notes</SectionHeader>
+                <textarea
+                  value={note}
+                  onChange={handleNoteChange}
+                  placeholder="Add notes about this player…"
+                  rows={4}
+                  className="w-full px-2.5 py-2 text-xs bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded text-[var(--color-text)] placeholder-[var(--color-text-faint)] focus:outline-none focus:border-[var(--color-accent)] transition-colors resize-none"
+                />
+                {notes[player.id]?.updatedAt && (
+                  <p className="text-[10px] text-[var(--color-text-faint)] mt-1">
+                    Last edited {new Date(notes[player.id].updatedAt).toLocaleString()}
+                  </p>
+                )}
+              </section>
+            </>
           )}
 
-          {/* Personal notes */}
-          <section>
-            <SectionHeader>Your Notes</SectionHeader>
-            <textarea
-              value={note}
-              onChange={handleNoteChange}
-              placeholder="Add notes about this player…"
-              rows={4}
-              className="w-full px-2.5 py-2 text-xs bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded text-[var(--color-text)] placeholder-[var(--color-text-faint)] focus:outline-none focus:border-[var(--color-accent)] transition-colors resize-none"
-            />
-            {notes[player.id]?.updatedAt && (
-              <p className="text-[10px] text-[var(--color-text-faint)] mt-1">
-                Last edited {new Date(notes[player.id].updatedAt).toLocaleString()}
-              </p>
-            )}
-          </section>
+          {/* ── Evaluate tab ──────────────────────────────────── */}
+          {activeTab === 'evaluate' && (
+            <EvalPanel player={player} />
+          )}
 
-          {/* Research items */}
-          <section>
-            <div className="flex items-center justify-between mb-2">
-              <SectionHeader>
-                Research
-                {playerItems.length > 0 && (
-                  <span className="ml-1.5 text-[10px] text-[var(--color-accent)] font-bold normal-case tracking-normal">
-                    {playerItems.length}
-                  </span>
+          {/* ── Research tab ──────────────────────────────────── */}
+          {activeTab === 'research' && (
+            <section>
+              <div className="flex items-center justify-between mb-2">
+                <SectionHeader>
+                  Research
+                  {playerItems.length > 0 && (
+                    <span className="ml-1.5 text-[10px] text-[var(--color-accent)] font-bold normal-case tracking-normal">
+                      {playerItems.length}
+                    </span>
+                  )}
+                </SectionHeader>
+                {!addingItem && (
+                  <button
+                    onClick={() => setAddingItem(true)}
+                    className="flex items-center gap-1 text-xs text-[var(--color-text-faint)] hover:text-[var(--color-accent)] transition-colors mb-2"
+                  >
+                    <Plus size={12} /> Add
+                  </button>
                 )}
-              </SectionHeader>
-              {!addingItem && (
-                <button
-                  onClick={() => setAddingItem(true)}
-                  className="flex items-center gap-1 text-xs text-[var(--color-text-faint)] hover:text-[var(--color-accent)] transition-colors mb-2"
-                >
-                  <Plus size={12} /> Add
-                </button>
-              )}
-            </div>
-
-            {addingItem && (
-              <div className="mb-3">
-                <ResearchItemForm
-                  player={{ id: player.id, name: player.name, team: player.team, position: player.position }}
-                  onSave={handleSaveItem}
-                  onCancel={() => setAddingItem(false)}
-                />
               </div>
-            )}
 
-            {playerItems.length === 0 && !addingItem ? (
-              <div className="flex flex-col items-center py-8 text-center">
-                <BookOpen size={20} className="text-[var(--color-text-faint)] mb-2" />
-                <p className="text-xs text-[var(--color-text-faint)]">No research saved yet.</p>
-                <button
-                  onClick={() => setAddingItem(true)}
-                  className="mt-2 text-xs text-[var(--color-accent)] hover:underline"
-                >
-                  Add your first note
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {playerItems.map((item) => (
-                  <ResearchCard
-                    key={item.id}
-                    item={item}
-                    compact
-                    onPin={pinItem}
-                    onArchive={archiveItem}
-                    onDelete={deleteItem}
+              {addingItem && (
+                <div className="mb-3">
+                  <ResearchItemForm
+                    player={{ id: player.id, name: player.name, team: player.team, position: player.position }}
+                    onSave={handleSaveItem}
+                    onCancel={() => setAddingItem(false)}
                   />
-                ))}
-              </div>
-            )}
-          </section>
+                </div>
+              )}
+
+              {playerItems.length === 0 && !addingItem ? (
+                <div className="flex flex-col items-center py-8 text-center">
+                  <BookOpen size={20} className="text-[var(--color-text-faint)] mb-2" />
+                  <p className="text-xs text-[var(--color-text-faint)]">No research saved yet.</p>
+                  <button
+                    onClick={() => setAddingItem(true)}
+                    className="mt-2 text-xs text-[var(--color-accent)] hover:underline"
+                  >
+                    Add your first note
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {playerItems.map((item) => (
+                    <ResearchCard
+                      key={item.id}
+                      item={item}
+                      compact
+                      onPin={pinItem}
+                      onArchive={archiveItem}
+                      onDelete={deleteItem}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
         </div>
       </aside>
     </>
