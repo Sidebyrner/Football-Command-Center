@@ -1,0 +1,335 @@
+import { useState, useEffect, useRef } from 'react'
+import { X, Star, AlertTriangle, Info, TrendingDown, BookOpen, Plus } from 'lucide-react'
+import { getStatusColor, getStatusLabel, getPositionColor } from '../../utils/playerHelpers'
+import useResearchStore, { selectPlayerItems } from '../../store/useResearchStore'
+import ResearchCard from '../research/ResearchCard'
+import ResearchItemForm from '../research/ResearchItemForm'
+
+// ---------------------------------------------------------------------------
+// Watch factor derivation — purely rule-based, no AI
+// ---------------------------------------------------------------------------
+
+function deriveWatchFactors(player, researchItems) {
+  const factors = []
+
+  if (player.team === 'FA') {
+    factors.push({ level: 'high', text: 'Free agent — currently unsigned' })
+  }
+
+  if (player.injuryStatus) {
+    const isHigh = ['Out', 'IR', 'PUP', 'Doubtful'].includes(player.injuryStatus)
+    factors.push({
+      level: isHigh ? 'high' : 'mid',
+      text: `Injury status: ${player.injuryStatus}`,
+    })
+  }
+
+  if (player.trending === 'drop') {
+    factors.push({ level: 'mid', text: 'Trending drop across leagues' })
+  }
+
+  if (player.yearsExp === 0) {
+    factors.push({ level: 'info', text: 'Rookie — no NFL track record' })
+  }
+
+  if (player.age != null && player.age >= 32) {
+    factors.push({ level: 'mid', text: `Age ${player.age} — monitor usage and workload` })
+  }
+
+  const injuryNotes = researchItems.filter((i) => i.tags.includes('injury'))
+  if (injuryNotes.length > 0) {
+    factors.push({
+      level: 'mid',
+      text: `${injuryNotes.length} saved injury note${injuryNotes.length > 1 ? 's' : ''}`,
+    })
+  }
+
+  const roleNotes = researchItems.filter(
+    (i) => i.tags.includes('depth-chart') || i.tags.includes('role-change')
+  )
+  if (roleNotes.length > 0) {
+    factors.push({
+      level: 'info',
+      text: `Role/depth chart item${roleNotes.length > 1 ? 's' : ''} saved`,
+    })
+  }
+
+  return factors
+}
+
+function FactorIcon({ level }) {
+  if (level === 'high') return <AlertTriangle size={12} className="text-[var(--color-sit)] flex-shrink-0 mt-px" />
+  if (level === 'mid') return <AlertTriangle size={12} className="text-[var(--color-caution)] flex-shrink-0 mt-px" />
+  return <Info size={12} className="text-[var(--color-text-faint)] flex-shrink-0 mt-px" />
+}
+
+// ---------------------------------------------------------------------------
+// Context row helper
+// ---------------------------------------------------------------------------
+
+function ContextPill({ label, value }) {
+  if (!value && value !== 0) return null
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[10px] text-[var(--color-text-faint)] uppercase tracking-wide">{label}</span>
+      <span className="text-xs font-medium text-[var(--color-text)] tabular-nums">{value}</span>
+    </div>
+  )
+}
+
+function expLabel(yearsExp) {
+  if (yearsExp == null) return null
+  if (yearsExp === 0) return 'Rookie'
+  if (yearsExp === 1) return '2nd yr'
+  return `${yearsExp + 1}th yr`
+}
+
+// ---------------------------------------------------------------------------
+// Section header
+// ---------------------------------------------------------------------------
+
+function SectionHeader({ children }) {
+  return (
+    <h3 className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-faint)] mb-2">
+      {children}
+    </h3>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Main drawer
+// ---------------------------------------------------------------------------
+
+export default function PlayerDrawer({ player, watchlist, onToggleWatch, onClose }) {
+  const [addingItem, setAddingItem] = useState(false)
+  const drawerRef = useRef(null)
+
+  const { items, notes, addItem, pinItem, archiveItem, deleteItem, updateNote } = useResearchStore()
+  const playerItems = selectPlayerItems(items, player?.id, player?.name)
+  const note = player ? (notes[player.id]?.text ?? '') : ''
+
+  // Close on Escape
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  // Prevent background scroll when drawer is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [])
+
+  if (!player) return null
+
+  const isWatched = watchlist.has(player.id)
+  const injuryColor = getStatusColor(player.injuryStatus)
+  const posColor = getPositionColor(player.position)
+  const watchFactors = deriveWatchFactors(player, playerItems)
+
+  function handleSaveItem(fields) {
+    addItem(fields)
+    setAddingItem(false)
+  }
+
+  function handleNoteChange(e) {
+    updateNote(player.id, e.target.value)
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 bg-black/50"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Drawer panel */}
+      <aside
+        ref={drawerRef}
+        className="fixed right-0 top-0 h-full z-50 flex flex-col bg-[var(--color-surface)] border-l border-[var(--color-border)] shadow-2xl"
+        style={{ width: 'min(420px, 100vw)' }}
+        aria-label={`Player details: ${player.name}`}
+      >
+        {/* Sticky header */}
+        <div className="flex-shrink-0 px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span
+                  className="text-xs font-bold px-1.5 py-0.5 rounded flex-shrink-0"
+                  style={{ color: posColor, backgroundColor: `${posColor}20` }}
+                >
+                  {player.position}
+                </span>
+                <span className="text-xs text-[var(--color-text-muted)] truncate">
+                  {player.team}
+                </span>
+                {player.number && (
+                  <span className="text-xs text-[var(--color-text-faint)]">#{player.number}</span>
+                )}
+              </div>
+              <h2 className="font-display font-semibold text-base text-[var(--color-text)] leading-tight truncate">
+                {player.name}
+              </h2>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span
+                  className="inline-block rounded-full flex-shrink-0"
+                  style={{ width: 7, height: 7, backgroundColor: injuryColor }}
+                />
+                <span className="text-xs text-[var(--color-text-muted)]">
+                  {getStatusLabel(player.injuryStatus)}
+                </span>
+                {player.trending === 'add' && (
+                  <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded">▲ Add</span>
+                )}
+                {player.trending === 'drop' && (
+                  <span className="text-[10px] font-semibold text-rose-400 bg-rose-500/15 px-1.5 py-0.5 rounded">▼ Drop</span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                onClick={() => onToggleWatch(player.id)}
+                title={isWatched ? 'Remove from watchlist' : 'Add to watchlist'}
+                className={`p-1.5 rounded transition-colors ${
+                  isWatched
+                    ? 'text-[var(--color-accent)]'
+                    : 'text-[var(--color-text-faint)] hover:text-[var(--color-text)]'
+                }`}
+              >
+                <Star size={16} fill={isWatched ? 'currentColor' : 'none'} />
+              </button>
+              <button
+                onClick={onClose}
+                className="p-1.5 rounded text-[var(--color-text-faint)] hover:text-[var(--color-text)] transition-colors"
+                aria-label="Close drawer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+
+          {/* Context grid */}
+          <section>
+            <SectionHeader>Context</SectionHeader>
+            <div className="grid grid-cols-4 gap-3 p-3 rounded bg-[var(--color-surface-2)]">
+              <ContextPill label="Rank" value={player.rank ?? '—'} />
+              <ContextPill label="Bye" value={player.byeWeek ?? '—'} />
+              <ContextPill label="Age" value={player.age ?? '—'} />
+              <ContextPill label="Exp" value={expLabel(player.yearsExp) ?? '—'} />
+              {player.depthChartOrder != null && (
+                <ContextPill label="Depth" value={`#${player.depthChartOrder}`} />
+              )}
+              {player.college && (
+                <div className="col-span-3 flex flex-col gap-0.5">
+                  <span className="text-[10px] text-[var(--color-text-faint)] uppercase tracking-wide">College</span>
+                  <span className="text-xs font-medium text-[var(--color-text)] truncate">{player.college}</span>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Watch factors */}
+          {watchFactors.length > 0 && (
+            <section>
+              <SectionHeader>Watch Factors</SectionHeader>
+              <ul className="space-y-1.5">
+                {watchFactors.map((f, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-[var(--color-text-muted)]">
+                    <FactorIcon level={f.level} />
+                    {f.text}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* Personal notes */}
+          <section>
+            <SectionHeader>Your Notes</SectionHeader>
+            <textarea
+              value={note}
+              onChange={handleNoteChange}
+              placeholder="Add notes about this player…"
+              rows={4}
+              className="w-full px-2.5 py-2 text-xs bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded text-[var(--color-text)] placeholder-[var(--color-text-faint)] focus:outline-none focus:border-[var(--color-accent)] transition-colors resize-none"
+            />
+            {notes[player.id]?.updatedAt && (
+              <p className="text-[10px] text-[var(--color-text-faint)] mt-1">
+                Last edited {new Date(notes[player.id].updatedAt).toLocaleString()}
+              </p>
+            )}
+          </section>
+
+          {/* Research items */}
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <SectionHeader>
+                Research
+                {playerItems.length > 0 && (
+                  <span className="ml-1.5 text-[10px] text-[var(--color-accent)] font-bold normal-case tracking-normal">
+                    {playerItems.length}
+                  </span>
+                )}
+              </SectionHeader>
+              {!addingItem && (
+                <button
+                  onClick={() => setAddingItem(true)}
+                  className="flex items-center gap-1 text-xs text-[var(--color-text-faint)] hover:text-[var(--color-accent)] transition-colors mb-2"
+                >
+                  <Plus size={12} /> Add
+                </button>
+              )}
+            </div>
+
+            {addingItem && (
+              <div className="mb-3">
+                <ResearchItemForm
+                  player={{ id: player.id, name: player.name, team: player.team, position: player.position }}
+                  onSave={handleSaveItem}
+                  onCancel={() => setAddingItem(false)}
+                />
+              </div>
+            )}
+
+            {playerItems.length === 0 && !addingItem ? (
+              <div className="flex flex-col items-center py-8 text-center">
+                <BookOpen size={20} className="text-[var(--color-text-faint)] mb-2" />
+                <p className="text-xs text-[var(--color-text-faint)]">No research saved yet.</p>
+                <button
+                  onClick={() => setAddingItem(true)}
+                  className="mt-2 text-xs text-[var(--color-accent)] hover:underline"
+                >
+                  Add your first note
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {playerItems.map((item) => (
+                  <ResearchCard
+                    key={item.id}
+                    item={item}
+                    compact
+                    onPin={pinItem}
+                    onArchive={archiveItem}
+                    onDelete={deleteItem}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      </aside>
+    </>
+  )
+}

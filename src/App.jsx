@@ -3,6 +3,7 @@ import useAppStore from './store/useAppStore'
 import Sidebar from './components/layout/Sidebar'
 import Dashboard from './pages/Dashboard'
 import DraftDashboard from './pages/DraftDashboard'
+import Research from './pages/Research'
 import SitStart from './pages/SitStart'
 import TradeAnalyzer from './pages/TradeAnalyzer'
 import Odds from './pages/Odds'
@@ -84,6 +85,14 @@ export default function App() {
           element={
             <AppLayout>
               <DraftDashboard />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/research"
+          element={
+            <AppLayout>
+              <Research />
             </AppLayout>
           }
         />

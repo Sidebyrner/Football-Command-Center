@@ -2,7 +2,9 @@ import { useState, useMemo } from 'react'
 import Header from '../components/layout/Header'
 import DraftFilters from '../components/draft/DraftFilters'
 import PlayerTable from '../components/draft/PlayerTable'
-import { useDraftPlayers, POSITION_ORDER } from '../hooks/useDraftPlayers'
+import PlayerDrawer from '../components/draft/PlayerDrawer'
+import { useDraftPlayers } from '../hooks/useDraftPlayers'
+import useResearchStore, { buildResearchIndex } from '../store/useResearchStore'
 
 const DEFAULT_FILTERS = {
   search: '',
@@ -44,7 +46,11 @@ export default function DraftDashboard() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [sort, setSort] = useState(DEFAULT_SORT)
   const [watchlist, setWatchlist] = useState(loadWatchlist)
+  const [selectedPlayer, setSelectedPlayer] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
+
+  const researchItems = useResearchStore((s) => s.items)
+  const researchIndex = useMemo(() => buildResearchIndex(researchItems), [researchItems])
 
   async function handleRefresh() {
     setRefreshing(true)
@@ -63,8 +69,7 @@ export default function DraftDashboard() {
   }
 
   const allTeams = useMemo(() => {
-    const teams = [...new Set(players.map((p) => p.team).filter(Boolean))].sort()
-    return teams
+    return [...new Set(players.map((p) => p.team).filter(Boolean))].sort()
   }, [players])
 
   const filtered = useMemo(() => {
@@ -103,12 +108,23 @@ export default function DraftDashboard() {
         onSort={setSort}
         watchlist={watchlist}
         onToggleWatch={toggleWatch}
+        onSelectPlayer={setSelectedPlayer}
+        researchIndex={researchIndex}
       />
 
       {lastUpdated && !loading && (
         <div className="px-4 py-1.5 text-xs text-[var(--color-text-faint)] bg-[var(--color-surface)] border-t border-[var(--color-border)]">
           Player data from Sleeper · Updated {new Date(lastUpdated).toLocaleTimeString()}
         </div>
+      )}
+
+      {selectedPlayer && (
+        <PlayerDrawer
+          player={selectedPlayer}
+          watchlist={watchlist}
+          onToggleWatch={toggleWatch}
+          onClose={() => setSelectedPlayer(null)}
+        />
       )}
     </div>
   )
