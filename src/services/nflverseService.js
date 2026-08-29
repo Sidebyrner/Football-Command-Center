@@ -4,12 +4,13 @@
 // file served from public/data/nflverse-seasons.json.
 //
 // Join key: gsis_id (present on Sleeper player objects as player.gsis_id)
-// Output shape: { [gsis_id]: { "2024": { ...stats }, "2023": { ...stats } } }
+// File shape:   { _meta: {...}, players: { [gsis_id]: { "2025": {...} } } }
 
 const DATA_URL = '/data/nflverse-seasons.json'
 
 // Module-level in-memory cache — avoids re-fetching the full index per session.
 let _index = null
+let _meta = null
 let _loadPromise = null
 
 async function loadIndex() {
@@ -21,10 +22,12 @@ async function loadIndex() {
       if (!r.ok) throw new Error(`nflverse data not found (${r.status}). Run: npm run preprocess-nflverse`)
       return r.json()
     })
-    .then((data) => {
-      _index = data
+    .then((file) => {
+      // `players` is the index; `_meta` is a sibling, never a player entry.
+      _index = file.players ?? {}
+      _meta = file._meta ?? null
       _loadPromise = null
-      return data
+      return _index
     })
     .catch((err) => {
       _loadPromise = null
@@ -49,68 +52,73 @@ export async function getPlayerSeason(gsisId, season) {
   return history?.[String(season)] ?? null
 }
 
-// Returns { isLoaded, playerCount } metadata about the current data file.
+// Returns { isLoaded, playerCount, seasons, generated } about the current data file.
 export async function getNflverseDataMeta() {
   try {
     const index = await loadIndex()
     return {
       isLoaded: true,
       playerCount: Object.keys(index).length,
+      seasons: _meta?.seasons ?? [],
+      generated: _meta?.generated ?? null,
     }
   } catch {
-    return { isLoaded: false, playerCount: 0 }
+    return { isLoaded: false, playerCount: 0, seasons: [], generated: null }
   }
 }
 
-// Map nflverse season stats → evaluation engine metric format.
-// Only maps fields that nflverse actually provides; omits PFF/NGS-only metrics
-// so the eval engine keeps its mock fallbacks for those.
+// Map an aggregated nflverse season into the metric names the evaluation engine
+// scores on. Every key here is backed by real data — metrics nflverse does not
+// carry (YPRR, separation, OL grade, first-read rate, red-zone targets) are
+// deliberately absent rather than defaulted, so the engine can drop them from
+// the weighting instead of scoring a guess.
 export function toEvalMetrics(seasonStats) {
   if (!seasonStats) return null
+  const s = seasonStats
+  const g = Math.max(s.games ?? 0, 1)
+  const m = {}
 
-  const {
-    games = 1,
-    attempts = 0,
-    completions = 0,
-    passing_yards = 0,
-    interceptions = 0,
-    sacks = 0,
-    carries = 0,
-    rushing_yards = 0,
-    targets = 0,
-    receptions = 0,
-    receiving_yards = 0,
-    receiving_air_yards = 0,
-    target_share,
-    air_yards_share,
-    wopr,
-    racr,
-  } = seasonStats
-
-  const g = Math.max(games, 1)
-
-  const metrics = {}
-
-  if (target_share != null) metrics.targetShare = target_share
-  if (air_yards_share != null) metrics.airYardsShare = air_yards_share
-  if (wopr != null) metrics.wopr = wopr
-  if (racr != null) metrics.racr = racr
-
-  if (targets > 0) {
-    metrics.adot = receiving_air_yards / targets
-    metrics.trueCatchRate = receptions / targets
+  const put = (key, value) => {
+    if (value != null && !isNaN(value) && isFinite(value)) m[key] = value
   }
 
-  if (attempts > 0) {
-    metrics.completionPct = completions / attempts
-    metrics.intRate = interceptions / attempts
-    metrics.sackRate = sacks / (attempts + sacks)
+  // Receiving
+  if (s.target_share > 0) put('targetShare', s.target_share)
+  if (s.air_yards_share > 0) put('airYardsShare', s.air_yards_share)
+  if (s.wopr > 0) put('wopr', s.wopr)
+  if (s.racr > 0) put('racr', s.racr)
+  if (s.targets > 0) {
+    put('adot', s.adot)
+    put('trueCatchRate', s.catch_rate)
+    put('yardsPerTarget', s.yards_per_target)
+    put('targetsPerGame', s.targets_per_game)
+    put('receivingFirstDowns', s.receiving_first_downs / g)
   }
 
-  if (g > 0) {
-    if (carries > 0) metrics.rushingAttempts = carries / g
-    if (rushing_yards > 0) metrics.seasonRushYards = rushing_yards
+  // Passing
+  if (s.attempts > 0) {
+    put('completionPct', s.completion_pct)
+    put('intRate', s.int_rate)
+    put('sackRate', s.sack_rate)
+    put('yardsPerAttempt', s.yards_per_attempt)
+    put('adotQb', s.adot_qb)
+    put('qbRating', s.passer_rating)
   }
 
-  return metrics
+  // Rushing
+  if (s.carries > 0) {
+    put('rushingAttempts', s.carries_per_game)
+    put('seasonRushYards', s.rushing_yards)
+    put('yardsPerCarry', s.yards_per_carry)
+    put('rushingFirstDowns', s.rushing_first_downs / g)
+  }
+  if (s.carries > 0 || s.receptions > 0) put('touchesPerGame', s.touches_per_game)
+
+  // Kicking
+  if (s.fg_att > 0) put('fgPct', s.fg_pct)
+
+  put('fantasyPointsPerGame', s.fantasy_points_per_game)
+  put('games', s.games)
+
+  return m
 }

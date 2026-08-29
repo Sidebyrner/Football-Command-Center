@@ -502,8 +502,8 @@ export default function PlayerDrawer({ player, watchlist, onToggleWatch, onClose
               <section>
                 <SectionHeader>Context</SectionHeader>
                 <div className="grid grid-cols-4 gap-3 p-3 rounded bg-[var(--color-surface-2)]">
-                  <ContextPill label="Rank" value={player.rank ?? '—'} />
-                  <ContextPill label="Bye" value={player.byeWeek ?? '—'} />
+                  <ContextPill label="ADP" value={player.adp != null ? Math.round(player.adp) : '—'} />
+                  <ContextPill label="Bye" value={player.bye ?? '—'} />
                   <ContextPill label="Age" value={player.age ?? '—'} />
                   <ContextPill label="Exp" value={expLabel(player.yearsExp) ?? '—'} />
                   {player.depthChartOrder != null && (
