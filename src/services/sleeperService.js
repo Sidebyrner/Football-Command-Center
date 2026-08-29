@@ -58,6 +58,17 @@ export function getDraftPicks(draftId) {
   return cached(KEYS.draftPicks(draftId), TTL.ROSTER, () => sleeperApi.getDraftPicks(draftId))
 }
 
+// Live variant for an in-progress draft. The 5-minute roster TTL is far too
+// long here — a board that is five minutes stale during a draft will show
+// players as available after they have been taken.
+export function getDraftPicksLive(draftId) {
+  return cached(KEYS.draftPicks(draftId), TTL.LIVE_DRAFT, () => sleeperApi.getDraftPicks(draftId))
+}
+
+export function getDraft(draftId) {
+  return sleeperApi.getDraft(draftId)
+}
+
 // ── Player metadata (master player index) ────────────────────────────────────
 // Sleeper /players/nfl is the source of truth for all player identity fields.
 

@@ -1,4 +1,4 @@
-import { Search, Star, X } from 'lucide-react'
+import { Search, Star, X, EyeOff } from 'lucide-react'
 
 const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']
 
@@ -16,8 +16,8 @@ const TRENDING_OPTIONS = [
   { value: 'drop', label: 'Trending Drop' },
 ]
 
-export default function DraftFilters({ filters, onChange, teams }) {
-  const { search, positions, team, injury, trending, watchlistOnly } = filters
+export default function DraftFilters({ filters, onChange, teams, showDraftedToggle = false }) {
+  const { search, positions, team, injury, trending, watchlistOnly, hideDrafted } = filters
 
   function togglePosition(pos) {
     const next = positions.includes(pos)
@@ -34,6 +34,7 @@ export default function DraftFilters({ filters, onChange, teams }) {
       injury: '',
       trending: '',
       watchlistOnly: false,
+      hideDrafted: filters.hideDrafted,
     })
   }
 
@@ -114,6 +115,22 @@ export default function DraftFilters({ filters, onChange, teams }) {
           <Star size={13} />
           Watchlist
         </button>
+
+        {/* Hide drafted — only meaningful while a draft is running */}
+        {showDraftedToggle && (
+          <button
+            onClick={() => onChange({ ...filters, hideDrafted: !hideDrafted })}
+            title={hideDrafted ? 'Showing available players only' : 'Showing all players, drafted included'}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded border transition-colors ${
+              hideDrafted
+                ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-black font-medium'
+                : 'bg-[var(--color-surface-2)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+            }`}
+          >
+            <EyeOff size={13} />
+            Available only
+          </button>
+        )}
 
         {/* Clear */}
         {hasActiveFilters && (

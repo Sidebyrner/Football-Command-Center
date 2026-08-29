@@ -4,6 +4,8 @@ import { CheckCircle, AlertCircle, ChevronDown, Eye, EyeOff, Loader2 } from 'luc
 import useAppStore from '../store/useAppStore'
 import { useSleeperUser } from '../hooks/useSleeperUser'
 import { useSleeperLeague } from '../hooks/useSleeperLeague'
+import { useLeagueScoring } from '../hooks/useLeagueScoring'
+import ScoringProfileManager from '../components/eval/ScoringProfileManager'
 
 const CURRENT_SEASON = import.meta.env.VITE_DEFAULT_SEASON || '2026'
 
@@ -15,7 +17,7 @@ function Label({ children, htmlFor }) {
   )
 }
 
-function Input({ id, value, onChange, placeholder, type = 'text', disabled = false, className = '' }) {
+function Input({ id, value, onChange, placeholder, type = 'text', disabled = false, className = '', ...rest }) {
   return (
     <input
       id={id}
@@ -26,6 +28,7 @@ function Input({ id, value, onChange, placeholder, type = 'text', disabled = fal
       disabled={disabled}
       autoComplete="off"
       spellCheck={false}
+      {...rest}
       className={`w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded px-3 py-2 text-sm
         text-[var(--color-text)] placeholder:text-[var(--color-text-faint)]
         focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent
@@ -53,6 +56,7 @@ export default function Settings() {
   const store = useAppStore()
   const { fetchUser, loading: userLoading } = useSleeperUser()
   const { fetchLeagues, loading: leagueLoading } = useSleeperLeague()
+  const { syncFromLeague } = useLeagueScoring()
 
   // Form state
   const [username, setUsername] = useState(store.sleeperUsername || '')
@@ -117,6 +121,15 @@ export default function Settings() {
       setLeagueStatus({ ok: false, message: `No NFL leagues found for ${season}.` })
     }
   }
+
+  // Adopt the league's real scoring rules as soon as one is picked, so the
+  // evaluation model is never quietly running on the built-in assumptions.
+  useEffect(() => {
+    if (!selectedLeagueId) return
+    const league = leagues.find((l) => l.league_id === selectedLeagueId)
+    syncFromLeague(selectedLeagueId, league?.name ?? 'League')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLeagueId])
 
   function handleSave() {
     const parsedWeek = Math.min(18, Math.max(1, parseInt(week, 10) || 1))
@@ -260,6 +273,22 @@ export default function Settings() {
                 <FieldHint>Weeks 1–18.</FieldHint>
               </div>
             </div>
+          </section>
+
+          {/* ── League Scoring ── */}
+          <section>
+            <h2 className="font-display font-semibold text-sm text-[var(--color-text)] mb-4 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-accent)]" />
+              League Scoring
+            </h2>
+            <ScoringProfileManager
+              leagueId={selectedLeagueId || store.leagueId}
+              leagueName={leagues.find((l) => l.league_id === selectedLeagueId)?.name || store.leagueName}
+            />
+            <FieldHint>
+              Pulled directly from your league on Sleeper. This drives every evaluation score,
+              so PPR format and first-down bonuses are applied exactly as your league scores them.
+            </FieldHint>
           </section>
 
           {/* ── Odds API ── */}

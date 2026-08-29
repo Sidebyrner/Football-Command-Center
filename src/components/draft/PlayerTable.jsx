@@ -128,6 +128,8 @@ export default function PlayerTable({
   onToggleWatch,
   onSelectPlayer,
   researchIndex,
+  draftedIds = null,
+  pickByPlayer = {},
 }) {
   const sorted = sortPlayers(players, sort)
 
@@ -176,6 +178,8 @@ export default function PlayerTable({
           ) : (
             sorted.map((p) => {
               const isWatched = watchlist.has(p.id)
+              const isDrafted = draftedIds?.has(p.id) ?? false
+              const pick = pickByPlayer?.[p.id]
               const researchCount =
                 (researchIndex?.[p.id] || 0) +
                 (researchIndex?.[`name:${p.name.toLowerCase()}`] || 0)
@@ -184,11 +188,25 @@ export default function PlayerTable({
                 <tr
                   key={p.id}
                   onClick={() => onSelectPlayer?.(p)}
-                  className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
+                  className={`border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer ${
+                    isDrafted ? 'opacity-45' : ''
+                  }`}
                 >
                   {/* Player name */}
                   <td className="px-3 py-2 font-medium text-[var(--color-text)] whitespace-nowrap">
-                    {p.name}
+                    <span className={isDrafted ? 'line-through' : undefined}>{p.name}</span>
+                    {pick && (
+                      <span
+                        className={`ml-2 text-[9px] font-semibold px-1.5 py-0.5 rounded align-middle ${
+                          pick.isMine
+                            ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+                            : 'bg-[var(--color-surface-2)] text-[var(--color-text-faint)]'
+                        }`}
+                        title={`Pick ${pick.pickNo ?? '?'} — ${pick.by}`}
+                      >
+                        {pick.isMine ? 'YOURS' : pick.by}
+                      </span>
+                    )}
                   </td>
 
                   {/* Position */}
