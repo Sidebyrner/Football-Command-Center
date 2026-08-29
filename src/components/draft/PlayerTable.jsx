@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { ChevronUp, ChevronDown, ChevronsUpDown, Star } from 'lucide-react'
 import { getStatusColor, getStatusLabel, getPositionColor } from '../../utils/playerHelpers'
 import { POSITION_ORDER } from '../../hooks/useDraftPlayers'
@@ -8,6 +9,8 @@ const COLUMNS = [
   { key: 'position', label: 'Pos', align: 'left', sortable: true },
   { key: 'team', label: 'Team', align: 'left', sortable: true },
   { key: 'adp', label: 'ADP', align: 'right', sortable: true, title: 'FantasyPros expert consensus rank — lower is better' },
+  { key: 'score', label: 'Score', align: 'right', sortable: true, title: 'This league\'s scoring rules vs. real 2025 production — ranked only within position' },
+  { key: 'value', label: 'Value', align: 'right', sortable: true, title: 'Positional rank gained vs. ADP under this league\'s scoring — positive means this model rates the player above where the market has them' },
   { key: 'bye', label: 'Bye', align: 'right', sortable: true },
   { key: 'injuryStatus', label: 'Injury', align: 'left', sortable: true },
   { key: 'trending', label: 'Trend', align: 'left', sortable: true },
@@ -35,7 +38,7 @@ function defaultCompare(a, b, col, dir) {
 
   // Numeric columns: nulls always sort last regardless of direction, so an
   // unmatched player never occupies the top of a draft board.
-  if (col === 'adp' || col === 'bye') {
+  if (col === 'adp' || col === 'bye' || col === 'score' || col === 'value') {
     if (av == null && bv == null) return 0
     if (av == null) return 1
     if (bv == null) return -1
@@ -105,6 +108,48 @@ function AdpCell({ player }) {
   )
 }
 
+// Dimmed below 50% real-data coverage — mirrors the ThinScore treatment in
+// EvalPanel, so a number on the board never looks more confident here than it
+// does in the drawer for the same player.
+const MIN_CONFIDENT_COVERAGE = 0.5
+
+function ScoreCell({ player }) {
+  if (player.score == null) {
+    return <span className="text-[var(--color-text-faint)]" title="No score — insufficient real data for this player">—</span>
+  }
+  const thin = (player.scoreCoverage ?? 1) < MIN_CONFIDENT_COVERAGE
+  return (
+    <span
+      className={thin ? 'text-[var(--color-text-faint)]' : 'text-[var(--color-text)] font-medium'}
+      title={thin ? `Low data coverage (${Math.round((player.scoreCoverage ?? 0) * 100)}%)` : undefined}
+    >
+      {player.score}
+    </span>
+  )
+}
+
+function ValueCell({ player }) {
+  if (player.value == null) {
+    return <span className="text-[var(--color-text-faint)]">—</span>
+  }
+  if (player.value === 0) {
+    return <span className="text-[var(--color-text-faint)]">0</span>
+  }
+  const positive = player.value > 0
+  return (
+    <span
+      className={positive ? 'text-[var(--color-start)]' : 'text-[var(--color-sit)]'}
+      title={
+        positive
+          ? `This league's rules rank this player ${player.value} spots above where consensus ADP has them (within position)`
+          : `This league's rules rank this player ${Math.abs(player.value)} spots below where consensus ADP has them (within position)`
+      }
+    >
+      {positive ? '+' : ''}{player.value}
+    </span>
+  )
+}
+
 function InjuryCell({ status }) {
   const color = getStatusColor(status)
   const label = getStatusLabel(status)
@@ -130,8 +175,27 @@ export default function PlayerTable({
   researchIndex,
   draftedIds = null,
   pickByPlayer = {},
+  scores = {},
+  scoring = false,
+  valueDeltas = {},
 }) {
-  const sorted = sortPlayers(players, sort)
+  // Flatten the scores/valueDeltas maps onto each row so the comparator can
+  // read them like any other field. `score` stays null (not 0) when the
+  // engine declined to score the player — unavailable must sort and render
+  // distinctly from "scored zero".
+  const withComputed = useMemo(() => {
+    return players.map((p) => {
+      const result = scores[p.id]
+      return {
+        ...p,
+        score: result?.available ? result.score : null,
+        scoreCoverage: result?.available ? result.coverage : null,
+        value: valueDeltas[p.id] ?? null,
+      }
+    })
+  }, [players, scores, valueDeltas])
+
+  const sorted = sortPlayers(withComputed, sort)
 
   function handleSort(col) {
     if (!COLUMNS.find((c) => c.key === col)?.sortable) return
@@ -230,6 +294,17 @@ export default function PlayerTable({
                   {/* Consensus rank (ADP) */}
                   <td className="px-3 py-2 text-right tabular-nums text-[var(--color-text-muted)]">
                     <AdpCell player={p} />
+                  </td>
+
+                  {/* Model score — within-position percentile composite under
+                      this league's scoring rules. Never compare across positions. */}
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    <ScoreCell player={p} />
+                  </td>
+
+                  {/* Value vs. ADP — positional rank delta */}
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    <ValueCell player={p} />
                   </td>
 
                   {/* Bye week */}
