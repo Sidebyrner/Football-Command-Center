@@ -6,8 +6,13 @@ import { getMockItems } from '../utils/researchAdapters'
 const useResearchStore = create(
   persist(
     (set) => ({
-      // ResearchItem[] — newest first
-      items: getMockItems(),
+      // ResearchItem[] — newest first.
+      // Starts EMPTY on purpose. This store previously seeded fabricated player
+      // news (retirement rumours, depth-chart moves) that persisted to
+      // localStorage and rendered identically to notes the user wrote
+      // themselves. Invented research is indistinguishable from real research
+      // once it is sitting in your feed the night before a draft.
+      items: [],
 
       // { [playerId]: { text: string, updatedAt: string } }
       notes: {},
@@ -52,6 +57,19 @@ const useResearchStore = create(
         set((s) => ({ items: s.items.filter((item) => item.id !== id) }))
       },
 
+      /** Explicitly load the demo dataset. Clearly labelled, never automatic. */
+      loadSampleData() {
+        set((s) => {
+          const withoutSamples = s.items.filter((i) => i.source !== 'mock')
+          return { items: [...getMockItems(), ...withoutSamples] }
+        })
+      },
+
+      /** Remove every sample item, keeping the user's own notes. */
+      clearSampleData() {
+        set((s) => ({ items: s.items.filter((i) => i.source !== 'mock') }))
+      },
+
       updateNote(playerId, text) {
         set((s) => ({
           notes: {
@@ -61,7 +79,18 @@ const useResearchStore = create(
         }))
       },
     }),
-    { name: 'fcc-research-store' }
+    {
+      name: 'fcc-research-store',
+      version: 2,
+      // v1 seeded fabricated news into every user's store. Strip it on upgrade
+      // so nobody drafts off invented reports; user-authored notes are kept.
+      migrate: (state, version) => {
+        if (version < 2 && state?.items) {
+          return { ...state, items: state.items.filter((i) => i.source !== 'mock') }
+        }
+        return state
+      },
+    }
   )
 )
 

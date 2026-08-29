@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Star, AlertTriangle, Info, TrendingDown, BookOpen, Plus, Cpu, BarChart2, Loader2, Database } from 'lucide-react'
+import { X, Star, AlertTriangle, Info, TrendingDown, BookOpen, Plus, Cpu, BarChart2, Loader2, Database, ListChecks } from 'lucide-react'
 import { getStatusColor, getStatusLabel, getPositionColor } from '../../utils/playerHelpers'
 import useResearchStore, { selectPlayerItems } from '../../store/useResearchStore'
 import ResearchCard from '../research/ResearchCard'
 import ResearchItemForm from '../research/ResearchItemForm'
 import EvalPanel from '../eval/EvalPanel'
 import { usePlayerStats } from '../../hooks/usePlayerStats'
+import useMockDraftStore from '../../store/useMockDraftStore'
 
 // ---------------------------------------------------------------------------
 // Watch factor derivation — purely rule-based, no AI
@@ -381,6 +382,10 @@ export default function PlayerDrawer({ player, watchlist, onToggleWatch, onClose
   if (!player) return null
 
   const isWatched = watchlist.has(player.id)
+
+  const addTarget = useMockDraftStore((s) => s.addTarget)
+  const planTargets = useMockDraftStore((s) => s.targets)
+  const inPlan = (planTargets[player.position] ?? []).some((t) => t.playerId === player.id)
   const injuryColor = getStatusColor(player.injuryStatus)
   const posColor = getPositionColor(player.position)
   const watchFactors = deriveWatchFactors(player, playerItems)
@@ -450,6 +455,18 @@ export default function PlayerDrawer({ player, watchlist, onToggleWatch, onClose
 
             <div className="flex items-center gap-1 flex-shrink-0">
               <button
+                onClick={() => !inPlan && addTarget(player)}
+                disabled={inPlan}
+                title={inPlan ? 'Already in your draft plan' : 'Add to draft plan'}
+                className={`p-1.5 rounded transition-colors ${
+                  inPlan
+                    ? 'text-[var(--color-start)] cursor-default'
+                    : 'text-[var(--color-text-faint)] hover:text-[var(--color-text)]'
+                }`}
+              >
+                <ListChecks size={16} />
+              </button>
+              <button
                 onClick={() => onToggleWatch(player.id)}
                 title={isWatched ? 'Remove from watchlist' : 'Add to watchlist'}
                 className={`p-1.5 rounded transition-colors ${
@@ -502,8 +519,8 @@ export default function PlayerDrawer({ player, watchlist, onToggleWatch, onClose
               <section>
                 <SectionHeader>Context</SectionHeader>
                 <div className="grid grid-cols-4 gap-3 p-3 rounded bg-[var(--color-surface-2)]">
-                  <ContextPill label="Rank" value={player.rank ?? '—'} />
-                  <ContextPill label="Bye" value={player.byeWeek ?? '—'} />
+                  <ContextPill label="ADP" value={player.adp != null ? Math.round(player.adp) : '—'} />
+                  <ContextPill label="Bye" value={player.bye ?? '—'} />
                   <ContextPill label="Age" value={player.age ?? '—'} />
                   <ContextPill label="Exp" value={expLabel(player.yearsExp) ?? '—'} />
                   {player.depthChartOrder != null && (

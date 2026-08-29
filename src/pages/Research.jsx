@@ -9,7 +9,7 @@ import { TAGS } from '../utils/researchTags'
 const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']
 
 export default function Research() {
-  const { items, addItem, pinItem, archiveItem, deleteItem } = useResearchStore()
+  const { items, addItem, pinItem, archiveItem, deleteItem, loadSampleData } = useResearchStore()
 
   const [search, setSearch] = useState('')
   const [posFilter, setPosFilter] = useState('')
@@ -131,6 +131,16 @@ export default function Research() {
                 <p className="text-sm text-[var(--color-text-muted)] mb-1">No research items yet.</p>
                 <p className="text-xs text-[var(--color-text-faint)]">
                   Click a player row in the Draft Dashboard or use "Add Item" above.
+                </p>
+                <button
+                  onClick={loadSampleData}
+                  className="mt-4 text-xs px-2.5 py-1.5 rounded border border-[var(--color-border)] text-[var(--color-text-faint)] hover:text-[var(--color-text)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+                >
+                  Load sample items
+                </button>
+                <p className="mt-2 text-[10px] text-[var(--color-text-faint)] max-w-xs">
+                  Samples are illustrative fiction, not real reporting. They are
+                  labelled "sample" wherever they appear.
                 </p>
               </>
             ) : (

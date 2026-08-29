@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import useAppStore from './store/useAppStore'
+import ErrorBoundary from './components/layout/ErrorBoundary'
 import Sidebar from './components/layout/Sidebar'
 import Dashboard from './pages/Dashboard'
 import DraftDashboard from './pages/DraftDashboard'
 import Research from './pages/Research'
+import MockDraft from './pages/MockDraft'
 import SitStart from './pages/SitStart'
 import TradeAnalyzer from './pages/TradeAnalyzer'
 import Odds from './pages/Odds'
@@ -20,10 +22,15 @@ function RequireConfig({ children }) {
 }
 
 function AppLayout({ children }) {
+  const { pathname } = useLocation()
   return (
     <div className="flex min-h-screen bg-[var(--color-bg)]">
       <Sidebar />
-      <div className="flex-1 min-w-0">{children}</div>
+      {/* Keyed by route so navigating away from a crashed page resets the
+          boundary, rather than carrying the error across navigations. */}
+      <div className="flex-1 min-w-0">
+        <ErrorBoundary key={pathname}>{children}</ErrorBoundary>
+      </div>
     </div>
   )
 }
@@ -93,6 +100,14 @@ export default function App() {
           element={
             <AppLayout>
               <Research />
+            </AppLayout>
+          }
+        />
+        <Route
+          path="/plan"
+          element={
+            <AppLayout>
+              <MockDraft />
             </AppLayout>
           }
         />

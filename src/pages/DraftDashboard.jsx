@@ -3,8 +3,10 @@ import Header from '../components/layout/Header'
 import DraftFilters from '../components/draft/DraftFilters'
 import PlayerTable from '../components/draft/PlayerTable'
 import PlayerDrawer from '../components/draft/PlayerDrawer'
-import ScoringProfileManager from '../components/eval/ScoringProfileManager'
+import DraftStatusBar from '../components/draft/DraftStatusBar'
 import { useDraftPlayers } from '../hooks/useDraftPlayers'
+import { useLiveDraft } from '../hooks/useLiveDraft'
+import useAppStore from '../store/useAppStore'
 import useResearchStore, { buildResearchIndex } from '../store/useResearchStore'
 
 const DEFAULT_FILTERS = {
@@ -14,6 +16,7 @@ const DEFAULT_FILTERS = {
   injury: '',
   trending: '',
   watchlistOnly: false,
+  hideDrafted: true,
 }
 
 const DEFAULT_SORT = { col: 'position', dir: 'asc' }
@@ -43,7 +46,10 @@ function matchesInjuryFilter(injuryStatus, filter) {
 }
 
 export default function DraftDashboard() {
-  const { players, loading, error, lastUpdated, refresh } = useDraftPlayers()
+  const { players, loading, error, marketError, lastUpdated, refresh } = useDraftPlayers()
+  const leagueId = useAppStore((s) => s.leagueId)
+  const sleeperUserId = useAppStore((s) => s.sleeperUserId)
+  const draft = useLiveDraft(leagueId, sleeperUserId)
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [sort, setSort] = useState(DEFAULT_SORT)
   const [watchlist, setWatchlist] = useState(loadWatchlist)
@@ -82,9 +88,12 @@ export default function DraftDashboard() {
       if (!matchesInjuryFilter(p.injuryStatus, filters.injury)) return false
       if (filters.trending && p.trending !== filters.trending) return false
       if (filters.watchlistOnly && !watchlist.has(p.id)) return false
+      // Only hide drafted players once a draft is actually under way, so the
+      // board is not silently truncated before the draft starts.
+      if (filters.hideDrafted && draft.isLive && draft.draftedIds.has(p.id)) return false
       return true
     })
-  }, [players, filters, watchlist])
+  }, [players, filters, watchlist, draft.isLive, draft.draftedIds])
 
   return (
     <div className="flex flex-col h-screen">
@@ -94,15 +103,24 @@ export default function DraftDashboard() {
         refreshing={refreshing || loading}
       />
 
-      <DraftFilters filters={filters} onChange={setFilters} teams={allTeams} />
+      <DraftStatusBar draft={draft} />
 
-      <div className="px-4 py-2 border-b border-[var(--color-border)]">
-        <ScoringProfileManager />
-      </div>
+      <DraftFilters
+        filters={filters}
+        onChange={setFilters}
+        teams={allTeams}
+        showDraftedToggle={draft.isLive}
+      />
 
       {error && (
         <div className="px-4 py-2 text-xs text-[var(--color-sit)] bg-[var(--color-surface)] border-b border-[var(--color-border)]">
           Failed to load player data: {error}
+        </div>
+      )}
+
+      {marketError && (
+        <div className="px-4 py-2 text-xs text-[var(--color-caution)] bg-[var(--color-surface)] border-b border-[var(--color-border)]">
+          ADP and bye weeks unavailable: {marketError}
         </div>
       )}
 
@@ -115,6 +133,8 @@ export default function DraftDashboard() {
         onToggleWatch={toggleWatch}
         onSelectPlayer={setSelectedPlayer}
         researchIndex={researchIndex}
+        draftedIds={draft.isLive || draft.picks.length ? draft.draftedIds : null}
+        pickByPlayer={draft.pickByPlayer}
       />
 
       {lastUpdated && !loading && (

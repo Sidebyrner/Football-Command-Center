@@ -1,10 +1,14 @@
 import { useState, useMemo } from 'react'
-import { TrendingUp, BarChart2, AlertTriangle, Info, Zap, Shield, ChevronDown, ChevronUp } from 'lucide-react'
+import { TrendingUp, BarChart2, AlertTriangle, Info, Zap, ChevronDown, ChevronUp, Loader2, SlashIcon } from 'lucide-react'
 import { evaluateWeekly, evaluateDraft } from '../../utils/evaluationEngine'
 import useScoringProfileStore from '../../store/useScoringProfileStore'
 import { getPositionColor } from '../../utils/playerHelpers'
 import { usePlayerStats } from '../../hooks/usePlayerStats'
+import { useCohorts } from '../../hooks/useCohorts'
 import { toEvalMetrics } from '../../services/nflverseService'
+
+// Below this share of real inputs the composite is too thin to headline.
+const MIN_HEADLINE_COVERAGE = 0.5
 
 // ── Designation badge ────────────────────────────────────────────────────────
 const DESIGNATION_STYLES = {
@@ -77,31 +81,47 @@ function ScoreRing({ score, color }) {
   )
 }
 
+// Display names for every metric the engine can score.
+const METRIC_LABELS = {
+  targetShare: 'Target Share',
+  targetsPerGame: 'Targets / Game',
+  airYardsShare: 'Air Yards Share',
+  wopr: 'WOPR',
+  racr: 'RACR',
+  adot: 'ADOT',
+  trueCatchRate: 'Catch Rate',
+  yardsPerTarget: 'Yds / Target',
+  receivingFirstDowns: 'Rec 1st Downs / G',
+  qbRating: 'Passer Rating',
+  completionPct: 'Completion %',
+  yardsPerAttempt: 'Yds / Attempt',
+  adotQb: 'ADOT (pass)',
+  intRate: 'Ball Security',
+  sackRate: 'Sack Avoidance',
+  rushingAttempts: 'Carries / Game',
+  seasonRushYards: 'Season Rush Yards',
+  yardsPerCarry: 'Yds / Carry',
+  touchesPerGame: 'Touches / Game',
+  rushingFirstDowns: 'Rush 1st Downs / G',
+  fantasyPointsPerGame: 'Fantasy Pts / G',
+  fgPct: 'FG %',
+}
+
+// Shown in place of the ring when too little of the model is real data.
+// The ring reads as a confident measurement; a thin score has not earned it.
+function ThinScore({ score }) {
+  return (
+    <div className="flex flex-col items-center justify-center" style={{ width: 80, height: 80 }}>
+      <span className="text-lg font-bold tabular-nums text-[var(--color-text-muted)]">{score}</span>
+      <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-faint)]">low data</span>
+    </div>
+  )
+}
+
 // ── Factor bar ────────────────────────────────────────────────────────────────
 function FactorBar({ factor }) {
-  const LABELS = {
-    targetShare: 'Target Share',
-    yprr: 'Yds / Route Run',
-    qbRating: 'QB Rating',
-    airYardsShare: 'Air Yards Share',
-    redZoneTargets: 'RZ Targets',
-    firstReadTargetRate: 'First Read %',
-    adot: 'ADOT',
-    trueCatchRate: 'True Catch Rate',
-    olPassProtection: 'OL Protection',
-    separation: 'Separation',
-    completionPct: 'Completion %',
-    impliedTeamTotal: 'Team Total',
-    last4Snaps: 'Snap % (L4)',
-    rushingAttempts: 'Rush Attempts',
-    opponentDefRankFavor: 'Matchup',
-    sackRatePenalty: 'Sack Resistance',
-    intRatePenalty: 'Ball Security',
-    seasonRushYards: 'Rush Yards',
-  }
-
   const pct = Math.round((factor.value ?? 0) * 100)
-  const label = LABELS[factor.key] ?? factor.key
+  const label = METRIC_LABELS[factor.key] ?? factor.key
 
   return (
     <div className="flex items-center gap-2">
@@ -128,17 +148,15 @@ function FormatImpactRow({ item }) {
   )
 }
 
-// ── Missing factors disclosure ────────────────────────────────────────────────
-function MissingFactors({ factors }) {
+// ── Coverage disclosure ───────────────────────────────────────────────────────
+// States plainly how much of the score is backed by real data, and which inputs
+// were excluded. Excluded inputs are dropped from the weighting, not estimated.
+function Coverage({ coverage, factors }) {
   const [open, setOpen] = useState(false)
-  if (!factors.length) return null
-
-  const LABELS = {
-    targetShare: 'Target Share', yprr: 'YPRR', airYardsShare: 'Air Yards Share',
-    redZoneTargets: 'RZ Targets', firstReadTargetRate: 'First Read %',
-    adot: 'ADOT', trueCatchRate: 'True Catch Rate', separation: 'Separation',
-    qbRating: 'QB Rating', olPassProtection: 'OL Protection',
-  }
+  const pct = Math.round(coverage * 100)
+  const tone = coverage >= 0.8 ? 'text-emerald-400'
+    : coverage >= MIN_HEADLINE_COVERAGE ? 'text-amber-400'
+    : 'text-rose-400'
 
   return (
     <div className="mt-2">
@@ -147,25 +165,43 @@ function MissingFactors({ factors }) {
         className="flex items-center gap-1 text-[10px] text-[var(--color-text-faint)] hover:text-[var(--color-text-muted)] transition-colors"
       >
         <Info size={10} />
-        {factors.length} metric{factors.length > 1 ? 's' : ''} unavailable (mock data used)
-        {open ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+        <span className={tone}>{pct}% of model weight from real data</span>
+        {factors.length > 0 && (open ? <ChevronUp size={10} /> : <ChevronDown size={10} />)}
       </button>
-      {open && (
+      {open && factors.length > 0 && (
         <p className="text-[10px] text-[var(--color-text-faint)] mt-1 leading-relaxed">
-          {factors.map((f) => LABELS[f] ?? f).join(' · ')}
+          Excluded (no data, not estimated): {factors.map((f) => METRIC_LABELS[f] ?? f).join(' · ')}
         </p>
       )}
     </div>
   )
 }
 
+// ── Unavailable state ─────────────────────────────────────────────────────────
+// Shown instead of a score when the model has nothing real to work with.
+// A blank panel beats a confident-looking number built on defaults.
+function Unavailable({ reason }) {
+  return (
+    <div className="flex flex-col items-center text-center gap-2 py-8 px-4">
+      <SlashIcon size={20} className="text-[var(--color-text-faint)]" />
+      <p className="text-xs font-semibold text-[var(--color-text-muted)]">No score available</p>
+      <p className="text-[10px] text-[var(--color-text-faint)] leading-relaxed max-w-[15rem]">{reason}</p>
+    </div>
+  )
+}
+
 // ── Weekly panel ─────────────────────────────────────────────────────────────
 function WeeklyPanel({ result, posColor }) {
+  if (!result.available) return <Unavailable reason={result.reason} />
+  const thin = result.coverage < MIN_HEADLINE_COVERAGE
+
   return (
     <div className="space-y-4">
-      {/* Score header */}
+      {/* Score header — the ring is withheld when too little of the model is real */}
       <div className="flex items-center gap-4">
-        <ScoreRing score={result.score} color={posColor} />
+        {thin
+          ? <ThinScore score={result.score} />
+          : <ScoreRing score={result.score} color={posColor} />}
         <div className="space-y-1.5">
           <DesignationBadge designation={result.designation} />
           {result.injuryModifier < 1 && result.injuryModifier > 0 && (
@@ -188,7 +224,7 @@ function WeeklyPanel({ result, posColor }) {
               <FactorBar key={f.key} factor={f} />
             ))}
           </div>
-          <MissingFactors factors={result.missingFactors} />
+          <Coverage coverage={result.coverage} factors={result.missingFactors} />
         </section>
       )}
 
@@ -205,23 +241,22 @@ function WeeklyPanel({ result, posColor }) {
           </ul>
         </section>
       )}
-
-      {result.formatImpact.length === 0 && (
-        <p className="text-[10px] text-[var(--color-text-faint)] italic">
-          No notable format-specific impacts for this position.
-        </p>
-      )}
     </div>
   )
 }
 
 // ── Draft panel ───────────────────────────────────────────────────────────────
 function DraftPanel({ result, posColor }) {
+  if (!result.available) return <Unavailable reason={result.reason} />
+  const thin = result.coverage < MIN_HEADLINE_COVERAGE
+
   return (
     <div className="space-y-4">
       {/* Score + tier */}
       <div className="flex items-center gap-4">
-        <ScoreRing score={result.score} color={posColor} />
+        {thin
+          ? <ThinScore score={result.score} />
+          : <ScoreRing score={result.score} color={posColor} />}
         <div className="space-y-1.5">
           <TierBadge tier={result.tier} label={result.tierLabel} />
           <div className="flex items-center gap-3 text-[10px] text-[var(--color-text-muted)]">
@@ -246,7 +281,24 @@ function DraftPanel({ result, posColor }) {
               <FactorBar key={f.key} factor={f} />
             ))}
           </div>
-          <MissingFactors factors={result.missingFactors} />
+          <Coverage coverage={result.coverage} factors={result.missingFactors} />
+        </section>
+      )}
+
+      {/* Risk detail — why the risk label reads the way it does */}
+      {result.riskFlags?.length > 0 && (
+        <section>
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-faint)] mb-2">
+            Risk Factors
+          </h4>
+          <ul className="space-y-1">
+            {result.riskFlags.map((f, i) => (
+              <li key={i} className="flex items-start gap-1.5 text-[11px] text-[var(--color-text-muted)]">
+                <AlertTriangle size={10} className="text-[var(--color-caution)] flex-shrink-0 mt-0.5" />
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
@@ -263,12 +315,6 @@ function DraftPanel({ result, posColor }) {
           </ul>
         </section>
       )}
-
-      {result.formatImpact.length === 0 && (
-        <p className="text-[10px] text-[var(--color-text-faint)] italic">
-          No notable format-specific impacts for this position.
-        </p>
-      )}
     </div>
   )
 }
@@ -279,8 +325,9 @@ export default function EvalPanel({ player }) {
   const activeProfile = useScoringProfileStore((s) => s.activeProfile)
   const posColor = getPositionColor(player.position)
 
-  // Pull most recent nflverse season stats to feed real metrics into the engine
-  const { history, seasons } = usePlayerStats(player)
+  const { history, seasons, loading: statsLoading } = usePlayerStats(player)
+  const { cohorts, loading: cohortsLoading, error: cohortsError } = useCohorts()
+
   const mostRecentSeason = seasons[0] ?? null
   const realMetrics = useMemo(() => {
     if (!history || !mostRecentSeason) return null
@@ -288,13 +335,16 @@ export default function EvalPanel({ player }) {
   }, [history, mostRecentSeason])
 
   const weeklyResult = useMemo(
-    () => evaluateWeekly(player, activeProfile, realMetrics),
-    [player, activeProfile, realMetrics]
+    () => evaluateWeekly(player, activeProfile, realMetrics, cohorts),
+    [player, activeProfile, realMetrics, cohorts]
   )
   const draftResult = useMemo(
-    () => evaluateDraft(player, activeProfile, realMetrics),
-    [player, activeProfile, realMetrics]
+    () => evaluateDraft(player, activeProfile, realMetrics, cohorts),
+    [player, activeProfile, realMetrics, cohorts]
   )
+
+  const loading = statsLoading || cohortsLoading
+  const result = mode === 'weekly' ? weeklyResult : draftResult
 
   return (
     <div className="space-y-4">
@@ -319,27 +369,45 @@ export default function EvalPanel({ player }) {
         ))}
       </div>
 
-      {/* Data source notice */}
+      {/* Provenance — say exactly where the numbers came from */}
       <div className="flex items-start gap-1.5 px-2.5 py-2 rounded bg-[var(--color-surface-2)] border border-[var(--color-border)]">
         <Zap size={11} className="text-[var(--color-accent)] flex-shrink-0 mt-px" />
-        {realMetrics ? (
+        {cohortsError ? (
           <p className="text-[10px] text-[var(--color-text-faint)] leading-relaxed">
-            Using nflverse {mostRecentSeason} season data for available metrics. Untracked inputs (YPRR, separation, OL grade) use position defaults.
+            Cohort data missing. Run{' '}
+            <code className="text-[var(--color-accent)]">npm run preprocess-nflverse</code>{' '}
+            to enable scoring.
+          </p>
+        ) : mostRecentSeason ? (
+          <p className="text-[10px] text-[var(--color-text-faint)] leading-relaxed">
+            Percentiles vs. real {mostRecentSeason} qualifying {player.position}s from nflverse.
+            Unmeasured inputs are excluded from the weighting, never estimated.
+            {mode === 'weekly' && (
+              <>
+                {' '}<span className="text-[var(--color-caution)]">
+                  Based on season-long usage only — no opponent, weather or game-script
+                  input yet, so this does not reflect a specific week's matchup.
+                </span>
+              </>
+            )}
           </p>
         ) : (
           <p className="text-[10px] text-[var(--color-text-faint)] leading-relaxed">
-            Using synthetic position defaults. Run{' '}
-            <code className="text-[var(--color-accent)]">npm run preprocess-nflverse</code>{' '}
-            to load real historical metrics.
+            No nflverse season history for this player.
           </p>
         )}
       </div>
 
-      {/* Panel content */}
-      {mode === 'weekly'
-        ? <WeeklyPanel result={weeklyResult} posColor={posColor} />
-        : <DraftPanel result={draftResult} posColor={posColor} />
-      }
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-10 text-xs text-[var(--color-text-faint)]">
+          <Loader2 size={13} className="animate-spin" />
+          Loading model inputs…
+        </div>
+      ) : mode === 'weekly' ? (
+        <WeeklyPanel result={result} posColor={posColor} />
+      ) : (
+        <DraftPanel result={result} posColor={posColor} />
+      )}
     </div>
   )
 }

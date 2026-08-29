@@ -7,8 +7,8 @@ const COLUMNS = [
   { key: 'name', label: 'Player', align: 'left', sortable: true },
   { key: 'position', label: 'Pos', align: 'left', sortable: true },
   { key: 'team', label: 'Team', align: 'left', sortable: true },
-  { key: 'rank', label: 'Rank', align: 'right', sortable: true, title: 'Sleeper search rank — lower is better' },
-  { key: 'byeWeek', label: 'Bye', align: 'right', sortable: true },
+  { key: 'adp', label: 'ADP', align: 'right', sortable: true, title: 'FantasyPros expert consensus rank — lower is better' },
+  { key: 'bye', label: 'Bye', align: 'right', sortable: true },
   { key: 'injuryStatus', label: 'Injury', align: 'left', sortable: true },
   { key: 'trending', label: 'Trend', align: 'left', sortable: true },
   { key: 'research', label: '', align: 'center', sortable: false },
@@ -33,17 +33,12 @@ function defaultCompare(a, b, col, dir) {
     return (pa - pb) * mul
   }
 
-  if (col === 'rank') {
-    if (av === null && bv === null) return 0
-    if (av === null) return 1
-    if (bv === null) return -1
-    return (av - bv) * mul
-  }
-
-  if (col === 'byeWeek') {
-    if (av === null && bv === null) return 0
-    if (av === null) return 1
-    if (bv === null) return -1
+  // Numeric columns: nulls always sort last regardless of direction, so an
+  // unmatched player never occupies the top of a draft board.
+  if (col === 'adp' || col === 'bye') {
+    if (av == null && bv == null) return 0
+    if (av == null) return 1
+    if (bv == null) return -1
     return (av - bv) * mul
   }
 
@@ -58,10 +53,10 @@ function sortPlayers(players, sort) {
   return [...players].sort((a, b) => {
     const primary = defaultCompare(a, b, sort.col, sort.dir)
     if (primary !== 0) return primary
-    // secondary: rank asc
-    if (sort.col !== 'rank') {
-      const ra = a.rank ?? 9999
-      const rb = b.rank ?? 9999
+    // secondary: consensus rank asc
+    if (sort.col !== 'adp') {
+      const ra = a.adp ?? 9999
+      const rb = b.adp ?? 9999
       if (ra !== rb) return ra - rb
     }
     // tertiary: name asc
@@ -84,6 +79,28 @@ function TrendBadge({ value }) {
       }`}
     >
       {isAdd ? '▲' : '▼'} {isAdd ? 'Add' : 'Drop'}
+    </span>
+  )
+}
+
+// A name-matched ADP is a best-effort join, not a confirmed one — mark it so a
+// mismatched player can be spotted rather than silently trusted on draft day.
+function AdpCell({ player }) {
+  if (player.adp == null) return <span className="text-[var(--color-text-faint)]">—</span>
+  const uncertain = player.matchedBy === 'name'
+  return (
+    <span
+      className={uncertain ? 'text-[var(--color-caution)]' : undefined}
+      title={
+        uncertain
+          ? 'Matched by name, not player ID — verify before drafting'
+          : player.adpSd
+            ? `Consensus ${player.adp} (± ${player.adpSd})`
+            : undefined
+      }
+    >
+      {Math.round(player.adp)}
+      {uncertain && '*'}
     </span>
   )
 }
@@ -111,6 +128,8 @@ export default function PlayerTable({
   onToggleWatch,
   onSelectPlayer,
   researchIndex,
+  draftedIds = null,
+  pickByPlayer = {},
 }) {
   const sorted = sortPlayers(players, sort)
 
@@ -159,6 +178,8 @@ export default function PlayerTable({
           ) : (
             sorted.map((p) => {
               const isWatched = watchlist.has(p.id)
+              const isDrafted = draftedIds?.has(p.id) ?? false
+              const pick = pickByPlayer?.[p.id]
               const researchCount =
                 (researchIndex?.[p.id] || 0) +
                 (researchIndex?.[`name:${p.name.toLowerCase()}`] || 0)
@@ -167,11 +188,25 @@ export default function PlayerTable({
                 <tr
                   key={p.id}
                   onClick={() => onSelectPlayer?.(p)}
-                  className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
+                  className={`border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer ${
+                    isDrafted ? 'opacity-45' : ''
+                  }`}
                 >
                   {/* Player name */}
                   <td className="px-3 py-2 font-medium text-[var(--color-text)] whitespace-nowrap">
-                    {p.name}
+                    <span className={isDrafted ? 'line-through' : undefined}>{p.name}</span>
+                    {pick && (
+                      <span
+                        className={`ml-2 text-[9px] font-semibold px-1.5 py-0.5 rounded align-middle ${
+                          pick.isMine
+                            ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
+                            : 'bg-[var(--color-surface-2)] text-[var(--color-text-faint)]'
+                        }`}
+                        title={`Pick ${pick.pickNo ?? '?'} — ${pick.by}`}
+                      >
+                        {pick.isMine ? 'YOURS' : pick.by}
+                      </span>
+                    )}
                   </td>
 
                   {/* Position */}
@@ -192,14 +227,14 @@ export default function PlayerTable({
                     {p.team}
                   </td>
 
-                  {/* Rank */}
+                  {/* Consensus rank (ADP) */}
                   <td className="px-3 py-2 text-right tabular-nums text-[var(--color-text-muted)]">
-                    {p.rank != null ? p.rank : <span className="text-[var(--color-text-faint)]">—</span>}
+                    <AdpCell player={p} />
                   </td>
 
                   {/* Bye week */}
                   <td className="px-3 py-2 text-right tabular-nums text-[var(--color-text-muted)]">
-                    {p.byeWeek != null ? p.byeWeek : <span className="text-[var(--color-text-faint)]">—</span>}
+                    {p.bye != null ? p.bye : <span className="text-[var(--color-text-faint)]">—</span>}
                   </td>
 
                   {/* Injury */}
