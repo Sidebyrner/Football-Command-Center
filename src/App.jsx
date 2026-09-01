@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import useAppStore from './store/useAppStore'
+import { usePlanSync } from './hooks/usePlanSync'
 import ErrorBoundary from './components/layout/ErrorBoundary'
 import Sidebar from './components/layout/Sidebar'
 import Dashboard from './pages/Dashboard'
@@ -36,6 +37,11 @@ function AppLayout({ children }) {
 }
 
 export default function App() {
+  // Runs regardless of which route is active — the drawer's "add to plan"
+  // action is reachable from the draft board, not just the /plan page, so
+  // the sync can't be scoped to MockDraft alone.
+  usePlanSync()
+
   return (
     <BrowserRouter>
       <Routes>

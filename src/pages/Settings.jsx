@@ -122,15 +122,6 @@ export default function Settings() {
     }
   }
 
-  // Adopt the league's real scoring rules as soon as one is picked, so the
-  // evaluation model is never quietly running on the built-in assumptions.
-  useEffect(() => {
-    if (!selectedLeagueId) return
-    const league = leagues.find((l) => l.league_id === selectedLeagueId)
-    syncFromLeague(selectedLeagueId, league?.name ?? 'League')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLeagueId])
-
   function handleSave() {
     const parsedWeek = Math.min(18, Math.max(1, parseInt(week, 10) || 1))
     const league = leagues.find((l) => l.league_id === selectedLeagueId)

@@ -2,8 +2,8 @@
  * Research source adapters.
  *
  * Each adapter is an async function that returns ResearchItem[].
- * Currently implemented: mock seed data.
- * Stubs: Sleeper news (no public endpoint yet), RSS (requires CORS proxy).
+ * Currently implemented: mock seed data, RSS via the server proxy (B1/B2).
+ * Stub: Sleeper news (no public endpoint yet).
  *
  * To add a new source in the future:
  *   1. Export an async fetchXxx() function here
@@ -12,6 +12,7 @@
  */
 
 import { createItem } from './researchStore'
+import { API_BASE, hasApiProxy } from './apiBase'
 
 // ---------------------------------------------------------------------------
 // Mock adapter
@@ -140,21 +141,43 @@ export async function fetchSleeperNews(_playerId) {
 }
 
 // ---------------------------------------------------------------------------
-// RSS adapter (stub)
-// Requires a CORS proxy or server-side relay to fetch external feeds.
-// Shape the parsed feed entries to ResearchItem via createItem() here.
+// RSS adapter — relayed through server/'s /api/news route (see B1/B2 in the
+// deploy plan). A browser cannot fetch arbitrary external feeds directly
+// (CORS), so this always goes through the proxy; there is no direct-fetch
+// fallback to degrade to, unlike odds. Without a configured proxy, or if it
+// is unreachable, this returns [] rather than throwing — matching
+// fetchSleeperNews's existing no-op contract, so a stopped container silently
+// yields no news rather than breaking the Research page.
 // ---------------------------------------------------------------------------
 
 /**
- * Fetch and normalize an RSS feed into ResearchItem[].
- * @param {string} _feedUrl - CORS-proxied RSS URL
+ * Fetch and normalize one server-side feed alias into ResearchItem[].
+ * @param {string} feedAlias - a key from server/src/routes/news.js's FEEDS map
+ *   (e.g. 'espn_nfl'), NOT an arbitrary URL — the server only relays known,
+ *   allowlisted feeds, so this can never be pointed at anything else.
  * @returns {Promise<ResearchItem[]>}
  */
-export async function fetchRSSFeed(_feedUrl) {
-  // Not yet implemented — requires a CORS proxy or backend relay.
-  // When ready:
-  //   1. Fetch + parse the RSS/Atom feed
-  //   2. Map each entry to createItem({ source: 'rss', sourceId: entry.guid, ... })
-  //   3. Return the array
-  throw new Error('RSS adapter not yet configured. Provide a CORS proxy URL.')
+export async function fetchRSSFeed(feedAlias) {
+  if (!hasApiProxy) return []
+
+  let res
+  try {
+    res = await fetch(`${API_BASE}/api/news?feed=${encodeURIComponent(feedAlias)}`)
+  } catch {
+    return []
+  }
+  if (!res.ok) return []
+
+  const body = await res.json()
+  return (body.items ?? []).map((entry) =>
+    createItem({
+      title: entry.title,
+      body: entry.body,
+      url: entry.url,
+      source: 'rss',
+      sourceId: entry.sourceId,
+      publishedAt: entry.publishedAt,
+      tags: [],
+    })
+  )
 }

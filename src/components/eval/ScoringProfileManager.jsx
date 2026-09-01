@@ -70,6 +70,14 @@ export default function ScoringProfileManager({ leagueId, leagueName }) {
               These are built-in assumptions, not your league's rules. Pull them from Sleeper.
             </p>
           )}
+
+          {/* Visible even collapsed — a league rule the model silently ignores
+              should never be something you only discover by expanding. */}
+          {!expanded && unmappedRules?.length > 0 && (
+            <p className="text-[10px] text-[var(--color-caution)] mt-1">
+              {unmappedRules.length} league rule{unmappedRules.length > 1 ? 's' : ''} not used by the model
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">

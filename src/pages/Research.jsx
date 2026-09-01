@@ -1,15 +1,24 @@
 import { useState, useMemo } from 'react'
-import { Plus, BookOpen, Archive } from 'lucide-react'
+import { Plus, BookOpen, Archive, Rss, Loader2 } from 'lucide-react'
 import Header from '../components/layout/Header'
 import ResearchCard from '../components/research/ResearchCard'
 import ResearchItemForm from '../components/research/ResearchItemForm'
 import useResearchStore from '../store/useResearchStore'
+import { useNewsImport } from '../hooks/useNewsImport'
 import { TAGS } from '../utils/researchTags'
 
 const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']
 
 export default function Research() {
   const { items, addItem, pinItem, archiveItem, deleteItem, loadSampleData } = useResearchStore()
+  const { importFeed, loading: importing, error: importError, hasApiProxy } = useNewsImport()
+  const [importMsg, setImportMsg] = useState(null)
+
+  async function handleImportNews() {
+    setImportMsg(null)
+    const added = await importFeed('espn_nfl')
+    if (added > 0) setImportMsg(`Imported ${added} new item${added > 1 ? 's' : ''}.`)
+  }
 
   const [search, setSearch] = useState('')
   const [posFilter, setPosFilter] = useState('')
@@ -102,15 +111,36 @@ export default function Research() {
           )}
         </button>
 
+        {/* Import news — relayed through the server proxy (B1/B2). Always
+            shown, even unconfigured, so the feature is discoverable rather
+            than silently absent; the error message points at Settings. */}
+        <button
+          onClick={handleImportNews}
+          disabled={importing}
+          title={hasApiProxy ? 'Import latest NFL news' : 'No API proxy configured — see Settings'}
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors disabled:opacity-50"
+        >
+          {importing ? <Loader2 size={14} className="animate-spin" /> : <Rss size={14} />}
+          Import News
+        </button>
+
         {/* Add button */}
         <button
           onClick={() => setAddingItem((v) => !v)}
-          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-[var(--color-accent)] text-black rounded hover:bg-[var(--color-accent-hover)] transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-[var(--color-accent)] text-black rounded hover:bg-[var(--color-accent-hover)] transition-colors"
         >
           <Plus size={14} />
           Add Item
         </button>
       </div>
+
+      {(importMsg || importError) && (
+        <div className="flex-shrink-0 px-4 py-1.5 text-xs border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+          <span className={importError ? 'text-[var(--color-caution)]' : 'text-[var(--color-start)]'}>
+            {importError ?? importMsg}
+          </span>
+        </div>
+      )}
 
       {/* Add form */}
       {addingItem && (

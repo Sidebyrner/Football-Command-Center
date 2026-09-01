@@ -6,6 +6,8 @@ import PlayerDrawer from '../components/draft/PlayerDrawer'
 import DraftStatusBar from '../components/draft/DraftStatusBar'
 import { useDraftPlayers } from '../hooks/useDraftPlayers'
 import { useLiveDraft } from '../hooks/useLiveDraft'
+import { useCohorts } from '../hooks/useCohorts'
+import { usePlayerScores } from '../hooks/usePlayerScores'
 import useAppStore from '../store/useAppStore'
 import useResearchStore, { buildResearchIndex } from '../store/useResearchStore'
 
@@ -50,6 +52,8 @@ export default function DraftDashboard() {
   const leagueId = useAppStore((s) => s.leagueId)
   const sleeperUserId = useAppStore((s) => s.sleeperUserId)
   const draft = useLiveDraft(leagueId, sleeperUserId)
+  const { cohorts } = useCohorts()
+  const { scores, loading: scoring } = usePlayerScores(players, cohorts)
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [sort, setSort] = useState(DEFAULT_SORT)
   const [watchlist, setWatchlist] = useState(loadWatchlist)
@@ -74,6 +78,38 @@ export default function DraftDashboard() {
       return next
     })
   }
+
+  // Positional-rank delta between consensus ADP and our scoring model.
+  // Positive = this league's rules value the player more than the market does.
+  // Computed strictly WITHIN position — a QB score of 85 and a WR score of 85
+  // are not the same quantity (different cohorts, different weight tables), so
+  // ranking across positions would silently compare two unrelated scales.
+  const valueDeltas = useMemo(() => {
+    const byPosition = {}
+    for (const p of players) (byPosition[p.position] ??= []).push(p)
+
+    const deltas = {}
+    for (const group of Object.values(byPosition)) {
+      const byAdp = [...group]
+        .filter((p) => p.adp != null)
+        .sort((a, b) => a.adp - b.adp)
+      const byScore = [...group]
+        .filter((p) => scores[p.id]?.available)
+        .sort((a, b) => scores[a.id].score - scores[b.id].score)
+        .reverse() // highest score = rank 1
+
+      const adpRank = {}
+      byAdp.forEach((p, i) => { adpRank[p.id] = i + 1 })
+      const scoreRank = {}
+      byScore.forEach((p, i) => { scoreRank[p.id] = i + 1 })
+
+      for (const p of group) {
+        if (adpRank[p.id] == null || scoreRank[p.id] == null) continue
+        deltas[p.id] = adpRank[p.id] - scoreRank[p.id]
+      }
+    }
+    return deltas
+  }, [players, scores])
 
   const allTeams = useMemo(() => {
     return [...new Set(players.map((p) => p.team).filter(Boolean))].sort()
@@ -135,6 +171,9 @@ export default function DraftDashboard() {
         researchIndex={researchIndex}
         draftedIds={draft.isLive || draft.picks.length ? draft.draftedIds : null}
         pickByPlayer={draft.pickByPlayer}
+        scores={scores}
+        scoring={scoring}
+        valueDeltas={valueDeltas}
       />
 
       {lastUpdated && !loading && (
