@@ -27,6 +27,12 @@ export function cacheGet(key) {
 // and client are separate deployables and shouldn't share a module boundary
 // for a handful of constants.
 export const TTL = {
-  ODDS: 10 * 60 * 1000,      // 10 minutes — matches the client's TTL.ODDS
-  NEWS: 15 * 60 * 1000,      // 15 minutes — feeds don't update faster than this
+  ODDS: 10 * 60 * 1000,   // 10 minutes — matches the client's TTL.ODDS
+  // News import is a manual, deliberate click, not something auto-polled —
+  // the client already disables the button while a request is in flight, so
+  // this only needs to guard against a genuine double-fire (e.g. a flaky
+  // double-click), not real load. 15 minutes here meant a second click
+  // minutes later silently returned the exact same articles even if the
+  // upstream feed had updated — indistinguishable from "nothing is new."
+  NEWS: 60 * 1000,        // 1 minute
 }
