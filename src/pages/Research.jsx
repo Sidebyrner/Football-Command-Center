@@ -11,7 +11,7 @@ const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']
 
 export default function Research() {
   const { items, addItem, pinItem, archiveItem, deleteItem, loadSampleData } = useResearchStore()
-  const { importFeed, loading: importing, error: importError, hasApiProxy } = useNewsImport()
+  const { importFeed, loading: importing, error: importError, notice: importNotice, hasApiProxy } = useNewsImport()
   const [importMsg, setImportMsg] = useState(null)
 
   async function handleImportNews() {
@@ -134,10 +134,14 @@ export default function Research() {
         </button>
       </div>
 
-      {(importMsg || importError) && (
+      {(importMsg || importError || importNotice) && (
         <div className="flex-shrink-0 px-4 py-1.5 text-xs border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-          <span className={importError ? 'text-[var(--color-caution)]' : 'text-[var(--color-start)]'}>
-            {importError ?? importMsg}
+          <span className={
+            importError ? 'text-[var(--color-caution)]'
+              : importNotice ? 'text-[var(--color-text-muted)]'
+              : 'text-[var(--color-start)]'
+          }>
+            {importError ?? importNotice ?? importMsg}
           </span>
         </div>
       )}
