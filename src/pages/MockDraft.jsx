@@ -1,15 +1,62 @@
 import { useState, useMemo } from 'react'
-import { Plus, ArrowDownWideNarrow, Trash2, Radio } from 'lucide-react'
+import { Plus, ArrowDownWideNarrow, Trash2, Radio, Star } from 'lucide-react'
 import Header from '../components/layout/Header'
 import PlayerPicker from '../components/mockdraft/PlayerPicker'
 import TargetCard from '../components/mockdraft/TargetCard'
 import useMockDraftStore, { POSITIONS } from '../store/useMockDraftStore'
 import useAppStore from '../store/useAppStore'
+import useWatchlistStore from '../store/useWatchlistStore'
 import { useDraftPlayers } from '../hooks/useDraftPlayers'
 import { useLiveDraft } from '../hooks/useLiveDraft'
 import { getPositionColor } from '../utils/playerHelpers'
 
-function PositionColumn({ pos, targets, players, draftedIds, pickByPlayer, store }) {
+// Watchlisted players for this position who aren't in the plan yet, and
+// haven't already been drafted by someone else. Suggestion only — adding
+// one is always an explicit click, and starring stays independent of
+// planning (a player can be both watched and planned, or just watched).
+function WatchlistSuggestions({ pos, players, targets, watchlistIds, draftedIds, onAdd }) {
+  const suggestions = useMemo(() => {
+    if (!watchlistIds.length) return []
+    const watched = new Set(watchlistIds)
+    const planned = new Set(targets.map((t) => t.playerId))
+    return players
+      .filter((p) => p.position === pos && watched.has(p.id) && !planned.has(p.id) && !draftedIds?.has(p.id))
+      .sort((a, b) => (a.adp ?? Infinity) - (b.adp ?? Infinity))
+  }, [pos, players, targets, watchlistIds, draftedIds])
+
+  if (suggestions.length === 0) return null
+
+  return (
+    <div className="mb-2 rounded border border-[var(--color-accent)]/25 bg-[var(--color-accent)]/5 p-2">
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Star size={10} className="text-[var(--color-accent)]" fill="currentColor" />
+        <span className="text-[9px] font-bold uppercase tracking-wide text-[var(--color-accent)]">
+          From your watchlist
+        </span>
+      </div>
+      <ul className="space-y-0.5">
+        {suggestions.map((p) => (
+          <li key={p.id} className="flex items-center gap-2">
+            <span className="text-xs text-[var(--color-text)] truncate flex-1">{p.name}</span>
+            <span className="text-[10px] text-[var(--color-text-faint)] tabular-nums flex-shrink-0">
+              {p.team}{p.adp != null && ` · ${Math.round(p.adp)}`}
+            </span>
+            <button
+              onClick={() => onAdd(p)}
+              className="flex-shrink-0 text-[var(--color-text-faint)] hover:text-[var(--color-accent)] transition-colors"
+              aria-label={`Add ${p.name} to plan`}
+              title="Add to plan"
+            >
+              <Plus size={13} />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function PositionColumn({ pos, targets, players, watchlistIds, draftedIds, pickByPlayer, store }) {
   const [adding, setAdding] = useState(false)
   const color = getPositionColor(pos)
   const goneCount = targets.filter((t) => draftedIds?.has(t.playerId)).length
@@ -37,6 +84,15 @@ function PositionColumn({ pos, targets, players, draftedIds, pickByPlayer, store
           <Plus size={14} />
         </button>
       </div>
+
+      <WatchlistSuggestions
+        pos={pos}
+        players={players}
+        targets={targets}
+        watchlistIds={watchlistIds}
+        draftedIds={draftedIds}
+        onAdd={(p) => store.addTarget(p)}
+      />
 
       {adding && (
         <div className="mb-2">
@@ -91,6 +147,7 @@ export default function MockDraft() {
   const store = useMockDraftStore()
   const { targets } = store
   const { players, loading } = useDraftPlayers()
+  const watchlistIds = useWatchlistStore((s) => s.ids)
   const leagueId = useAppStore((s) => s.leagueId)
   const sleeperUserId = useAppStore((s) => s.sleeperUserId)
   const { draftedIds, pickByPlayer, isLive } = useLiveDraft(leagueId, sleeperUserId)
@@ -152,6 +209,7 @@ export default function MockDraft() {
                 pos={pos}
                 targets={targets[pos] ?? []}
                 players={players}
+                watchlistIds={watchlistIds}
                 draftedIds={draftedIds}
                 pickByPlayer={pickByPlayer}
                 store={store}
