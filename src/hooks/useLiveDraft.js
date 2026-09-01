@@ -8,6 +8,9 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { getLeagueDrafts, getDraftPicksLive, getDraft, getLeagueUsers } from '../services/sleeperService'
 
 const POLL_MS = 10_000
+// Slower cadence before the draft goes live — this is what catches Sleeper
+// flipping pre_draft -> drafting without the user having to reload the page.
+const PRE_DRAFT_POLL_MS = 30_000
 
 /**
  * Overall pick number for a draft slot in a given round.
@@ -28,29 +31,47 @@ export function nextPickFor(slot, fromPick, teams, rounds, isSnake) {
   return null
 }
 
-export function useLiveDraft(leagueId, userId) {
+/**
+ * @param {string} leagueId
+ * @param {string} userId
+ * @param {{ draftIdOverride?: string }} [options] - draftIdOverride points
+ *   the sync at an arbitrary Sleeper draft_id (e.g. a mock draft for
+ *   practice) instead of deriving one from leagueId. Used for practice mode.
+ */
+export function useLiveDraft(leagueId, userId, options = {}) {
+  const { draftIdOverride } = options
   const [draft, setDraft] = useState(null)
   const [picks, setPicks] = useState([])
   const [users, setUsers] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const timerRef = useRef(null)
+  const refreshingRef = useRef(false)
 
-  // Resolve which draft to follow: an in-progress one wins, else the newest.
-  const findDraft = useCallback(async () => {
+  // Resolve which draft to follow: an explicit override wins outright;
+  // otherwise an in-progress league draft wins, else the newest.
+  const findDraft = useCallback(async (force = false) => {
+    if (draftIdOverride) return { draft_id: draftIdOverride }
     if (!leagueId) return null
-    const drafts = await getLeagueDrafts(leagueId)
+    const drafts = await getLeagueDrafts(leagueId, force)
     if (!drafts?.length) return null
     return (
       drafts.find((d) => d.status === 'drafting') ??
       [...drafts].sort((a, b) => (b.start_time ?? 0) - (a.start_time ?? 0))[0]
     )
-  }, [leagueId])
+  }, [leagueId, draftIdOverride])
 
-  const refresh = useCallback(async () => {
-    if (!leagueId) return
+  // force also bypasses the league-drafts cache (via findDraft) — used for
+  // the slower pre-draft poll, where noticing a draft going live sooner than
+  // the next natural cache expiry is the entire point of polling at all.
+  const refresh = useCallback(async (force = false) => {
+    if (!leagueId && !draftIdOverride) return
+    // Guard against overlapping polls if a request runs long — a second
+    // tick firing mid-request would otherwise race the first's state update.
+    if (refreshingRef.current) return
+    refreshingRef.current = true
     try {
-      const d = await findDraft()
+      const d = await findDraft(force)
       if (!d) { setDraft(null); setPicks([]); return }
       // Re-read the draft itself so status flips (pre_draft -> drafting -> complete)
       // are picked up mid-session, not just at mount.
@@ -60,8 +81,10 @@ export function useLiveDraft(leagueId, userId) {
       setError(null)
     } catch (err) {
       setError(err.message)
+    } finally {
+      refreshingRef.current = false
     }
-  }, [leagueId, findDraft])
+  }, [leagueId, draftIdOverride, findDraft])
 
   useEffect(() => {
     let cancelled = false
@@ -70,23 +93,30 @@ export function useLiveDraft(leagueId, userId) {
     return () => { cancelled = true }
   }, [refresh])
 
-  // League members, so a drafted player can name who took them.
+  // League members, so a drafted player can name who took them. Skipped in
+  // practice mode — a mock draft's picks come from Sleeper's bot pool, not
+  // this league's roster, so there's nothing real to resolve names against.
   useEffect(() => {
-    if (!leagueId) return
+    if (!leagueId || draftIdOverride) return
     let cancelled = false
     getLeagueUsers(leagueId)
       .then((u) => { if (!cancelled) setUsers(u ?? []) })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [leagueId])
+  }, [leagueId, draftIdOverride])
 
   const isLive = draft?.status === 'drafting'
 
-  // Only poll while the draft is actually running.
+  // Keep polling even before the draft is live, just slower — otherwise the
+  // one-time mount fetch is the only chance to ever notice the draft start,
+  // and the app sits on "Pre-draft" until the user manually reloads.
   useEffect(() => {
     clearInterval(timerRef.current)
-    if (!isLive) return
-    timerRef.current = setInterval(refresh, POLL_MS)
+    if (isLive) {
+      timerRef.current = setInterval(() => refresh(false), POLL_MS)
+    } else {
+      timerRef.current = setInterval(() => refresh(true), PRE_DRAFT_POLL_MS)
+    }
     return () => clearInterval(timerRef.current)
   }, [isLive, refresh])
 

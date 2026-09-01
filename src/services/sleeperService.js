@@ -50,8 +50,19 @@ export function getLeagueMatchups(leagueId, week) {
 
 // ── Drafts ────────────────────────────────────────────────────────────────────
 
-export function getLeagueDrafts(leagueId) {
-  return cached(KEYS.drafts(leagueId), TTL.ROSTER, () => sleeperApi.getDrafts(leagueId))
+// force bypasses the 5-minute cache — used while polling pre-draft, where a
+// draft that didn't exist yet (or hadn't started) needs to be noticed sooner
+// than the next natural cache expiry.
+export function getLeagueDrafts(leagueId, force = false) {
+  const key = KEYS.drafts(leagueId)
+  if (!force) {
+    const hit = cacheGet(key)
+    if (hit) return Promise.resolve(hit)
+  }
+  return sleeperApi.getDrafts(leagueId).then((data) => {
+    cacheSet(key, data, TTL.ROSTER)
+    return data
+  })
 }
 
 export function getDraftPicks(draftId) {

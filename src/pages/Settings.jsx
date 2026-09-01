@@ -4,7 +4,6 @@ import { CheckCircle, AlertCircle, ChevronDown, Eye, EyeOff, Loader2 } from 'luc
 import useAppStore from '../store/useAppStore'
 import { useSleeperUser } from '../hooks/useSleeperUser'
 import { useSleeperLeague } from '../hooks/useSleeperLeague'
-import { useLeagueScoring } from '../hooks/useLeagueScoring'
 import ScoringProfileManager from '../components/eval/ScoringProfileManager'
 
 const CURRENT_SEASON = import.meta.env.VITE_DEFAULT_SEASON || '2026'
@@ -56,7 +55,6 @@ export default function Settings() {
   const store = useAppStore()
   const { fetchUser, loading: userLoading } = useSleeperUser()
   const { fetchLeagues, loading: leagueLoading } = useSleeperLeague()
-  const { syncFromLeague } = useLeagueScoring()
 
   // Form state
   const [username, setUsername] = useState(store.sleeperUsername || '')

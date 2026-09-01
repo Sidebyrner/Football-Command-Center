@@ -18,6 +18,11 @@ const useAppStore = create(
       // API keys
       oddsApiKey: import.meta.env.VITE_ODDS_API_KEY || '',
 
+      // Practice mode: an arbitrary Sleeper draft_id (e.g. a mock draft) to
+      // follow instead of the real league's draft. Independent of leagueId
+      // so switching back to the real draft is always a single clear action.
+      practiceDraftId: null,
+
       // Setup state
       isConfigured: false,
 
@@ -31,6 +36,7 @@ const useAppStore = create(
       setCurrentWeek: (week) => set({ currentWeek: week }),
       setOddsApiKey: (key) => set({ oddsApiKey: key }),
       setIsConfigured: (val) => set({ isConfigured: val }),
+      setPracticeDraftId: (id) => set({ practiceDraftId: id }),
 
       saveSettings: ({ sleeperUserId, leagueId, leagueName, currentWeek, oddsApiKey, season }) => {
         set({
