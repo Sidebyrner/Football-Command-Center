@@ -160,15 +160,42 @@ export const NEWS_SOURCES = [
 ]
 
 /**
+ * Find the first relevant player whose full name appears in the given text.
+ * Deliberately narrow: only matches against a small, caller-supplied list
+ * (the user's own watchlist + draft plan targets) rather than the entire
+ * player universe — a full-name substring match against a few dozen known
+ * names is safe and cheap; the same match against thousands of players
+ * (many sharing a last name) would produce false positives and doesn't
+ * serve any real need here (nothing currently asks "which of every NFL
+ * player is this article about").
+ * @param {string} text
+ * @param {{ id: string, name: string }[]} relevantPlayers
+ * @returns {{ id: string, name: string } | null}
+ */
+function matchRelevantPlayer(text, relevantPlayers) {
+  if (!text || !relevantPlayers?.length) return null
+  const hay = text.toLowerCase()
+  for (const p of relevantPlayers) {
+    if (p.name && hay.includes(p.name.toLowerCase())) return p
+  }
+  return null
+}
+
+/**
  * Fetch and normalize one server-side feed alias into ResearchItem[].
  * @param {string} feedAlias - a key from server/src/routes/news.js's FEEDS map
  *   (e.g. 'espn_nfl'), NOT an arbitrary URL — the server only relays known,
  *   allowlisted feeds, so this can never be pointed at anything else.
+ * @param {{ id: string, name: string }[]} [relevantPlayers] - the user's
+ *   watchlist + draft plan targets. When an article's title/body mentions
+ *   one of these by full name, the imported item is tagged with that
+ *   player's id/name — the same fields selectPlayerItems/buildResearchIndex
+ *   already use for manually-entered items (src/store/useResearchStore.js).
  * @returns {Promise<ResearchItem[]>}
  * @throws {Error} if the proxy isn't configured, is unreachable, or the
  *   server rejected the request — with a message specific to which.
  */
-export async function fetchRSSFeed(feedAlias) {
+export async function fetchRSSFeed(feedAlias, relevantPlayers = []) {
   if (!hasApiProxy) throw new Error('No API proxy configured.')
 
   let res
@@ -189,15 +216,18 @@ export async function fetchRSSFeed(feedAlias) {
   }
 
   const body = await res.json()
-  return (body.items ?? []).map((entry) =>
-    createItem({
+  return (body.items ?? []).map((entry) => {
+    const match = matchRelevantPlayer(`${entry.title ?? ''} ${entry.body ?? ''}`, relevantPlayers)
+    return createItem({
       title: entry.title,
       body: entry.body,
       url: entry.url,
       source: 'rss',
       sourceId: entry.sourceId,
       publishedAt: entry.publishedAt,
+      playerId: match?.id ?? null,
+      playerName: match?.name ?? null,
       tags: [],
     })
-  )
+  })
 }

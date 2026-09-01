@@ -17,7 +17,12 @@ export function useNewsImport() {
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
 
-  const importNews = useCallback(async () => {
+  /**
+   * @param {{ id: string, name: string }[]} [relevantPlayers] - the user's
+   *   watchlist + draft plan targets, used to tag imported articles that
+   *   mention one of them (see fetchRSSFeed in researchAdapters.js).
+   */
+  const importNews = useCallback(async (relevantPlayers = []) => {
     setLoading(true)
     setError(null)
     setNotice(null)
@@ -28,7 +33,7 @@ export function useNewsImport() {
       }
 
       const known = new Set(items.filter((i) => i.source === 'rss').map((i) => i.sourceId))
-      const results = await Promise.allSettled(NEWS_SOURCES.map((s) => fetchRSSFeed(s.alias)))
+      const results = await Promise.allSettled(NEWS_SOURCES.map((s) => fetchRSSFeed(s.alias, relevantPlayers)))
 
       let fetchedTotal = 0
       let addedTotal = 0

@@ -4,6 +4,7 @@ import healthRoutes from './routes/health.js'
 import oddsRoutes from './routes/odds.js'
 import newsRoutes from './routes/news.js'
 import planRoutes from './routes/plan.js'
+import aiRoutes from './routes/ai.js'
 
 const PORT = Number(process.env.PORT) || 8080
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
@@ -24,6 +25,7 @@ await app.register(healthRoutes)
 await app.register(oddsRoutes)
 await app.register(newsRoutes)
 await app.register(planRoutes)
+await app.register(aiRoutes)
 
 app.setErrorHandler((err, req, reply) => {
   app.log.error(err)
