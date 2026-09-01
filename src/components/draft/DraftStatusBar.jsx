@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Radio, CheckCircle, Clock, AlertTriangle } from 'lucide-react'
 
 function Stat({ label, value, tone }) {
@@ -10,6 +11,28 @@ function Stat({ label, value, tone }) {
 }
 
 /**
+ * Ticks down between polls from pickStartedAt (a client-side approximation —
+ * see useLiveDraft.js). Purely local display state; never drives a fetch.
+ */
+function usePickClock(pickStartedAt, pickTimerSeconds) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    if (!pickTimerSeconds) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [pickTimerSeconds])
+  if (!pickTimerSeconds) return null
+  const elapsed = Math.floor((now - pickStartedAt) / 1000)
+  return Math.max(0, pickTimerSeconds - elapsed)
+}
+
+function formatClock(seconds) {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
+/**
  * Live draft state. Only rendered when a draft exists for the league.
  * The headline number is "picks until you're up" — the one thing you need
  * mid-draft that Sleeper's own board does not put next to your research.
@@ -18,7 +41,10 @@ export default function DraftStatusBar({ draft }) {
   const {
     isLive, draft: info, error, currentPick, currentRound, teams,
     picksUntilMyTurn, myNextPick, userSlot, picks,
+    onClockName, pickTimerSeconds, pickStartedAt,
   } = draft
+
+  const clockRemaining = usePickClock(pickStartedAt, pickTimerSeconds)
 
   if (error) {
     return (
@@ -61,6 +87,14 @@ export default function DraftStatusBar({ draft }) {
       {isLive && (
         <>
           <Stat label="Pick" value={`${currentPick}${teams ? ` · Rd ${currentRound}` : ''}`} />
+          {onClockName && <Stat label="On the clock" value={onClockName} />}
+          {clockRemaining != null && (
+            <Stat
+              label="Clock"
+              value={formatClock(clockRemaining)}
+              tone={clockRemaining <= 30 ? 'text-[var(--color-sit)]' : clockRemaining <= 60 ? 'text-[var(--color-caution)]' : undefined}
+            />
+          )}
           {userSlot && <Stat label="Your slot" value={userSlot} />}
           {picksUntilMyTurn != null && (
             <Stat

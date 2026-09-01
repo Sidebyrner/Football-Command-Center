@@ -31,6 +31,14 @@ export function nextPickFor(slot, fromPick, teams, rounds, isSnake) {
   return null
 }
 
+/** Inverse of pickNumberFor: which slot is on the clock for a given overall pick. */
+export function slotForPick(pickNo, teams, isSnake) {
+  if (!teams) return null
+  const round = Math.floor((pickNo - 1) / teams) + 1
+  const posInRound = ((pickNo - 1) % teams) + 1
+  return isSnake && round % 2 === 0 ? teams + 1 - posInRound : posInRound
+}
+
 /**
  * @param {string} leagueId
  * @param {string} userId
@@ -47,6 +55,14 @@ export function useLiveDraft(leagueId, userId, options = {}) {
   const [loading, setLoading] = useState(false)
   const timerRef = useRef(null)
   const refreshingRef = useRef(false)
+  // Client-side proxy for "when did the current pick start" — Sleeper's picks
+  // list has no timestamp for the in-progress pick, only completed ones. This
+  // resets whenever the picks count changes, so it's accurate to within one
+  // poll interval, not to the second. On a page load mid-draft it starts from
+  // load time rather than the pick's true start, which is the one case this
+  // approximation can't do better than.
+  const picksLengthRef = useRef(0)
+  const pickStartedAtRef = useRef(Date.now())
 
   // Resolve which draft to follow: an explicit override wins outright;
   // otherwise an in-progress league draft wins, else the newest.
@@ -77,7 +93,12 @@ export function useLiveDraft(leagueId, userId, options = {}) {
       // are picked up mid-session, not just at mount.
       const fresh = await getDraft(d.draft_id).catch(() => d)
       setDraft(fresh ?? d)
-      setPicks((await getDraftPicksLive(d.draft_id)) ?? [])
+      const newPicks = (await getDraftPicksLive(d.draft_id)) ?? []
+      if (newPicks.length !== picksLengthRef.current) {
+        picksLengthRef.current = newPicks.length
+        pickStartedAtRef.current = Date.now()
+      }
+      setPicks(newPicks)
       setError(null)
     } catch (err) {
       setError(err.message)
@@ -142,6 +163,18 @@ export function useLiveDraft(leagueId, userId, options = {}) {
   const userSlot = userId ? draft?.draft_order?.[userId] ?? null : null
   const myNextPick = nextPickFor(userSlot, currentPick, teams, rounds, isSnake)
 
+  // Who's on the clock right now, by name if we have it.
+  const currentSlot = isLive ? slotForPick(currentPick, teams, isSnake) : null
+  let onClockName = null
+  if (currentSlot != null) {
+    const slotToUserId = {}
+    for (const [uid, slot] of Object.entries(draft?.draft_order ?? {})) slotToUserId[slot] = uid
+    const onClockUserId = slotToUserId[currentSlot]
+    onClockName = (onClockUserId && userNames[onClockUserId]) || `Slot ${currentSlot}`
+  }
+
+  const pickTimerSeconds = draft?.settings?.pick_timer || null
+
   return {
     draft,
     picks,
@@ -157,6 +190,10 @@ export function useLiveDraft(leagueId, userId, options = {}) {
     userSlot,
     myNextPick,
     picksUntilMyTurn: myNextPick != null ? myNextPick - currentPick : null,
+    currentSlot,
+    onClockName,
+    pickTimerSeconds,
+    pickStartedAt: pickStartedAtRef.current,
     refresh,
   }
 }
