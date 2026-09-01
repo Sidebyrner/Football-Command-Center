@@ -1,4 +1,4 @@
-// Imports a server-relayed news feed into the research store.
+// Imports server-relayed news feeds into the research store.
 //
 // Mirrors useLeagueScoring's shape (explicit action, loading/error state) —
 // this is a deliberate user action, not something that runs automatically,
@@ -6,7 +6,7 @@
 // them, the same principle behind removing auto-sync from Settings.
 
 import { useState, useCallback } from 'react'
-import { fetchRSSFeed } from '../utils/researchAdapters'
+import { fetchRSSFeed, NEWS_SOURCES } from '../utils/researchAdapters'
 import { hasApiProxy } from '../utils/apiBase'
 import useResearchStore from '../store/useResearchStore'
 
@@ -17,7 +17,7 @@ export function useNewsImport() {
   const [error, setError] = useState(null)
   const [notice, setNotice] = useState(null)
 
-  const importFeed = useCallback(async (feedAlias) => {
+  const importNews = useCallback(async () => {
     setLoading(true)
     setError(null)
     setNotice(null)
@@ -27,26 +27,43 @@ export function useNewsImport() {
         return 0
       }
 
-      const fetched = await fetchRSSFeed(feedAlias)
-      const known = new Set(
-        items.filter((i) => i.source === 'rss').map((i) => i.sourceId)
-      )
-      const added = fetched.filter((i) => !known.has(i.sourceId))
-      added.forEach((item) => addItem(item))
+      const known = new Set(items.filter((i) => i.source === 'rss').map((i) => i.sourceId))
+      const results = await Promise.allSettled(NEWS_SOURCES.map((s) => fetchRSSFeed(s.alias)))
 
-      if (fetched.length === 0) {
-        // fetchRSSFeed degrades a network/server error to [] by design (a
-        // dead proxy must never break this page) — so this could mean the
-        // feed genuinely had nothing, OR the request to the proxy failed.
-        // Those are different problems; say so rather than picking one.
-        setError('No articles came back — either the feed is empty or the server request failed. Check that the container is running and reachable.')
-      } else if (added.length === 0) {
-        // The real bug this replaces: checking only fetched.length === 0
+      let fetchedTotal = 0
+      let addedTotal = 0
+      const failed = []
+
+      results.forEach((result, i) => {
+        const { label } = NEWS_SOURCES[i]
+        if (result.status === 'rejected') {
+          failed.push(`${label} (${result.reason.message})`)
+          return
+        }
+        const fetched = result.value
+        fetchedTotal += fetched.length
+        for (const item of fetched) {
+          if (known.has(item.sourceId)) continue
+          known.add(item.sourceId)
+          addItem(item)
+          addedTotal++
+        }
+      })
+
+      if (failed.length === NEWS_SOURCES.length) {
+        // Every source failed — this is the case that used to be
+        // indistinguishable from "the feeds are just empty."
+        setError(`Couldn't reach any news source — ${failed.join('; ')}. Check that the server container is running and reachable.`)
+      } else if (failed.length > 0) {
+        const addedNote = addedTotal > 0 ? `${addedTotal} new article${addedTotal === 1 ? '' : 's'} added` : 'nothing new'
+        setNotice(`${addedNote}. ${failed.length} source${failed.length > 1 ? 's' : ''} unavailable — ${failed.join('; ')}.`)
+      } else if (addedTotal === 0) {
+        // The original bug this replaces: checking only fetchedTotal === 0
         // meant a feed full of already-imported articles looked identical
         // to "nothing happened," with no way to tell the difference.
-        setNotice(`Checked ${fetched.length} article${fetched.length > 1 ? 's' : ''} — already up to date, nothing new.`)
+        setNotice(`Checked ${fetchedTotal} article${fetchedTotal === 1 ? '' : 's'} across ${NEWS_SOURCES.length} sources — already up to date, nothing new.`)
       }
-      return added.length
+      return addedTotal
     } catch (err) {
       setError(err.message)
       return 0
@@ -55,5 +72,5 @@ export function useNewsImport() {
     }
   }, [items, addItem])
 
-  return { importFeed, loading, error, notice, hasApiProxy }
+  return { importNews, loading, error, notice, hasApiProxy }
 }

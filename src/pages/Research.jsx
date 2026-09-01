@@ -11,12 +11,12 @@ const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']
 
 export default function Research() {
   const { items, addItem, pinItem, archiveItem, deleteItem, loadSampleData } = useResearchStore()
-  const { importFeed, loading: importing, error: importError, notice: importNotice, hasApiProxy } = useNewsImport()
+  const { importNews, loading: importing, error: importError, notice: importNotice, hasApiProxy } = useNewsImport()
   const [importMsg, setImportMsg] = useState(null)
 
   async function handleImportNews() {
     setImportMsg(null)
-    const added = await importFeed('espn_nfl')
+    const added = await importNews()
     if (added > 0) setImportMsg(`Imported ${added} new item${added > 1 ? 's' : ''}.`)
   }
 
@@ -117,7 +117,7 @@ export default function Research() {
         <button
           onClick={handleImportNews}
           disabled={importing}
-          title={hasApiProxy ? 'Import latest NFL news' : 'No API proxy configured — see Settings'}
+          title={hasApiProxy ? 'Import latest NFL news from ESPN and Pro Football Talk' : 'No API proxy configured — see Settings'}
           className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors disabled:opacity-50"
         >
           {importing ? <Loader2 size={14} className="animate-spin" /> : <Rss size={14} />}
