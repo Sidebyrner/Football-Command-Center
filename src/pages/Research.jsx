@@ -3,7 +3,11 @@ import { Plus, BookOpen, Archive, Rss, Loader2 } from 'lucide-react'
 import Header from '../components/layout/Header'
 import ResearchCard from '../components/research/ResearchCard'
 import ResearchItemForm from '../components/research/ResearchItemForm'
+import NewsSummaryPanel from '../components/research/NewsSummaryPanel'
 import useResearchStore from '../store/useResearchStore'
+import useWatchlistStore from '../store/useWatchlistStore'
+import useMockDraftStore from '../store/useMockDraftStore'
+import { useDraftPlayers } from '../hooks/useDraftPlayers'
 import { useNewsImport } from '../hooks/useNewsImport'
 import { TAGS } from '../utils/researchTags'
 
@@ -14,9 +18,33 @@ export default function Research() {
   const { importNews, loading: importing, error: importError, notice: importNotice, hasApiProxy } = useNewsImport()
   const [importMsg, setImportMsg] = useState(null)
 
+  // Who imported news should be checked against — the union of watchlisted
+  // players and draft plan targets. Kept narrow on purpose (see
+  // fetchRSSFeed's matchRelevantPlayer): this isn't "tag every article for
+  // every NFL player," it's "tell me about players I'm actually tracking."
+  const { players } = useDraftPlayers()
+  const watchlistIds = useWatchlistStore((s) => s.ids)
+  const planTargets = useMockDraftStore((s) => s.targets)
+  const relevantPlayers = useMemo(() => {
+    const map = new Map()
+    const playersById = {}
+    for (const p of players) playersById[p.id] = p
+    for (const id of watchlistIds) {
+      const p = playersById[id]
+      if (p) map.set(id, { id, name: p.name })
+    }
+    for (const list of Object.values(planTargets)) {
+      for (const t of list) {
+        if (t.playerId && t.playerName) map.set(t.playerId, { id: t.playerId, name: t.playerName })
+      }
+    }
+    return [...map.values()]
+  }, [players, watchlistIds, planTargets])
+  const relevantPlayerIds = useMemo(() => new Set(relevantPlayers.map((p) => p.id)), [relevantPlayers])
+
   async function handleImportNews() {
     setImportMsg(null)
-    const added = await importNews()
+    const added = await importNews(relevantPlayers)
     if (added > 0) setImportMsg(`Imported ${added} new item${added > 1 ? 's' : ''}.`)
   }
 
@@ -61,6 +89,8 @@ export default function Research() {
   return (
     <div className="flex flex-col h-screen">
       <Header title="Research" />
+
+      <NewsSummaryPanel items={items} relevantPlayerIds={relevantPlayerIds} />
 
       {/* Filter bar */}
       <div className="flex-shrink-0 px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface)] flex flex-wrap items-center gap-2">

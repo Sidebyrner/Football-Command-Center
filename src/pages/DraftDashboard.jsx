@@ -10,6 +10,7 @@ import PracticeDraftControl from '../components/draft/PracticeDraftControl'
 import MyRosterPanel from '../components/draft/MyRosterPanel'
 import PickFeed from '../components/draft/PickFeed'
 import ScarcityIndicator from '../components/draft/ScarcityIndicator'
+import StrategyBriefPanel from '../components/draft/StrategyBriefPanel'
 import { useDraftPlayers } from '../hooks/useDraftPlayers'
 import { useLiveDraft } from '../hooks/useLiveDraft'
 import { useCohorts } from '../hooks/useCohorts'
@@ -105,6 +106,39 @@ export default function DraftDashboard() {
     return deltas
   }, [players, scores])
 
+  // Real-data payload for the strategy brief — capped, not the whole board.
+  // A local model has a much smaller usable context than sending all ~1,500
+  // players would need, and "the top of each position plus anyone you're
+  // watching" is what a strategy conversation actually needs, not a full
+  // dump. Only players with a real computed score are ever included.
+  const BRIEF_TOP_N = 8
+  const briefPlayers = useMemo(() => {
+    const byPosition = {}
+    for (const p of players) (byPosition[p.position] ??= []).push(p)
+
+    const selected = new Map()
+    for (const list of Object.values(byPosition)) {
+      const scored = list
+        .filter((p) => scores[p.id]?.available && !draft.draftedIds.has(p.id))
+        .sort((a, b) => scores[b.id].score - scores[a.id].score)
+        .slice(0, BRIEF_TOP_N)
+      for (const p of scored) selected.set(p.id, p)
+      for (const p of list) {
+        if (watchlist.has(p.id) && scores[p.id]?.available) selected.set(p.id, p)
+      }
+    }
+
+    return [...selected.values()].map((p) => ({
+      name: p.name,
+      position: p.position,
+      score: scores[p.id].score,
+      tierLabel: scores[p.id].tierLabel,
+      adp: p.adp ?? null,
+      valueDelta: valueDeltas[p.id] ?? null,
+      drafted: draft.draftedIds.has(p.id),
+    }))
+  }, [players, scores, valueDeltas, draft.draftedIds, watchlist])
+
   const allTeams = useMemo(() => {
     return [...new Set(players.map((p) => p.team).filter(Boolean))].sort()
   }, [players])
@@ -157,6 +191,8 @@ export default function DraftDashboard() {
       <DraftStatusBar draft={draft} />
 
       <MyRosterPanel picks={draft.picks} userId={sleeperUserId} playersById={playersById} />
+
+      <StrategyBriefPanel players={briefPlayers} />
 
       {draft.isLive && (
         <>

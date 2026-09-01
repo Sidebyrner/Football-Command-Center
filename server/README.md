@@ -16,6 +16,8 @@ plan is a single JSON file on disk (see "Why not SQLite" below).
 | `GET /api/plan` | Returns `{ targets, updatedAt }` — the last plan written. No auth (matches odds/news) |
 | `PUT /api/plan` | Write-through target for the client's draft plan. Whole-document overwrite, no auth |
 | `GET /plan` | Human-facing read-only HTML view — the page you actually open on your phone. Gated by `?token=` when `PLAN_AUTH_TOKEN` is set |
+| `POST /api/ai/news-summary` | Relays a grounded summarization prompt to a local LM Studio server (`lib/lmstudio.js`). Body: `{ articles: [...] }` — the client sends already-fetched, already-player-tagged article text; this route never looks anything up itself, since research items live only in the client's `localStorage` |
+| `POST /api/ai/strategy-brief` | Same relay, different prompt (`lib/prompts.js`). Body: `{ players: [...] }` — the client's own already-computed scores/ADP/value-deltas, narrated, never recomputed here |
 
 ## Environment
 
@@ -26,6 +28,9 @@ plan is a single JSON file on disk (see "Why not SQLite" below).
 | `ODDS_API_KEY` | for `/api/odds*` | Set in Portainer's env panel, never in compose text or git |
 | `ALLOWED_ORIGINS` | yes, for any browser client | Comma-separated. **Unset = no origin is allowed** (fails closed, not open) |
 | `PLAN_AUTH_TOKEN` | recommended once you rely on `/plan` | Gates only the human-facing HTML view, not the JSON API. Unset means anything that can reach this server can read your draft plan — the server logs a warning at boot if it's unset. Pick a long random string; bookmark `/plan?token=<it>` on your phone |
+| `LMSTUDIO_BASE_URL` | for `/api/ai/*` | E.g. `http://hermes-lmstudio:1234` — prefer the tailnet MagicDNS name over a bare IP, same reasoning as everywhere else in this deploy. Unset = both AI routes return 503, nothing else is affected |
+| `LMSTUDIO_MODEL` | for `/api/ai/*` | Must match whatever model id is actually loaded in LM Studio |
+| `LMSTUDIO_TIMEOUT_MS` | no (default 60000) | Local inference on consumer hardware is slower than a REST lookup — this is intentionally much longer than any other timeout in this server |
 
 ## Why the plan is a flat file, not SQLite
 
