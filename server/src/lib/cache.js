@@ -23,10 +23,6 @@ export function cacheGet(key) {
   return entry.data
 }
 
-export function cacheClear(key) {
-  store.delete(key)
-}
-
 // Mirrors src/utils/cache.js TTL values by intent, not by import — the server
 // and client are separate deployables and shouldn't share a module boundary
 // for a handful of constants.
