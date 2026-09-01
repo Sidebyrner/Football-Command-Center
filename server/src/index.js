@@ -3,6 +3,7 @@ import cors from '@fastify/cors'
 import healthRoutes from './routes/health.js'
 import oddsRoutes from './routes/odds.js'
 import newsRoutes from './routes/news.js'
+import planRoutes from './routes/plan.js'
 
 const PORT = Number(process.env.PORT) || 8080
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
@@ -22,6 +23,7 @@ await app.register(cors, {
 await app.register(healthRoutes)
 await app.register(oddsRoutes)
 await app.register(newsRoutes)
+await app.register(planRoutes)
 
 app.setErrorHandler((err, req, reply) => {
   app.log.error(err)
