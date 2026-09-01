@@ -7,6 +7,8 @@ import PlayerTable from '../components/draft/PlayerTable'
 import PlayerDrawer from '../components/draft/PlayerDrawer'
 import DraftStatusBar from '../components/draft/DraftStatusBar'
 import PracticeDraftControl from '../components/draft/PracticeDraftControl'
+import MyRosterPanel from '../components/draft/MyRosterPanel'
+import PickFeed from '../components/draft/PickFeed'
 import { useDraftPlayers } from '../hooks/useDraftPlayers'
 import { useLiveDraft } from '../hooks/useLiveDraft'
 import { useCohorts } from '../hooks/useCohorts'
@@ -106,6 +108,12 @@ export default function DraftDashboard() {
     return [...new Set(players.map((p) => p.team).filter(Boolean))].sort()
   }, [players])
 
+  const playersById = useMemo(() => {
+    const map = {}
+    for (const p of players) map[p.id] = p
+    return map
+  }, [players])
+
   const filtered = useMemo(() => {
     const q = filters.search.toLowerCase().trim()
     return players.filter((p) => {
@@ -146,6 +154,12 @@ export default function DraftDashboard() {
       )}
 
       <DraftStatusBar draft={draft} />
+
+      <MyRosterPanel picks={draft.picks} userId={sleeperUserId} playersById={playersById} />
+
+      {draft.isLive && (
+        <PickFeed picks={draft.picks} pickByPlayer={draft.pickByPlayer} playersById={playersById} />
+      )}
 
       <DraftFilters
         filters={filters}
