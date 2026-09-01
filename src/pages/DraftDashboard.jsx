@@ -9,6 +9,7 @@ import { useLiveDraft } from '../hooks/useLiveDraft'
 import { useCohorts } from '../hooks/useCohorts'
 import { usePlayerScores } from '../hooks/usePlayerScores'
 import useAppStore from '../store/useAppStore'
+import useWatchlistStore from '../store/useWatchlistStore'
 import useResearchStore, { buildResearchIndex } from '../store/useResearchStore'
 
 const DEFAULT_FILTERS = {
@@ -22,20 +23,6 @@ const DEFAULT_FILTERS = {
 }
 
 const DEFAULT_SORT = { col: 'position', dir: 'asc' }
-
-function loadWatchlist() {
-  try {
-    return new Set(JSON.parse(localStorage.getItem('fcc-draft-watchlist') || '[]'))
-  } catch {
-    return new Set()
-  }
-}
-
-function saveWatchlist(set) {
-  try {
-    localStorage.setItem('fcc-draft-watchlist', JSON.stringify([...set]))
-  } catch {}
-}
 
 function matchesInjuryFilter(injuryStatus, filter) {
   if (!filter) return true
@@ -56,7 +43,11 @@ export default function DraftDashboard() {
   const { scores, loading: scoring } = usePlayerScores(players, cohorts)
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [sort, setSort] = useState(DEFAULT_SORT)
-  const [watchlist, setWatchlist] = useState(loadWatchlist)
+  const watchlistIds = useWatchlistStore((s) => s.ids)
+  const toggleWatchlistId = useWatchlistStore((s) => s.toggle)
+  // PlayerTable/PlayerDrawer expect a Set (fast .has() lookups on every row);
+  // the store keeps a plain array so it serializes cleanly to localStorage.
+  const watchlist = useMemo(() => new Set(watchlistIds), [watchlistIds])
   const [selectedPlayer, setSelectedPlayer] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -70,13 +61,7 @@ export default function DraftDashboard() {
   }
 
   function toggleWatch(playerId) {
-    setWatchlist((prev) => {
-      const next = new Set(prev)
-      if (next.has(playerId)) next.delete(playerId)
-      else next.add(playerId)
-      saveWatchlist(next)
-      return next
-    })
+    toggleWatchlistId(playerId)
   }
 
   // Positional-rank delta between consensus ADP and our scoring model.
