@@ -9,6 +9,7 @@ import DraftStatusBar from '../components/draft/DraftStatusBar'
 import PracticeDraftControl from '../components/draft/PracticeDraftControl'
 import MyRosterPanel from '../components/draft/MyRosterPanel'
 import PickFeed from '../components/draft/PickFeed'
+import ScarcityIndicator from '../components/draft/ScarcityIndicator'
 import { useDraftPlayers } from '../hooks/useDraftPlayers'
 import { useLiveDraft } from '../hooks/useLiveDraft'
 import { useCohorts } from '../hooks/useCohorts'
@@ -158,7 +159,10 @@ export default function DraftDashboard() {
       <MyRosterPanel picks={draft.picks} userId={sleeperUserId} playersById={playersById} />
 
       {draft.isLive && (
-        <PickFeed picks={draft.picks} pickByPlayer={draft.pickByPlayer} playersById={playersById} />
+        <>
+          <PickFeed picks={draft.picks} pickByPlayer={draft.pickByPlayer} playersById={playersById} />
+          <ScarcityIndicator players={players} scores={scores} draftedIds={draft.draftedIds} />
+        </>
       )}
 
       <DraftFilters

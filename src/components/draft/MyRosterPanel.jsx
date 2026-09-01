@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
-import { ChevronDown, ChevronUp, Users } from 'lucide-react'
+import { ChevronDown, ChevronUp, Users, AlertTriangle } from 'lucide-react'
 import { getPositionColor } from '../../utils/playerHelpers'
+
+const BYE_COLLISION_THRESHOLD = 3
 
 const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']
 
@@ -28,6 +30,21 @@ export default function MyRosterPanel({ picks, userId, playersById }) {
       ;(grouped[pos] ??= []).push(pick)
     }
     return grouped
+  }, [myPicks])
+
+  // Byes cross position lines (a WR and a RB can share a bye), so this counts
+  // across the whole roster, not per position group above.
+  const byeCollisions = useMemo(() => {
+    const counts = {}
+    for (const pick of myPicks) {
+      const bye = pick.player?.bye
+      if (bye == null) continue
+      counts[bye] = (counts[bye] ?? 0) + 1
+    }
+    return Object.entries(counts)
+      .filter(([, count]) => count >= BYE_COLLISION_THRESHOLD)
+      .map(([week, count]) => ({ week: Number(week), count }))
+      .sort((a, b) => a.week - b.week)
   }, [myPicks])
 
   if (myPicks.length === 0) return null
@@ -60,6 +77,15 @@ export default function MyRosterPanel({ picks, userId, playersById }) {
           {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
         </span>
       </button>
+
+      {byeCollisions.length > 0 && (
+        <div className="flex items-center gap-1.5 px-4 pb-2 text-[10px] text-[var(--color-caution)]">
+          <AlertTriangle size={10} className="flex-shrink-0" />
+          {byeCollisions.map(({ week, count }) => (
+            <span key={week}>{count} players on bye week {week}</span>
+          ))}
+        </div>
+      )}
 
       {expanded && (
         <div className="px-4 pb-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-2">
