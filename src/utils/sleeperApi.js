@@ -1,9 +1,24 @@
 const BASE = 'https://api.sleeper.app/v1'
+const TIMEOUT_MS = 8_000
 
-async function get(path) {
-  const res = await fetch(`${BASE}${path}`)
-  if (!res.ok) throw new Error(`Sleeper API error ${res.status}: ${path}`)
-  return res.json()
+// A hung/slow request during a live draft is worse than a failed one — at
+// least a failure surfaces and can retry. One retry, short timeout: this is
+// a personal draft-day tool polling every few seconds, not a general-purpose
+// client that needs backoff tuning.
+async function get(path, { retries = 1 } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+    try {
+      const res = await fetch(`${BASE}${path}`, { signal: controller.signal })
+      if (!res.ok) throw new Error(`Sleeper API error ${res.status}: ${path}`)
+      return await res.json()
+    } catch (err) {
+      if (attempt >= retries) throw err
+    } finally {
+      clearTimeout(timer)
+    }
+  }
 }
 
 export const sleeperApi = {

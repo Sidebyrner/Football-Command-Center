@@ -1,15 +1,19 @@
 import { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
+import { AlertTriangle } from 'lucide-react'
 import Header from '../components/layout/Header'
 import DraftFilters from '../components/draft/DraftFilters'
 import PlayerTable from '../components/draft/PlayerTable'
 import PlayerDrawer from '../components/draft/PlayerDrawer'
 import DraftStatusBar from '../components/draft/DraftStatusBar'
+import PracticeDraftControl from '../components/draft/PracticeDraftControl'
 import { useDraftPlayers } from '../hooks/useDraftPlayers'
 import { useLiveDraft } from '../hooks/useLiveDraft'
 import { useCohorts } from '../hooks/useCohorts'
 import { usePlayerScores } from '../hooks/usePlayerScores'
 import useAppStore from '../store/useAppStore'
 import useWatchlistStore from '../store/useWatchlistStore'
+import useScoringProfileStore from '../store/useScoringProfileStore'
 import useResearchStore, { buildResearchIndex } from '../store/useResearchStore'
 
 const DEFAULT_FILTERS = {
@@ -38,13 +42,15 @@ export default function DraftDashboard() {
   const { players, loading, error, marketError, lastUpdated, refresh } = useDraftPlayers()
   const leagueId = useAppStore((s) => s.leagueId)
   const sleeperUserId = useAppStore((s) => s.sleeperUserId)
-  const draft = useLiveDraft(leagueId, sleeperUserId)
+  const practiceDraftId = useAppStore((s) => s.practiceDraftId)
+  const draft = useLiveDraft(leagueId, sleeperUserId, { draftIdOverride: practiceDraftId })
   const { cohorts } = useCohorts()
   const { scores, loading: scoring } = usePlayerScores(players, cohorts)
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [sort, setSort] = useState(DEFAULT_SORT)
   const watchlistIds = useWatchlistStore((s) => s.ids)
   const toggleWatchlistId = useWatchlistStore((s) => s.toggle)
+  const isDefaultScoring = useScoringProfileStore((s) => s.activeProfile.id === 'default-2026')
   // PlayerTable/PlayerDrawer expect a Set (fast .has() lookups on every row);
   // the store keeps a plain array so it serializes cleanly to localStorage.
   const watchlist = useMemo(() => new Set(watchlistIds), [watchlistIds])
@@ -56,7 +62,7 @@ export default function DraftDashboard() {
 
   async function handleRefresh() {
     setRefreshing(true)
-    await refresh()
+    await Promise.all([refresh(), draft.refresh()])
     setRefreshing(false)
   }
 
@@ -123,6 +129,21 @@ export default function DraftDashboard() {
         onRefresh={handleRefresh}
         refreshing={refreshing || loading}
       />
+
+      <PracticeDraftControl />
+
+      {isDefaultScoring && (
+        <div className="flex items-center gap-2 px-4 py-2 text-xs text-[var(--color-caution)] bg-[var(--color-caution)]/10 border-b border-[var(--color-caution)]/30">
+          <AlertTriangle size={13} className="flex-shrink-0" />
+          <span>
+            Scores are using assumed default scoring, not your league's real rules —{' '}
+            <Link to="/settings" className="underline font-semibold hover:text-[var(--color-caution)]">
+              pull your league's scoring from Sleeper in Settings
+            </Link>{' '}
+            before you draft.
+          </span>
+        </div>
+      )}
 
       <DraftStatusBar draft={draft} />
 

@@ -150,7 +150,8 @@ export default function MockDraft() {
   const watchlistIds = useWatchlistStore((s) => s.ids)
   const leagueId = useAppStore((s) => s.leagueId)
   const sleeperUserId = useAppStore((s) => s.sleeperUserId)
-  const { draftedIds, pickByPlayer, isLive } = useLiveDraft(leagueId, sleeperUserId)
+  const practiceDraftId = useAppStore((s) => s.practiceDraftId)
+  const { draftedIds, pickByPlayer, isLive } = useLiveDraft(leagueId, sleeperUserId, { draftIdOverride: practiceDraftId })
 
   const total = useMemo(
     () => Object.values(targets).reduce((n, l) => n + l.length, 0),
