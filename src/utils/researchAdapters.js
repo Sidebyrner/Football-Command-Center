@@ -144,11 +144,20 @@ export async function fetchSleeperNews(_playerId) {
 // RSS adapter — relayed through server/'s /api/news route (see B1/B2 in the
 // deploy plan). A browser cannot fetch arbitrary external feeds directly
 // (CORS), so this always goes through the proxy; there is no direct-fetch
-// fallback to degrade to, unlike odds. Without a configured proxy, or if it
-// is unreachable, this returns [] rather than throwing — matching
-// fetchSleeperNews's existing no-op contract, so a stopped container silently
-// yields no news rather than breaking the Research page.
+// fallback to degrade to, unlike odds. Unlike odds, failures here are thrown
+// rather than swallowed to [] — "not configured," "proxy unreachable," and
+// "upstream feed rejected the request" are different problems with different
+// fixes, and collapsing them into one silent empty array left no way to tell
+// which one was actually happening. useNewsImport is responsible for
+// catching these and turning them into user-facing messages.
 // ---------------------------------------------------------------------------
+
+// Every feed the server relays, matched against server/src/routes/news.js's
+// FEEDS keys exactly. Both aliases are already implemented and cached there.
+export const NEWS_SOURCES = [
+  { alias: 'espn_nfl', label: 'ESPN' },
+  { alias: 'pft', label: 'Pro Football Talk' },
+]
 
 /**
  * Fetch and normalize one server-side feed alias into ResearchItem[].
@@ -156,17 +165,28 @@ export async function fetchSleeperNews(_playerId) {
  *   (e.g. 'espn_nfl'), NOT an arbitrary URL — the server only relays known,
  *   allowlisted feeds, so this can never be pointed at anything else.
  * @returns {Promise<ResearchItem[]>}
+ * @throws {Error} if the proxy isn't configured, is unreachable, or the
+ *   server rejected the request — with a message specific to which.
  */
 export async function fetchRSSFeed(feedAlias) {
-  if (!hasApiProxy) return []
+  if (!hasApiProxy) throw new Error('No API proxy configured.')
 
   let res
   try {
     res = await fetch(`${API_BASE}/api/news?feed=${encodeURIComponent(feedAlias)}`)
-  } catch {
-    return []
+  } catch (err) {
+    throw new Error(`unreachable (${err.message})`)
   }
-  if (!res.ok) return []
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`
+    try {
+      const body = await res.json()
+      if (body?.error) detail = body.error
+    } catch {
+      // non-JSON error body — fall back to the status code above
+    }
+    throw new Error(detail)
+  }
 
   const body = await res.json()
   return (body.items ?? []).map((entry) =>
