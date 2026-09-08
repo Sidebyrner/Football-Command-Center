@@ -8,6 +8,7 @@ import PlayerDrawer from '../components/draft/PlayerDrawer'
 import DraftStatusBar from '../components/draft/DraftStatusBar'
 import PracticeDraftControl from '../components/draft/PracticeDraftControl'
 import MyRosterPanel from '../components/draft/MyRosterPanel'
+import TeamGradesPanel from '../components/draft/TeamGradesPanel'
 import PickFeed from '../components/draft/PickFeed'
 import ScarcityIndicator from '../components/draft/ScarcityIndicator'
 import StrategyBriefPanel from '../components/draft/StrategyBriefPanel'
@@ -15,6 +16,7 @@ import { useDraftPlayers } from '../hooks/useDraftPlayers'
 import { useLiveDraft } from '../hooks/useLiveDraft'
 import { useCohorts } from '../hooks/useCohorts'
 import { usePlayerScores } from '../hooks/usePlayerScores'
+import { useLeagueRosterSettings } from '../hooks/useLeagueRosterSettings'
 import useAppStore from '../store/useAppStore'
 import useWatchlistStore from '../store/useWatchlistStore'
 import useScoringProfileStore from '../store/useScoringProfileStore'
@@ -50,6 +52,7 @@ export default function DraftDashboard() {
   const draft = useLiveDraft(leagueId, sleeperUserId, { draftIdOverride: practiceDraftId })
   const { cohorts } = useCohorts()
   const { scores, loading: scoring } = usePlayerScores(players, cohorts)
+  const { slotTemplate } = useLeagueRosterSettings(leagueId)
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [sort, setSort] = useState(DEFAULT_SORT)
   const watchlistIds = useWatchlistStore((s) => s.ids)
@@ -198,6 +201,14 @@ export default function DraftDashboard() {
         <>
           <PickFeed picks={draft.picks} pickByPlayer={draft.pickByPlayer} playersById={playersById} />
           <ScarcityIndicator players={players} scores={scores} draftedIds={draft.draftedIds} />
+          <TeamGradesPanel
+            picks={draft.picks}
+            pickByPlayer={draft.pickByPlayer}
+            sleeperUserId={sleeperUserId}
+            playersById={playersById}
+            scores={scores}
+            slotTemplate={slotTemplate}
+          />
         </>
       )}
 

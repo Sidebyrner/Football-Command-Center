@@ -30,6 +30,12 @@ export function getPositionColor(position) {
     TE: '#fb923c',
     K: '#f472b6',
     DEF: '#94a3b8',
+    // IDP — never shown on the main board (useDraftPlayers filters them out),
+    // but Team Grades/Trade Analyzer resolve real IDP picks via Sleeper's raw
+    // player index, so they need distinct colors too.
+    LB: '#38bdf8',
+    DL: '#f87171',
+    DB: '#facc15',
   }
   return map[position] ?? '#94a3b8'
 }
