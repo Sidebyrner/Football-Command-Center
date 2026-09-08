@@ -3,13 +3,8 @@ import { ArrowLeftRight, Loader2 } from 'lucide-react'
 import Header from '../components/layout/Header'
 import TeamGradeRow from '../components/draft/TeamGradeRow'
 import { getPositionColor } from '../utils/playerHelpers'
-import { computeAllTeamGrades, findTradeOpportunities } from '../utils/teamGrades'
-import { useDraftPlayers } from '../hooks/useDraftPlayers'
-import { useCohorts } from '../hooks/useCohorts'
-import { usePlayerScores } from '../hooks/usePlayerScores'
-import { useLeagueTeamRosters } from '../hooks/useLeagueTeamRosters'
-import { useLeagueRosterSettings } from '../hooks/useLeagueRosterSettings'
-import { useMissingPlayerMeta } from '../hooks/useMissingPlayerMeta'
+import { findTradeOpportunities } from '../utils/teamGrades'
+import { useTeamPowerRankings } from '../hooks/useTeamPowerRankings'
 import useAppStore from '../store/useAppStore'
 
 /**
@@ -23,46 +18,13 @@ export default function TradeAnalyzer() {
   const leagueId = useAppStore((s) => s.leagueId)
   const sleeperUserId = useAppStore((s) => s.sleeperUserId)
 
-  const { players, loading: playersLoading } = useDraftPlayers()
-  const { cohorts } = useCohorts()
-  const { scores, loading: scoring } = usePlayerScores(players, cohorts)
-  const { teams: rosters, loading: rostersLoading, error: rostersError } = useLeagueTeamRosters(leagueId)
-  const { slotTemplate, loading: settingsLoading } = useLeagueRosterSettings(leagueId)
-
-  const playersById = useMemo(() => {
-    const map = {}
-    for (const p of players) map[p.id] = p
-    return map
-  }, [players])
-
-  // Real rosters in an IDP league will always include LB/DL/DB — none of
-  // which are in the main board's player pool. Resolve them separately.
-  const missingIds = useMemo(() => {
-    const ids = new Set()
-    for (const t of rosters) for (const id of t.playerIds) if (!playersById[id]) ids.add(id)
-    return [...ids]
-  }, [rosters, playersById])
-  const idpMeta = useMissingPlayerMeta(missingIds)
-  const mergedPlayersById = useMemo(() => ({ ...playersById, ...idpMeta }), [playersById, idpMeta])
-
-  const teamsInput = useMemo(
-    () => rosters.map((t) => ({ ...t, isMe: !!sleeperUserId && t.id === sleeperUserId })),
-    [rosters, sleeperUserId]
-  )
-
-  const teams = useMemo(() => {
-    if (!slotTemplate || !teamsInput.length) return []
-    return computeAllTeamGrades(teamsInput, { scores, playersById: mergedPlayersById, slotTemplate })
-      .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
-  }, [teamsInput, scores, mergedPlayersById, slotTemplate])
+  const { teams, loading, error: rostersError } = useTeamPowerRankings(leagueId, sleeperUserId)
 
   const myTeam = teams.find((t) => t.isMe)
   const opportunities = useMemo(
     () => (myTeam ? findTradeOpportunities(myTeam, teams) : []),
     [myTeam, teams]
   )
-
-  const loading = playersLoading || scoring || rostersLoading || settingsLoading
 
   return (
     <div className="flex flex-col h-screen">

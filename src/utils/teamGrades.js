@@ -129,8 +129,7 @@ export function computeTeamStats(playerIds, ctx) {
 export function computeAllTeamGrades(teamsInput, ctx) {
   const rankedScores = ctx.rankedScores ?? buildRankedScores(ctx.playersById, ctx.scores)
   const stats = teamsInput.map((t) => ({
-    id: t.id,
-    name: t.name,
+    ...t,
     isMe: !!t.isMe,
     ...computeTeamStats(t.playerIds, { ...ctx, rankedScores, pickNos: t.pickNos }),
   }))

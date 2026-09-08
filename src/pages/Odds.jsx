@@ -7,6 +7,7 @@ import { useDraftPlayers } from '../hooks/useDraftPlayers'
 import { useLeagueTeamRosters } from '../hooks/useLeagueTeamRosters'
 import { abbrFromOddsTeamName } from '../utils/nflTeams'
 import { gameLine } from '../utils/oddsHelpers'
+import ImpliedTotalsChart from '../components/odds/ImpliedTotalsChart'
 import useAppStore from '../store/useAppStore'
 
 function formatSpread(spread) {
@@ -89,7 +90,10 @@ export default function Odds() {
                 {quota.remaining} Odds API requests remaining this month
               </p>
             )}
-            <div className="space-y-2">
+
+            <ImpliedTotalsChart games={games} myTeamAbbrs={myTeamAbbrs} />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
               {games.map((g) => (
                 <div
                   key={g.id}

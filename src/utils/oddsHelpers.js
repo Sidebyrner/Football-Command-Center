@@ -50,3 +50,43 @@ export function impliedTotalForTeam(games, teamAbbr) {
   }
   return null
 }
+
+/**
+ * Vegas-implied scoring environment for a fantasy lineup this week: the sum
+ * of implied totals across the DISTINCT NFL teams represented among the
+ * given starters — stacking two starters from the same NFL team must not
+ * double-count that team's implied total, it's a team-level number.
+ *
+ * @param {Array} games - odds list (useOdds' `odds`)
+ * @param {string[]} starterIds - player ids (Sleeper's "0" empty-slot
+ *   placeholder is filtered out here, callers don't need to pre-filter it)
+ * @param {Record<string, {team?: string}>} playersById
+ * @returns {{ total: number|null, teamCount: number, missing: string[] }}
+ *   `total` is null only when zero starters resolved to any implied total at
+ *   all (no odds loaded yet). `missing` names NFL teams among the starters
+ *   that had no game in the fetched odds (bye week, or odds not loaded) —
+ *   stated, not silently treated as zero.
+ */
+export function impliedTotalForLineup(games, starterIds, playersById) {
+  const nflTeams = new Set()
+  for (const id of starterIds ?? []) {
+    if (!id || id === '0') continue
+    const team = playersById[id]?.team
+    if (team) nflTeams.add(team)
+  }
+
+  let total = 0
+  let matched = 0
+  const missing = []
+  for (const team of nflTeams) {
+    const r = impliedTotalForTeam(games, team)
+    if (r?.implied != null) {
+      total += r.implied
+      matched++
+    } else {
+      missing.push(team)
+    }
+  }
+
+  return { total: matched ? total : null, teamCount: nflTeams.size, missing }
+}
