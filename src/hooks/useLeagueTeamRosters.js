@@ -8,8 +8,13 @@ import { useState, useEffect } from 'react'
 import { getLeagueRosters, getLeagueUsers } from '../services/sleeperService'
 
 /**
- * @returns {{ teams: Array<{id, name, playerIds}>, loading, error }}
+ * @returns {{ teams: Array<{id, name, playerIds, starterIds, rosterId}>, loading, error }}
  *   `id` is the roster's owner_id (matches Sleeper's userId elsewhere in the app).
+ *   `starterIds` is Sleeper's real starters array — use this for "what's
+ *   actually started," not assignPicksToSlots (that's for grading roster
+ *   construction quality, a different question). `rosterId` is Sleeper's
+ *   roster_id, needed to join against matchup data (keyed by roster_id, not
+ *   owner_id).
  */
 export function useLeagueTeamRosters(leagueId) {
   const [teams, setTeams] = useState([])
@@ -33,6 +38,8 @@ export function useLeagueTeamRosters(leagueId) {
             id: r.owner_id,
             name: nameByUserId[r.owner_id] ?? `Team ${r.roster_id}`,
             playerIds: r.players ?? [],
+            starterIds: r.starters ?? [],
+            rosterId: r.roster_id,
           }))
         setTeams(joined)
         setLoading(false)
