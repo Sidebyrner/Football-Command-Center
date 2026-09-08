@@ -23,19 +23,30 @@ function PlayerRow({ id, playersById, muted }) {
   )
 }
 
-function RosterCard({ myTeam, playersById, loading }) {
+function RosterCard({ myTeam, playersById, loading, error }) {
   if (loading) return <p className="text-sm text-[var(--color-text-muted)]">Loading…</p>
+  if (error) return <p className="text-sm text-[var(--color-sit)]">Failed to load your roster: {error}</p>
   if (!myTeam) return <p className="text-sm text-[var(--color-text-muted)]">Roster not found for your account.</p>
 
-  const benchIds = myTeam.playerIds.filter((id) => !myTeam.starterIds.includes(id))
+  // Sleeper fills unset starter slots with the literal string "0", not an
+  // empty/omitted entry — real before Week 1 locks the lineup for the first
+  // time. Treat those as empty slots, not a phantom player.
+  const realStarterIds = myTeam.starterIds.filter((id) => id && id !== '0')
+  const emptyStarterCount = myTeam.starterIds.length - realStarterIds.length
+  const benchIds = myTeam.playerIds.filter((id) => !realStarterIds.includes(id))
 
   return (
     <>
       <p className="text-[10px] uppercase tracking-wide text-[var(--color-text-faint)] mb-1.5">
-        Starters ({myTeam.starterIds.length})
+        Starters ({realStarterIds.length}{emptyStarterCount > 0 ? ` of ${myTeam.starterIds.length}` : ''})
       </p>
+      {emptyStarterCount > 0 && (
+        <p className="text-[10px] text-[var(--color-caution)] mb-1.5">
+          {emptyStarterCount} starter slot{emptyStarterCount > 1 ? 's' : ''} not set yet on Sleeper.
+        </p>
+      )}
       <ul className="space-y-1 mb-3">
-        {myTeam.starterIds.map((id) => <PlayerRow key={id} id={id} playersById={playersById} />)}
+        {realStarterIds.map((id) => <PlayerRow key={id} id={id} playersById={playersById} />)}
       </ul>
       <p className="text-[10px] uppercase tracking-wide text-[var(--color-text-faint)] mb-1.5">
         Bench ({benchIds.length})
@@ -47,8 +58,9 @@ function RosterCard({ myTeam, playersById, loading }) {
   )
 }
 
-function MatchupCard({ myTeam, myMatchup, mySide, opponentTeam, opponentSide, currentWeek, loading }) {
+function MatchupCard({ myTeam, myMatchup, mySide, opponentTeam, opponentSide, currentWeek, loading, error }) {
   if (loading) return <p className="text-sm text-[var(--color-text-muted)]">Loading…</p>
+  if (error) return <p className="text-sm text-[var(--color-sit)]">Failed to load this week's matchup: {error}</p>
   if (!myMatchup) {
     return <p className="text-sm text-[var(--color-text-muted)]">No matchup found for week {currentWeek} yet.</p>
   }
@@ -67,8 +79,9 @@ function MatchupCard({ myTeam, myMatchup, mySide, opponentTeam, opponentSide, cu
   )
 }
 
-function WaiverCard({ transactions, loading }) {
+function WaiverCard({ transactions, loading, error }) {
   if (loading) return <p className="text-sm text-[var(--color-text-muted)]">Loading…</p>
+  if (error) return <p className="text-sm text-[var(--color-sit)]">Failed to load waiver activity: {error}</p>
   if (transactions.length === 0) return <p className="text-sm text-[var(--color-text-muted)]">No waiver activity this week.</p>
 
   return (
@@ -102,8 +115,8 @@ export default function Dashboard() {
   const currentWeek = useAppStore((s) => s.currentWeek)
 
   const { players } = useDraftPlayers()
-  const { teams, loading: rostersLoading } = useLeagueTeamRosters(leagueId)
-  const { matchups, loading: matchupsLoading } = useLeagueMatchups(leagueId, currentWeek)
+  const { teams, loading: rostersLoading, error: rostersError } = useLeagueTeamRosters(leagueId)
+  const { matchups, loading: matchupsLoading, error: matchupsError } = useLeagueMatchups(leagueId, currentWeek)
 
   const playersById = useMemo(() => {
     const map = {}
@@ -111,7 +124,7 @@ export default function Dashboard() {
     return map
   }, [players])
 
-  const { transactions, loading: txLoading } = useLeagueTransactions(leagueId, currentWeek, playersById)
+  const { transactions, loading: txLoading, error: txError } = useLeagueTransactions(leagueId, currentWeek, playersById)
 
   const myTeam = teams.find((t) => t.id === sleeperUserId)
   const myMatchup = myTeam ? matchups.find((m) => m.sides.some((s) => s.rosterId === myTeam.rosterId)) : null
@@ -143,7 +156,7 @@ export default function Dashboard() {
             <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-faint)] mb-3">
               My Roster
             </h2>
-            <RosterCard myTeam={myTeam} playersById={playersById} loading={rostersLoading} />
+            <RosterCard myTeam={myTeam} playersById={playersById} loading={rostersLoading} error={rostersError} />
           </div>
 
           <div className="border border-[var(--color-border)] rounded bg-[var(--color-surface)] p-4">
@@ -158,6 +171,7 @@ export default function Dashboard() {
               opponentSide={opponentSide}
               currentWeek={currentWeek}
               loading={rostersLoading || matchupsLoading}
+              error={rostersError || matchupsError}
             />
           </div>
 
@@ -165,7 +179,7 @@ export default function Dashboard() {
             <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-faint)] mb-3">
               Waiver Wire
             </h2>
-            <WaiverCard transactions={transactions} loading={txLoading} />
+            <WaiverCard transactions={transactions} loading={txLoading} error={txError} />
           </div>
         </div>
       </main>
