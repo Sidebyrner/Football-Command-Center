@@ -29,7 +29,15 @@ const TEAM_NAME_BY_ABBR = Object.fromEntries(
 
 export function teamNameFromAbbr(abbr) {
   if (!abbr) return null
-  return TEAM_NAME_BY_ABBR[abbr] ?? null
+  // Accepts either dialect. The name table is keyed on The Odds API's codes
+  // (LAR), but callers routinely hold an nflverse code (LA), so fall back
+  // through the alias map rather than returning null and rendering a bare
+  // abbreviation where a team name belongs.
+  if (TEAM_NAME_BY_ABBR[abbr]) return TEAM_NAME_BY_ABBR[abbr]
+  for (const [alias, canonical] of Object.entries(NFLVERSE_ALIASES)) {
+    if (canonical === abbr && TEAM_NAME_BY_ABBR[alias]) return TEAM_NAME_BY_ABBR[alias]
+  }
+  return null
 }
 
 /**
