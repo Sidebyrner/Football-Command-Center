@@ -19,7 +19,8 @@ import { useMissingPlayerMeta } from './useMissingPlayerMeta'
  *   `teams` is sorted by composite score descending, same shape
  *   computeAllTeamGrades produces (score, grade, valueScore,
  *   constructionScore, lineupScore, neededPositions, benchByPosition,
- *   rosterId, starterIds, ...).
+ *   rosterId, starterIds, ...). `scores` and `slotTemplate` are the composed
+ *   inputs, re-exported for callers that need them directly.
  */
 export function useTeamPowerRankings(leagueId, sleeperUserId) {
   const { players, loading: playersLoading } = useDraftPlayers()
@@ -57,5 +58,8 @@ export function useTeamPowerRankings(leagueId, sleeperUserId) {
 
   const loading = playersLoading || scoring || rostersLoading || settingsLoading
 
-  return { teams, playersById: mergedPlayersById, loading, error: rostersError }
+  // scores and slotTemplate are exposed additively for the Matchup Planner,
+  // which needs the same composed data plus the per-player scores and the
+  // league's slot shape. Existing callers ignore the extra keys.
+  return { teams, playersById: mergedPlayersById, scores, slotTemplate, loading, error: rostersError }
 }

@@ -1,9 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, ArrowLeftRight, TrendingUp, Settings, Zap, ClipboardList, BookOpen, ListChecks, BarChart3 } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, TrendingUp, Settings, Zap, ClipboardList, BookOpen, ListChecks, BarChart3, Swords } from 'lucide-react'
 import useAppStore from '../../store/useAppStore'
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  // Weekly planning sits second: the app grew draft-first, but from September
+  // to January this is the page you open.
+  { to: '/matchup', icon: Swords, label: 'Matchup' },
   { to: '/draft', icon: ClipboardList, label: 'Draft' },
   { to: '/plan', icon: ListChecks, label: 'Draft Plan' },
   { to: '/research', icon: BookOpen, label: 'Research' },
