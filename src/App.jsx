@@ -9,6 +9,7 @@ import Research from './pages/Research'
 import MockDraft from './pages/MockDraft'
 import SitStart from './pages/SitStart'
 import TradeAnalyzer from './pages/TradeAnalyzer'
+import PowerRankings from './pages/PowerRankings'
 import Odds from './pages/Odds'
 import Settings from './pages/Settings'
 
@@ -79,6 +80,16 @@ export default function App() {
             <RequireConfig>
               <AppLayout>
                 <TradeAnalyzer />
+              </AppLayout>
+            </RequireConfig>
+          }
+        />
+        <Route
+          path="/power-rankings"
+          element={
+            <RequireConfig>
+              <AppLayout>
+                <PowerRankings />
               </AppLayout>
             </RequireConfig>
           }

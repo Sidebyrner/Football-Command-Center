@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, ArrowLeftRight, TrendingUp, Settings, Zap, ClipboardList, BookOpen, ListChecks } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, TrendingUp, Settings, Zap, ClipboardList, BookOpen, ListChecks, BarChart3 } from 'lucide-react'
 import useAppStore from '../../store/useAppStore'
 
 const NAV = [
@@ -9,6 +9,7 @@ const NAV = [
   { to: '/research', icon: BookOpen, label: 'Research' },
   { to: '/sit-start', icon: Zap, label: 'Sit / Start' },
   { to: '/trade', icon: ArrowLeftRight, label: 'Trade' },
+  { to: '/power-rankings', icon: BarChart3, label: 'Power Rankings' },
   { to: '/odds', icon: TrendingUp, label: 'Odds' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]

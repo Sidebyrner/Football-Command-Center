@@ -11,6 +11,7 @@ const KEYS = {
   rosters: (id) => `sleeper-rosters-${id}`,
   users: (id) => `sleeper-users-${id}`,
   matchups: (id, week) => `sleeper-matchups-${id}-${week}`,
+  transactions: (id, week) => `sleeper-transactions-${id}-${week}`,
   drafts: (id) => `sleeper-drafts-${id}`,
   draftPicks: (draftId) => `sleeper-picks-${draftId}`,
 }
@@ -45,6 +46,12 @@ export function getLeagueUsers(leagueId) {
 export function getLeagueMatchups(leagueId, week) {
   return cached(KEYS.matchups(leagueId, week), TTL.ROSTER, () =>
     sleeperApi.getMatchups(leagueId, week)
+  )
+}
+
+export function getLeagueTransactions(leagueId, week) {
+  return cached(KEYS.transactions(leagueId, week), TTL.ROSTER, () =>
+    sleeperApi.getTransactions(leagueId, week)
   )
 }
 
