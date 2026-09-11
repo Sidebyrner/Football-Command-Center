@@ -5,6 +5,7 @@ import useAppStore from '../store/useAppStore'
 import { useSleeperUser } from '../hooks/useSleeperUser'
 import { useSleeperLeague } from '../hooks/useSleeperLeague'
 import ScoringProfileManager from '../components/eval/ScoringProfileManager'
+import DataFreshness from '../components/settings/DataFreshness'
 
 const CURRENT_SEASON = import.meta.env.VITE_DEFAULT_SEASON || '2026'
 
@@ -311,6 +312,8 @@ export default function Settings() {
               </FieldHint>
             </div>
           </section>
+
+          <DataFreshness currentWeek={week} />
 
           {/* ── Save Button ── */}
           <div className="pt-2">

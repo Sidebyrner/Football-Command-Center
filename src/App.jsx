@@ -8,6 +8,7 @@ import DraftDashboard from './pages/DraftDashboard'
 import Research from './pages/Research'
 import MockDraft from './pages/MockDraft'
 import SitStart from './pages/SitStart'
+import MatchupPlanner from './pages/MatchupPlanner'
 import TradeAnalyzer from './pages/TradeAnalyzer'
 import PowerRankings from './pages/PowerRankings'
 import Odds from './pages/Odds'
@@ -60,6 +61,16 @@ export default function App() {
             <RequireConfig>
               <AppLayout>
                 <Dashboard />
+              </AppLayout>
+            </RequireConfig>
+          }
+        />
+        <Route
+          path="/matchup"
+          element={
+            <RequireConfig>
+              <AppLayout>
+                <MatchupPlanner />
               </AppLayout>
             </RequireConfig>
           }

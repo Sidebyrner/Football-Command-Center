@@ -28,6 +28,12 @@ const DIRECT = {
   bonus_rush_yd_100: 'rushing100Bonus',
   bonus_rush_yd_200: 'rushing200Bonus',
 
+  fum_lost: 'fumbleLost',
+  pass_2pt: 'passing2pt',
+  rush_2pt: 'rushing2pt',
+  rec_2pt: 'receiving2pt',
+  st_td: 'specialTeamsTD',
+
   rec: 'receptionPoints',
   rec_td: 'receivingTD',
   rec_fd: 'receivingFirstDown',
