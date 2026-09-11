@@ -7,12 +7,16 @@
 //
 // Outputs (all under public/data/):
 //   nflverse-seasons.json  { _meta, players: { [gsis_id]: { "2025": {...} } } }
+//   weekly/{season}.json   { _meta, fields, meta, players: { [gsis_id]: [tuple,...] } }
+//   weekly/index.json      { _meta, seasons: [{ season, file, weeks, complete, bytes }] }
+//   schedule-{season}.json { _meta, byWeek: { "1": [{ home, away, ... }] } }
 //   cohorts.json           { _meta, cohorts: { [position]: { [metric]: number[] } } }
 //   player-ids.json        { _meta, players: { [sleeper_id]: { gsisId, fantasyprosId, ... } } }
 //   adp.json               { _meta, players: { [fantasypros_id]: { ecr, sd, bye, ... } } }
 //
 // Sources:
 //   Weekly stats  https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_{year}.csv
+//   Schedules     https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv
 //   ID crosswalk  https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv
 //   ECR / ADP     https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_fpecr_latest.csv
 //
@@ -26,13 +30,25 @@ import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { tmpdir } from 'os'
 
+// The SAME scorer the browser uses. Importing it here (rather than
+// reimplementing the arithmetic in this script) is what makes the self-check at
+// the end of step 1 meaningful — it validates the code that actually ships.
+import { scoreWeek, validateAgainstReference, PPR_REFERENCE_PROFILE } from '../src/utils/weeklyScoring.js'
+
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
 const OUT_DIR = join(ROOT, 'public', 'data')
 
 // ── CLI args ──────────────────────────────────────────────────────────────────
 const args = process.argv.slice(2)
-const DEFAULT_SEASONS = [2025, 2024]
+// The NFL season rolls over in March: before then, "this season" is last
+// calendar year. Hardcoding the pair meant the file silently went a year stale
+// every September, which is exactly when a weekly planner needs it most.
+const NFL_SEASON = (() => {
+  const d = new Date()
+  return d.getUTCMonth() >= 2 ? d.getUTCFullYear() : d.getUTCFullYear() - 1
+})()
+const DEFAULT_SEASONS = [NFL_SEASON, NFL_SEASON - 1]
 const seasonsArg = args.find((a) => a.startsWith('--seasons'))
 const SEASONS = seasonsArg
   ? (seasonsArg.includes('=') ? seasonsArg.split('=')[1] : args[args.indexOf(seasonsArg) + 1])
@@ -41,6 +57,7 @@ const SEASONS = seasonsArg
 
 const STATS_URL = (y) =>
   `https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_${y}.csv`
+const GAMES_URL = 'https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv'
 const IDS_URL = 'https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv'
 const ECR_URL = 'https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_fpecr_latest.csv'
 
@@ -319,6 +336,64 @@ function buildCohorts(seasonIndex, season) {
   return cohorts
 }
 
+// ── Weekly game logs ──────────────────────────────────────────────────────────
+// nflverse's weekly CSV is already downloaded above for the season aggregates;
+// this emits the per-week detail that used to be thrown away, which is what
+// powers game-log charts, boom/bust bands, and defense-vs-position.
+//
+// ⚠ ENCODING: rows are TUPLES positionally matched to WEEKLY_FIELDS, not
+// objects. This is not premature cleverness — measured on 2025's 6,580 rows:
+//     tuple-encoded   577 KB
+//     object-encoded  5.0 MB
+// "Simplifying" this to objects is a 5 MB regression on a file the browser
+// downloads. The `fields` header ships with the data so a reordering here can
+// never silently shift columns on the client.
+const WEEKLY_FIELDS = [
+  'week', 'team', 'opp',
+  'cmp', 'att', 'pass_yd', 'pass_td', 'int', 'sack', 'pass_fd', 'pass_2pt',
+  'car', 'rush_yd', 'rush_td', 'rush_fd', 'rush_fl', 'rush_2pt',
+  'rec', 'tgt', 'rec_yd', 'rec_td', 'rec_fd', 'rec_fl', 'rec_2pt',
+  'sack_fl', 'st_td',
+  'fg0_19', 'fg20_29', 'fg30_39', 'fg40_49', 'fg50_59', 'fg60', 'fg_miss',
+  'xpm', 'xpa',
+  'tgt_share', 'ay_share',
+  'fp_ppr_ref',
+]
+
+// Rate stats keep 3 decimals; everything else is a count or whole yards. Left
+// as numbers (not strings) so JSON.parse hands the client usable values.
+const r3 = (v) => Math.round(num(v) * 1000) / 1000
+
+function weeklyTuple(row) {
+  const g = (...names) => num(readField(row, ...names))
+  return [
+    g('week'),
+    str(readField(row, 'team', 'recent_team')),
+    str(readField(row, 'opponent_team', 'opponent')),
+    g('completions'), g('attempts'), g('passing_yards'), g('passing_tds'),
+    g('passing_interceptions', 'interceptions'), g('sacks_suffered', 'sacks'),
+    g('passing_first_downs'), g('passing_2pt_conversions'),
+    g('carries'), g('rushing_yards'), g('rushing_tds'),
+    g('rushing_first_downs'), g('rushing_fumbles_lost'), g('rushing_2pt_conversions'),
+    g('receptions'), g('targets'), g('receiving_yards'), g('receiving_tds'),
+    g('receiving_first_downs'), g('receiving_fumbles_lost'), g('receiving_2pt_conversions'),
+    g('sack_fumbles_lost'), g('special_teams_tds'),
+    g('fg_made_0_19'), g('fg_made_20_29'), g('fg_made_30_39'),
+    g('fg_made_40_49'), g('fg_made_50_59'), g('fg_made_60_'), g('fg_missed'),
+    g('pat_made'), g('pat_att'),
+    r3(readField(row, 'target_share')), r3(readField(row, 'air_yards_share')),
+    g('fantasy_points_ppr'),
+  ]
+}
+
+// Mirror of weeklyStatsService.decodeRow — used here for the self-check so the
+// script validates exactly the shape the client will score.
+function decodeTuple(tuple) {
+  const out = {}
+  for (let i = 0; i < WEEKLY_FIELDS.length; i++) out[WEEKLY_FIELDS[i]] = tuple[i]
+  return out
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function fetchCsv(url, label) {
   const tmp = join(tmpdir(), `fcc-${label}-${Date.now()}.csv`)
@@ -331,9 +406,12 @@ async function fetchCsv(url, label) {
 
 function writeOut(filename, payload) {
   const path = join(OUT_DIR, filename)
+  mkdirSync(dirname(path), { recursive: true })
   const json = JSON.stringify(payload)
   writeFileSync(path, json)
-  console.log(`  ✓ ${filename} (${Math.round(Buffer.byteLength(json) / 1024)} KB)`)
+  const bytes = Buffer.byteLength(json)
+  console.log(`  ✓ ${filename} (${Math.round(bytes / 1024)} KB)`)
+  return bytes
 }
 
 async function main() {
@@ -344,6 +422,7 @@ async function main() {
   console.log(`\n[1/3] nflverse player stats — seasons ${SEASONS.join(', ')}`)
   const seasonIndex = {}
   const loaded = []
+  const weeklyManifest = []
 
   for (const season of SEASONS) {
     let rows
@@ -365,15 +444,67 @@ async function main() {
     }
 
     let n = 0
+    // Weekly detail, emitted alongside the aggregate from the same rows.
+    const weeklyPlayers = {}
+    const weeklyMeta = {}
+    const checkEntries = []
+
     for (const [gsisId, playerRows] of Object.entries(byPlayer)) {
       playerRows.sort((a, b) => num(a.week) - num(b.week))
       const agg = aggregate(playerRows)
       if (!agg) continue
       ;(seasonIndex[gsisId] ??= {})[String(season)] = agg
       n++
+
+      const position = readField(playerRows[0], 'position')
+      // Name and position are hoisted out of every row: ~26 KB here vs ~250 KB
+      // repeated across 6,580 tuples.
+      weeklyMeta[gsisId] = {
+        n: str(readField(playerRows[0], 'player_display_name', 'player_name')),
+        p: position,
+      }
+      const tuples = playerRows.map(weeklyTuple)
+      weeklyPlayers[gsisId] = tuples
+      for (const t of tuples) checkEntries.push({ row: decodeTuple(t), position })
     }
     console.log(`  ✓ ${season}: ${n} players from ${reg.length} weekly rows`)
     loaded.push(season)
+
+    // ── Self-check: the closest thing this repo has to a test ────────────────
+    // Score every non-K row under nflverse's own PPR rules and compare to the
+    // row's own fantasy_points_ppr. A sign flip, a reciprocal inversion, a
+    // missing term, or a mis-ordered tuple all show up here as a nonzero delta.
+    const check = validateAgainstReference(checkEntries)
+    const pctBad = check.checkedRows ? (check.mismatchRows / check.checkedRows) * 100 : 0
+    const line = `    self-check: ${check.checkedRows} rows, max delta ${check.maxDelta}, ` +
+      `${check.mismatchRows} mismatched (${pctBad.toFixed(2)}%), ${check.skipped} skipped (K/DEF)`
+    if (pctBad > 1) {
+      console.warn(`  ⚠ ${line}`)
+      console.warn(`  ⚠ WEEKLY SCORING IS WRONG — do not ship these numbers.`)
+      for (const w of check.worst) console.warn(`      wk${w.week} ${w.team} ${w.position}: ours ${w.ours} vs nflverse ${w.nflverse}`)
+    } else {
+      console.log(line)
+    }
+
+    const weeks = [...new Set(reg.map((r) => num(r.week)))].sort((a, b) => a - b)
+    const bytes = writeOut(`weekly/${season}.json`, {
+      _meta: {
+        generated, season, weeks,
+        complete: weeks.length >= 18,
+        rowCount: reg.length,
+        playerCount: Object.keys(weeklyPlayers).length,
+        source: `nflverse/nflverse-data stats_player_week_${season}`,
+        selfCheck: check,
+      },
+      fields: WEEKLY_FIELDS,
+      meta: weeklyMeta,
+      players: weeklyPlayers,
+    })
+    weeklyManifest.push({
+      season, file: `/data/weekly/${season}.json`,
+      weeks: weeks.length, latestWeek: weeks[weeks.length - 1] ?? null,
+      complete: weeks.length >= 18, bytes,
+    })
   }
 
   if (!loaded.length) throw new Error('No seasons loaded — aborting rather than writing empty data.')
@@ -383,6 +514,52 @@ async function main() {
              playerCount: Object.keys(seasonIndex).length },
     players: seasonIndex,
   })
+
+  // Manifest so the client never has to 404-probe for a season that does not
+  // exist yet, and Settings can report how stale the data is.
+  weeklyManifest.sort((a, b) => b.season - a.season)
+  writeOut('weekly/index.json', { _meta: { generated }, seasons: weeklyManifest })
+
+  // ── 1b. Schedule ───────────────────────────────────────────────────────────
+  // Who plays whom, per week. Without this the only way to know a team's
+  // opponent is the paid Odds API feed — which would mean the matchup planner
+  // could not name your opponent without a key. ~50 KB, zero cost.
+  // Iterate the REQUESTED seasons, not the stats-loaded ones: in September the
+  // current season's schedule is fully published while its player stats are
+  // not, and the schedule is exactly what a week-1 planner needs.
+  console.log(`\n[1b] schedule — seasons ${SEASONS.join(', ')}`)
+  try {
+    const gameRows = await fetchCsv(GAMES_URL, 'games')
+    for (const season of SEASONS) {
+      const byWeek = {}
+      let games = 0
+      for (const g of gameRows) {
+        if (num(g.season) !== season || g.game_type !== 'REG') continue
+        const wk = num(g.week)
+        ;(byWeek[wk] ??= []).push({
+          home: str(g.home_team), away: str(g.away_team),
+          kickoff: str(g.gameday), time: str(g.gametime),
+          // nfldata carries market lines for free. Convention differs from The
+          // Odds API: spreadLine is POSITIVE when the HOME team is favored,
+          // where the Odds API gives home_spread as a negative number. The
+          // client converts; do not "fix" the sign here.
+          spreadLine: g.spread_line === '' || g.spread_line == null ? null : num(g.spread_line),
+          totalLine: g.total_line === '' || g.total_line == null ? null : num(g.total_line),
+        })
+        games++
+      }
+      if (!games) { console.log(`  · ${season}: no REG games published yet`); continue }
+      writeOut(`schedule-${season}.json`, {
+        _meta: { generated, season, games, weeks: Object.keys(byWeek).map(Number).sort((a, b) => a - b),
+                 source: 'nflverse/nflverse-data games' },
+        byWeek,
+      })
+    }
+  } catch (err) {
+    // Non-fatal: the rest of the pipeline is still worth writing. The client
+    // falls back to the odds feed for opponents when this file is absent.
+    console.error(`  ✗ schedule failed: ${err.message} (continuing)`)
+  }
 
   // ── 2. Cohorts from the most recent loaded season ──────────────────────────
   const cohortSeason = Math.max(...loaded)

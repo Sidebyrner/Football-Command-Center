@@ -5,9 +5,14 @@ import Header from '../components/layout/Header'
 import { useOdds } from '../hooks/useOdds'
 import { useDraftPlayers } from '../hooks/useDraftPlayers'
 import { useLeagueTeamRosters } from '../hooks/useLeagueTeamRosters'
-import { abbrFromOddsTeamName } from '../utils/nflTeams'
+import { abbrFromOddsTeamName, teamNameFromAbbr, toNflverseTeam } from '../utils/nflTeams'
+import { useSchedule } from '../hooks/useSchedule'
 import { gameLine } from '../utils/oddsHelpers'
 import ImpliedTotalsChart from '../components/odds/ImpliedTotalsChart'
+import GameEnvironmentScatter from '../components/odds/GameEnvironmentScatter'
+import MyTeamOdds from '../components/odds/MyTeamOdds'
+import { useMissingPlayerMeta } from '../hooks/useMissingPlayerMeta'
+import { makeImpliedResolver } from '../utils/oddsHelpers'
 import useAppStore from '../store/useAppStore'
 
 function formatSpread(spread) {
@@ -25,9 +30,34 @@ export default function Odds() {
   const oddsApiKey = useAppStore((s) => s.oddsApiKey)
   const leagueId = useAppStore((s) => s.leagueId)
   const sleeperUserId = useAppStore((s) => s.sleeperUserId)
+  const season = useAppStore((s) => s.season)
+  const currentWeek = useAppStore((s) => s.currentWeek)
   const { odds, quota, loading, error, fetchOdds } = useOdds(oddsApiKey)
   const { players } = useDraftPlayers()
   const { teams } = useLeagueTeamRosters(leagueId)
+  const myTeam = teams.find((t) => t.id === sleeperUserId)
+  // Free fallback. nfldata publishes spread and total per game alongside the
+  // schedule, so the page has something real to draw before anyone pays for a
+  // key. These are NOT live odds — they're whatever nfldata last recorded — and
+  // every surface built on them says so.
+  const { games: scheduleGames, byTeam: scheduleByTeam } = useSchedule(season, currentWeek)
+
+  // Whole-roster view needs names for IDP too, which useDraftPlayers filters
+  // out of the board entirely — same fallback the other roster surfaces use.
+  const playersById = useMemo(() => {
+    const map = {}
+    for (const p of players) map[p.id] = p
+    return map
+  }, [players])
+  const missingIds = useMemo(
+    () => (myTeam?.playerIds ?? []).filter((id) => id && id !== '0' && !playersById[id]),
+    [myTeam, playersById]
+  )
+  const idpMeta = useMissingPlayerMeta(missingIds)
+  const rosterPlayersById = useMemo(
+    () => ({ ...playersById, ...idpMeta }),
+    [playersById, idpMeta]
+  )
 
   // Auto-fetch once on mount if a key exists and nothing is cached yet —
   // useOdds itself only fetches when asked, by design (it's a paid/quota'd
@@ -38,23 +68,69 @@ export default function Odds() {
   }, [oddsApiKey])
 
   const myTeamAbbrs = useMemo(() => {
-    const myTeam = teams.find((t) => t.id === sleeperUserId)
     if (!myTeam) return new Set()
-    const playerById = {}
-    for (const p of players) playerById[p.id] = p
-    return new Set(myTeam.playerIds.map((id) => playerById[id]?.team).filter(Boolean))
-  }, [teams, sleeperUserId, players])
+    return new Set(myTeam.playerIds.map((id) => rosterPlayersById[id]?.team).filter(Boolean))
+  }, [myTeam, rosterPlayersById])
+
+  // Roster teams normalized once, so the LAR/LA split can't make your own
+  // games fail to highlight.
+  const myNflverseAbbrs = useMemo(
+    () => new Set([...myTeamAbbrs].map(toNflverseTeam)),
+    [myTeamAbbrs]
+  )
+
+  const liveGames = useMemo(() => {
+    return (odds ?? []).map((g) => {
+      const homeAbbr = abbrFromOddsTeamName(g.home_team)
+      const awayAbbr = abbrFromOddsTeamName(g.away_team)
+      const mine = myTeamAbbrs.has(homeAbbr) || myTeamAbbrs.has(awayAbbr)
+      return { ...g, homeAbbr, awayAbbr, mine, line: gameLine(g) }
+    })
+  }, [odds, myTeamAbbrs])
+
+  const fallbackGames = useMemo(() => {
+    return (scheduleGames ?? [])
+      .filter((g) => g.totalLine != null && g.spreadLine != null)
+      .map((g) => {
+        // nfldata's spreadLine is positive when the HOME team is favored — the
+        // opposite sign from The Odds API's home spread. Convert here so both
+        // sources hand gameLine-shaped data to the same components.
+        const homeSpread = -g.spreadLine
+        const total = g.totalLine
+        return {
+          id: `sched-${g.away}-${g.home}`,
+          home_team: teamNameFromAbbr(g.home) ?? g.home,
+          away_team: teamNameFromAbbr(g.away) ?? g.away,
+          commence_time: g.time ? `${g.kickoff}T${g.time}` : g.kickoff,
+          homeAbbr: g.home,
+          awayAbbr: g.away,
+          mine: myNflverseAbbrs.has(g.home) || myNflverseAbbrs.has(g.away),
+          line: {
+            total,
+            homeSpread,
+            awaySpread: g.spreadLine,
+            homeImplied: total / 2 + g.spreadLine / 2,
+            awayImplied: total / 2 - g.spreadLine / 2,
+          },
+        }
+      })
+  }, [scheduleGames, myNflverseAbbrs])
+
+  const usingFallback = liveGames.length === 0 && fallbackGames.length > 0
+
+  // Built from the data this page already fetched rather than useImpliedTotals,
+  // which would spin up a second useOdds and risk a duplicate paid fetch.
+  const impliedForTeam = useMemo(
+    () => makeImpliedResolver(odds, scheduleByTeam, toNflverseTeam),
+    [odds, scheduleByTeam]
+  )
 
   const games = useMemo(() => {
-    return (odds ?? [])
-      .map((g) => {
-        const homeAbbr = abbrFromOddsTeamName(g.home_team)
-        const awayAbbr = abbrFromOddsTeamName(g.away_team)
-        const mine = myTeamAbbrs.has(homeAbbr) || myTeamAbbrs.has(awayAbbr)
-        return { ...g, homeAbbr, awayAbbr, mine, line: gameLine(g) }
-      })
-      .sort((a, b) => (b.mine === a.mine ? 0 : b.mine ? 1 : -1) || new Date(a.commence_time) - new Date(b.commence_time))
-  }, [odds, myTeamAbbrs])
+    const src = liveGames.length ? liveGames : fallbackGames
+    return [...src].sort(
+      (a, b) => (b.mine === a.mine ? 0 : b.mine ? 1 : -1) || new Date(a.commence_time) - new Date(b.commence_time)
+    )
+  }, [liveGames, fallbackGames])
 
   return (
     <div className="flex flex-col h-screen">
@@ -64,11 +140,13 @@ export default function Odds() {
           <div className="flex items-start gap-2 px-4 py-3 text-sm text-[var(--color-caution)] bg-[var(--color-caution)]/10 border border-[var(--color-caution)]/30 rounded">
             <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
             <span>
-              No Odds API key configured —{' '}
+              {usingFallback
+                ? 'Showing the schedule file\u2019s recorded lines, not live odds — they don\u2019t move as the week does. '
+                : 'No Odds API key configured — '}
               <Link to="/settings" className="underline font-semibold hover:text-[var(--color-caution)]">
-                add one in Settings
+                add a key in Settings
               </Link>{' '}
-              to see live spreads, totals, and implied team totals. Free tier: 500 requests/month.
+              for live spreads and totals. Free tier: 500 requests/month.
             </span>
           </div>
         )}
@@ -79,19 +157,37 @@ export default function Odds() {
           <p className="text-sm text-[var(--color-text-muted)]">Loading odds…</p>
         )}
 
-        {oddsApiKey && !loading && games.length === 0 && !error && (
-          <p className="text-sm text-[var(--color-text-muted)]">No games found. Try refreshing.</p>
+        {!loading && games.length === 0 && !error && (
+          <p className="text-sm text-[var(--color-text-muted)]">
+            No games found for week {currentWeek}. Try refreshing, or run{' '}
+            <code>npm run preprocess-nflverse</code> to build the {season} schedule.
+          </p>
         )}
 
         {games.length > 0 && (
           <>
-            {quota.remaining != null && (
-              <p className="text-xs text-[var(--color-text-faint)]">
-                {quota.remaining} Odds API requests remaining this month
-              </p>
-            )}
+            {/* Your own roster first — it's why you opened the page. The
+                market-wide charts below are the context for it. */}
+            <MyTeamOdds
+              myTeam={myTeam}
+              playersById={rosterPlayersById}
+              scheduleByTeam={scheduleByTeam}
+              impliedForTeam={impliedForTeam}
+              source={usingFallback ? 'schedule' : 'live'}
+              week={currentWeek}
+            />
+
+            <p className="text-xs text-[var(--color-text-faint)]">
+              {usingFallback
+                ? `Week ${currentWeek} lines from the preprocessed schedule (nfldata) — no API credits used.`
+                : quota.remaining != null
+                  ? `${quota.remaining} Odds API requests remaining this month`
+                  : 'Live lines from The Odds API'}
+            </p>
 
             <ImpliedTotalsChart games={games} myTeamAbbrs={myTeamAbbrs} />
+
+            <GameEnvironmentScatter games={games} myTeamAbbrs={myTeamAbbrs} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
               {games.map((g) => (

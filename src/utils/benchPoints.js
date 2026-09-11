@@ -1,54 +1,58 @@
 // "Points left on the bench" — what your lineup actually scored vs. what the
 // best lineup available to you that week would have scored.
 //
-// Pure functions, no React/Sleeper imports: callers hand in one week's
-// already-fetched matchup entry plus the league's slot template.
+// The lineup search itself is lineupOptimizer.js's job, not this file's. This
+// supplies one basis — points actually scored that week, per Sleeper — and
+// reads the result. That optimizer handles overlapping flex eligibility and
+// suppresses cosmetic slot shuffles, which a plain greedy fill does not.
 
-import { assignPicksToSlots } from './rosterSlots'
+import { optimizeLineup } from './lineupOptimizer'
 
 /**
- * Best lineup the roster could have fielded that week.
- *
- * Approximation, deliberately: players are sorted by points scored and then
- * greedily slotted, which is what fantasy sites generally mean by "optimal."
- * It can be a hair under true optimal when a flex-eligible player could have
- * filled either of two slots, so this is labelled "best available" in the UI
- * rather than claimed as provably optimal.
+ * Best lineup the roster could have fielded that week, against what it did.
  *
  * @param {{starters: string[], players: string[], playersPoints: Record<string, number>}} weekEntry
+ *   one week from useSeasonMatchupHistory's weeklyByRoster
  * @param {{starters, benchCount}} slotTemplate - from parseRosterPositions
  * @param {Record<string, {id, position}>} playersById
- * @returns {{ actual: number, best: number, left: number, benchHeroes: Array<{id, points}> }}
- *   `left` is clamped at 0 — a lineup can't beat the best available one, and a
- *   negative would only ever mean missing player metadata, not a real result.
+ * @returns {{ actual: number, best: number, left: number, benchHeroes: Array<{id, points, delta}>, unranked: string[] }}
+ *   `left` is clamped at 0 — a lineup can't beat the best available one.
+ *   `benchHeroes` comes from the optimizer's swaps, so it lists only moves
+ *   that would actually have gained points, not equal-value reshuffles.
  */
 export function benchAnalysisForWeek(weekEntry, slotTemplate, playersById) {
-  const pts = (id) => weekEntry?.playersPoints?.[id] ?? 0
+  // A player Sleeper reported no score for is excluded rather than treated as
+  // a zero — "didn't play" and "we have no number" are different claims, and
+  // the optimizer reports the excluded ones back as `unranked`.
+  const valueOf = (id) => {
+    const v = weekEntry?.playersPoints?.[id]
+    return typeof v === 'number' ? v : null
+  }
 
-  const startedIds = (weekEntry?.starters ?? []).filter((id) => id && id !== '0')
-  const actual = startedIds.reduce((sum, id) => sum + pts(id), 0)
+  const r = optimizeLineup({
+    currentStarterIds: weekEntry?.starters ?? [],
+    playerIds: weekEntry?.players ?? [],
+    template: slotTemplate,
+    playersById,
+    valueOf,
+  })
 
-  const rosterIds = (weekEntry?.players ?? []).filter((id) => id && id !== '0')
-  const byPointsDesc = [...rosterIds].sort((a, b) => pts(b) - pts(a))
+  const actual = r.currentTotal ?? 0
+  const best = r.proposedTotal ?? actual
 
-  const { slots } = assignPicksToSlots(byPointsDesc, slotTemplate, playersById)
-  const bestIds = slots.filter((s) => s.filled).map((s) => s.filled.id)
-  const best = bestIds.reduce((sum, id) => sum + pts(id), 0)
-
-  // Who should have started but didn't — the actionable part of the number.
-  const startedSet = new Set(startedIds)
-  const benchHeroes = bestIds
-    .filter((id) => !startedSet.has(id))
-    .map((id) => ({ id, points: pts(id) }))
-    .sort((a, b) => b.points - a.points)
-
-  return { actual, best, left: Math.max(0, best - actual), benchHeroes }
+  return {
+    actual,
+    best,
+    left: Math.max(0, r.gain ?? 0),
+    benchHeroes: r.swaps.map((s) => ({ id: s.inId, points: valueOf(s.inId) ?? 0, delta: s.delta })),
+    unranked: r.unranked,
+  }
 }
 
 /**
  * Season roll-up of benchAnalysisForWeek across every loaded week.
  * @param {Record<number, object>} weeksForRoster - weeklyByRoster[myRosterId]
- * @returns {{ totalLeft: number, byWeek: Array<{week, actual, best, left, benchHeroes}> }}
+ * @returns {{ totalLeft: number, byWeek: Array<{week, actual, best, left, benchHeroes, unranked}> }}
  */
 export function benchAnalysisForSeason(weeksForRoster, slotTemplate, playersById) {
   const byWeek = Object.entries(weeksForRoster ?? {})

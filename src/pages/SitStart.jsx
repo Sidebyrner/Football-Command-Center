@@ -175,7 +175,7 @@ export default function SitStart() {
                       {s?.available ? (
                         <>
                           <p className="text-2xl font-bold tabular-nums text-[var(--color-text)]">{s.score}</p>
-                          <p className="text-[10px] text-[var(--color-text-faint)]">{s.tierLabel} · {s.coverage}% real data</p>
+                          <p className="text-[10px] text-[var(--color-text-faint)]">{s.tierLabel} · {Math.round(s.coverage * 100)}% real data</p>
                         </>
                       ) : (
                         <p className="text-xs text-[var(--color-text-faint)]">{s?.reason ?? 'Not scoreable'}</p>
