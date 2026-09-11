@@ -29,7 +29,7 @@ plan is a single JSON file on disk (see "Why not SQLite" below).
 | `ALLOWED_ORIGINS` | yes, for any browser client | Comma-separated. **Unset = no origin is allowed** (fails closed, not open) |
 | `PLAN_AUTH_TOKEN` | recommended once you rely on `/plan` | Gates only the human-facing HTML view, not the JSON API. Unset means anything that can reach this server can read your draft plan — the server logs a warning at boot if it's unset. Pick a long random string; bookmark `/plan?token=<it>` on your phone |
 | `LMSTUDIO_BASE_URL` | for `/api/ai/*` | E.g. `http://hermes-lmstudio:1234` — prefer the tailnet MagicDNS name over a bare IP, same reasoning as everywhere else in this deploy. Unset = both AI routes return 503, nothing else is affected |
-| `LMSTUDIO_MODEL` | for `/api/ai/*` | Must match whatever model id is actually loaded in LM Studio |
+| `LMSTUDIO_MODEL` | no | Pins a specific model id. Unset = the server asks LM Studio what it has loaded and uses that, logging which one — so a single-model local setup needs no config, and a typo can't masquerade as "not configured" |
 | `LMSTUDIO_TIMEOUT_MS` | no (default 60000) | Local inference on consumer hardware is slower than a REST lookup — this is intentionally much longer than any other timeout in this server |
 
 ## Why the plan is a flat file, not SQLite
