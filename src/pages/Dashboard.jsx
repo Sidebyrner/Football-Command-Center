@@ -173,7 +173,7 @@ export default function Dashboard() {
 
       <LineupAlerts myTeam={myTeam} playersById={playersById} currentWeek={week} />
       <TeamNews myTeam={myTeam} playersById={playersById} />
-      <QuickLinksStrip teams={teams} myTeam={myTeam} playersById={playersById} />
+      <QuickLinksStrip teams={teams} myTeam={myTeam} playersById={playersById} week={week} />
 
       <main className="flex-1 overflow-auto p-6 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

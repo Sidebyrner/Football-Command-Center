@@ -57,17 +57,23 @@ export function impliedTotalForTeam(games, teamAbbr) {
  * given starters — stacking two starters from the same NFL team must not
  * double-count that team's implied total, it's a team-level number.
  *
- * @param {Array} games - odds list (useOdds' `odds`)
- * @param {string[]} starterIds - player ids (Sleeper's "0" empty-slot
- *   placeholder is filtered out here, callers don't need to pre-filter it)
+ * The source is injected, because there are two: live lines from The Odds API
+ * (needs a key) and the recorded lines nfldata ships with the preprocessed
+ * schedule (free). Rather than keep a second copy of the distinct-team
+ * accounting for the free path, callers hand in a resolver and decide which
+ * source — or which order of preference — applies. useImpliedTotals does that
+ * preferring live and falling back to recorded.
+ *
+ * @param {string[]} starterIds - Sleeper's "0" empty-slot placeholder is
+ *   filtered here; callers don't need to pre-clean it.
  * @param {Record<string, {team?: string}>} playersById
+ * @param {(teamAbbr: string) => number|null} impliedForTeam
  * @returns {{ total: number|null, teamCount: number, missing: string[] }}
- *   `total` is null only when zero starters resolved to any implied total at
- *   all (no odds loaded yet). `missing` names NFL teams among the starters
- *   that had no game in the fetched odds (bye week, or odds not loaded) —
- *   stated, not silently treated as zero.
+ *   `total` is null only when no starter resolved to any line at all.
+ *   `missing` names the NFL teams that had none (bye week, or nothing
+ *   loaded) — stated, not silently treated as zero.
  */
-export function impliedTotalForLineup(games, starterIds, playersById) {
+export function lineupImpliedTotal(starterIds, playersById, impliedForTeam) {
   const nflTeams = new Set()
   for (const id of starterIds ?? []) {
     if (!id || id === '0') continue
@@ -79,9 +85,9 @@ export function impliedTotalForLineup(games, starterIds, playersById) {
   let matched = 0
   const missing = []
   for (const team of nflTeams) {
-    const r = impliedTotalForTeam(games, team)
-    if (r?.implied != null) {
-      total += r.implied
+    const v = impliedForTeam(team)
+    if (v != null) {
+      total += v
       matched++
     } else {
       missing.push(team)

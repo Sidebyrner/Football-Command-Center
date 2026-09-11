@@ -3,6 +3,15 @@
 // usePlayerWeekly loads one player for a drawer; the matchup planner needs
 // ~30 players across two rosters. Both read the same memoised season file, so
 // this is one fetch and one scoring pass, not thirty.
+//
+// NOT interchangeable with useSeasonMatchupHistory, which also returns weekly
+// points but from Sleeper's own matchup records. This hook wins for
+// per-player distributions (floor/median/ceiling/CV, last-N form) and covers
+// every player whether rostered or not. It cannot answer who was actually
+// started in a given week, cannot give roster-level totals, and has no DEF or
+// IDP rows at all — nflverse doesn't publish them. Anything that needs those
+// goes through useSeasonMatchupHistory instead; the full comparison table is
+// in that file's header.
 
 import { useState, useEffect, useMemo } from 'react'
 import { loadWeeklySeason } from '../services/weeklyStatsService'
