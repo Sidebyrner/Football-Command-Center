@@ -22,6 +22,10 @@ const BASES = [
   { key: 'floor', label: 'Floor', hint: 'his p20 week — protect a lead' },
   { key: 'ceiling', label: 'Ceiling', hint: 'his p80 week — you need a blowup' },
   { key: 'model', label: 'Model score', hint: '0-100 season-profile rank, not points' },
+  // The only basis here that knows nothing about the player. On this one a
+  // replacement-level body in a shootout outranks a stud in a slog — which is
+  // the point of running it against the others, not instead of them.
+  { key: 'environment', label: 'Game environment', hint: "his game's implied total — nothing about him" },
 ]
 
 function slotLabel(slot) {
@@ -173,11 +177,17 @@ export default function MatchupPlanner() {
         case 'floor': return s?.floor ?? null
         case 'ceiling': return s?.ceiling ?? null
         case 'model': return scores?.[id]?.available ? scores[id].score : null
+        // Same number the game column above already shows, read from the same
+        // schedule — so the basis and the display can't disagree.
+        case 'environment': {
+          const team = playersById[id]?.team
+          return team ? (schedule[toNflverseTeam(team)]?.impliedTotal ?? null) : null
+        }
         default: return null
       }
     }
     return pick
-  }, [basis, seasonWeekly, formWeekly, scores])
+  }, [basis, seasonWeekly, formWeekly, scores, schedule, playersById])
 
   const optimized = useMemo(() => {
     if (!myTeam || !slotTemplate) return null

@@ -11,7 +11,7 @@
 import { useEffect, useMemo } from 'react'
 import { useOdds } from './useOdds'
 import { useSchedule } from './useSchedule'
-import { impliedTotalForTeam } from '../utils/oddsHelpers'
+import { makeImpliedResolver } from '../utils/oddsHelpers'
 import { toNflverseTeam } from '../utils/nflTeams'
 import useAppStore from '../store/useAppStore'
 
@@ -44,18 +44,9 @@ export function useImpliedTotals(week) {
     const hasLive = odds.length > 0
     const hasSchedule = byTeam && Object.keys(byTeam).length > 0
 
-    const impliedForTeam = (teamAbbr) => {
-      if (!teamAbbr) return null
-      if (hasLive) {
-        const live = impliedTotalForTeam(odds, teamAbbr)?.implied
-        if (live != null) return live
-      }
-      // Schedule data is nflverse-keyed (LA, not LAR), so translate on the way in.
-      return byTeam?.[toNflverseTeam(teamAbbr)]?.impliedTotal ?? null
-    }
-
     return {
-      impliedForTeam,
+      // Schedule data is nflverse-keyed (LA, not LAR), so translate on the way in.
+      impliedForTeam: makeImpliedResolver(odds, byTeam, toNflverseTeam),
       source: hasLive ? 'live' : hasSchedule ? 'schedule' : null,
       loading: oddsLoading || scheduleLoading,
     }

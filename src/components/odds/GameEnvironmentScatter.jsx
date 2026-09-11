@@ -4,12 +4,11 @@ import {
   CartesianGrid, Tooltip, Cell, ReferenceLine, Label,
 } from 'recharts'
 import { ACCENT_HEX, NEUTRAL_HEX, BORDER_RGBA, TEXT_MUTED_HEX, TEXT_FAINT_HEX } from '../../utils/chartColors'
+import {
+  BLOWOUT_SPREAD, GAME_SCRIPTS, SCRIPT_ORDER, classifyGameScript, medianTotal as medianOf,
+} from '../../utils/gameScript'
 
 const AXIS_TICK = { fill: TEXT_MUTED_HEX, fontSize: 11 }
-
-// A touchdown is the natural competitive/blowout boundary — a real threshold
-// rather than the median of whatever happens to be on this week's board.
-const BLOWOUT_SPREAD = 7
 
 function EnvTooltip({ active, payload }) {
   if (!active || !payload?.length) return null
@@ -26,15 +25,6 @@ function EnvTooltip({ active, payload }) {
       <p className="text-[var(--color-accent)] mt-1">{g.quadrant}</p>
     </div>
   )
-}
-
-function quadrantFor(total, margin, medianTotal) {
-  const high = total >= medianTotal
-  const close = margin < BLOWOUT_SPREAD
-  if (high && close) return 'Shootout'
-  if (high && !close) return 'Blowout'
-  if (!high && close) return 'Grind'
-  return 'Slog'
 }
 
 /**
@@ -61,12 +51,9 @@ export default function GameEnvironmentScatter({ games, myTeamAbbrs }) {
       })
     }
     if (!out.length) return { rows: [], medianTotal: null }
-    const totals = out.map((r) => r.total).sort((a, b) => a - b)
-    const mid = totals.length % 2
-      ? totals[(totals.length - 1) / 2]
-      : (totals[totals.length / 2 - 1] + totals[totals.length / 2]) / 2
+    const mid = medianOf(out.map((r) => r.total))
     return {
-      rows: out.map((r) => ({ ...r, quadrant: quadrantFor(r.total, r.margin, mid) })),
+      rows: out.map((r) => ({ ...r, quadrant: classifyGameScript(r.total, r.margin, mid)?.label ?? null })),
       medianTotal: mid,
     }
   }, [games, myTeamAbbrs])
@@ -107,19 +94,17 @@ export default function GameEnvironmentScatter({ games, myTeamAbbrs }) {
       </ResponsiveContainer>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-        {[
-          ['Shootout', 'high total, close game', 'Both sides throw. Start everyone; WR ceilings live here.'],
-          ['Blowout', 'high total, big spread', "Favorite's RB grinds the clock; the dog's WRs get garbage time. Fade the dog's RB."],
-          ['Grind', 'low total, close game', 'Low ceilings on both sides. The classic fade.'],
-          ['Slog', 'low total, big spread', "Favorite's RB and little else."],
-        ].map(([name, axis, why]) => (
-          <div key={name} className="border border-[var(--color-border)] rounded px-2 py-1.5 bg-[var(--color-surface)]">
-            <p className="text-[10px] font-semibold text-[var(--color-text)]">
-              {name} <span className="text-[var(--color-text-faint)] font-normal">· {axis}</span>
-            </p>
-            <p className="text-[9px] text-[var(--color-text-muted)] leading-tight mt-0.5">{why}</p>
-          </div>
-        ))}
+        {SCRIPT_ORDER.map((key) => {
+          const s = GAME_SCRIPTS[key]
+          return (
+            <div key={key} className="border border-[var(--color-border)] rounded px-2 py-1.5 bg-[var(--color-surface)]">
+              <p className="text-[10px] font-semibold text-[var(--color-text)]">
+                {s.label} <span className="text-[var(--color-text-faint)] font-normal">· {s.axis}</span>
+              </p>
+              <p className="text-[9px] text-[var(--color-text-muted)] leading-tight mt-0.5">{s.blurb}</p>
+            </div>
+          )
+        })}
       </div>
 
       <p className="text-[10px] text-[var(--color-text-faint)] mt-1.5">

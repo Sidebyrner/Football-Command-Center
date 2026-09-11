@@ -52,6 +52,32 @@ export function impliedTotalForTeam(games, teamAbbr) {
 }
 
 /**
+ * Builds the "implied total for one NFL team" resolver, preferring live Odds
+ * API lines and falling back to the free recorded ones from the preprocessed
+ * schedule.
+ *
+ * Pure, and separate from useImpliedTotals, because the Odds page already
+ * holds both datasets — calling the hook there would spin up a second useOdds
+ * instance and risk a duplicate paid fetch against a 500/month quota. The
+ * hook uses this too, so the preference order is still defined once.
+ *
+ * @param {Array} odds - useOdds' `odds`
+ * @param {Record<string, {impliedTotal?: number}>} scheduleByTeam - nflverse-keyed
+ * @returns {(teamAbbr: string) => number|null}
+ */
+export function makeImpliedResolver(odds, scheduleByTeam, toScheduleKey = (t) => t) {
+  const hasLive = (odds?.length ?? 0) > 0
+  return (teamAbbr) => {
+    if (!teamAbbr) return null
+    if (hasLive) {
+      const live = impliedTotalForTeam(odds, teamAbbr)?.implied
+      if (live != null) return live
+    }
+    return scheduleByTeam?.[toScheduleKey(teamAbbr)]?.impliedTotal ?? null
+  }
+}
+
+/**
  * Vegas-implied scoring environment for a fantasy lineup this week: the sum
  * of implied totals across the DISTINCT NFL teams represented among the
  * given starters — stacking two starters from the same NFL team must not

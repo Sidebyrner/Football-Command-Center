@@ -10,6 +10,9 @@ import { useSchedule } from '../hooks/useSchedule'
 import { gameLine } from '../utils/oddsHelpers'
 import ImpliedTotalsChart from '../components/odds/ImpliedTotalsChart'
 import GameEnvironmentScatter from '../components/odds/GameEnvironmentScatter'
+import MyTeamOdds from '../components/odds/MyTeamOdds'
+import { useMissingPlayerMeta } from '../hooks/useMissingPlayerMeta'
+import { makeImpliedResolver } from '../utils/oddsHelpers'
 import useAppStore from '../store/useAppStore'
 
 function formatSpread(spread) {
@@ -32,11 +35,29 @@ export default function Odds() {
   const { odds, quota, loading, error, fetchOdds } = useOdds(oddsApiKey)
   const { players } = useDraftPlayers()
   const { teams } = useLeagueTeamRosters(leagueId)
+  const myTeam = teams.find((t) => t.id === sleeperUserId)
   // Free fallback. nfldata publishes spread and total per game alongside the
   // schedule, so the page has something real to draw before anyone pays for a
   // key. These are NOT live odds — they're whatever nfldata last recorded — and
   // every surface built on them says so.
-  const { games: scheduleGames } = useSchedule(season, currentWeek)
+  const { games: scheduleGames, byTeam: scheduleByTeam } = useSchedule(season, currentWeek)
+
+  // Whole-roster view needs names for IDP too, which useDraftPlayers filters
+  // out of the board entirely — same fallback the other roster surfaces use.
+  const playersById = useMemo(() => {
+    const map = {}
+    for (const p of players) map[p.id] = p
+    return map
+  }, [players])
+  const missingIds = useMemo(
+    () => (myTeam?.playerIds ?? []).filter((id) => id && id !== '0' && !playersById[id]),
+    [myTeam, playersById]
+  )
+  const idpMeta = useMissingPlayerMeta(missingIds)
+  const rosterPlayersById = useMemo(
+    () => ({ ...playersById, ...idpMeta }),
+    [playersById, idpMeta]
+  )
 
   // Auto-fetch once on mount if a key exists and nothing is cached yet —
   // useOdds itself only fetches when asked, by design (it's a paid/quota'd
@@ -47,12 +68,9 @@ export default function Odds() {
   }, [oddsApiKey])
 
   const myTeamAbbrs = useMemo(() => {
-    const myTeam = teams.find((t) => t.id === sleeperUserId)
     if (!myTeam) return new Set()
-    const playerById = {}
-    for (const p of players) playerById[p.id] = p
-    return new Set(myTeam.playerIds.map((id) => playerById[id]?.team).filter(Boolean))
-  }, [teams, sleeperUserId, players])
+    return new Set(myTeam.playerIds.map((id) => rosterPlayersById[id]?.team).filter(Boolean))
+  }, [myTeam, rosterPlayersById])
 
   // Roster teams normalized once, so the LAR/LA split can't make your own
   // games fail to highlight.
@@ -99,6 +117,14 @@ export default function Odds() {
   }, [scheduleGames, myNflverseAbbrs])
 
   const usingFallback = liveGames.length === 0 && fallbackGames.length > 0
+
+  // Built from the data this page already fetched rather than useImpliedTotals,
+  // which would spin up a second useOdds and risk a duplicate paid fetch.
+  const impliedForTeam = useMemo(
+    () => makeImpliedResolver(odds, scheduleByTeam, toNflverseTeam),
+    [odds, scheduleByTeam]
+  )
+
   const games = useMemo(() => {
     const src = liveGames.length ? liveGames : fallbackGames
     return [...src].sort(
@@ -140,6 +166,17 @@ export default function Odds() {
 
         {games.length > 0 && (
           <>
+            {/* Your own roster first — it's why you opened the page. The
+                market-wide charts below are the context for it. */}
+            <MyTeamOdds
+              myTeam={myTeam}
+              playersById={rosterPlayersById}
+              scheduleByTeam={scheduleByTeam}
+              impliedForTeam={impliedForTeam}
+              source={usingFallback ? 'schedule' : 'live'}
+              week={currentWeek}
+            />
+
             <p className="text-xs text-[var(--color-text-faint)]">
               {usingFallback
                 ? `Week ${currentWeek} lines from the preprocessed schedule (nfldata) — no API credits used.`
