@@ -22,5 +22,8 @@ export function useSchedule(season, week) {
 
   const view = useMemo(() => (file ? weekView(file, week) : { byTeam: {}, games: [] }), [file, week])
 
-  return { byTeam: view.byTeam, games: view.games, loading, error, hasSchedule: !!file }
+  // `file` is exposed additively for callers that need the whole season
+  // rather than one week — bye weeks are derived from absence across all 18.
+  // Existing callers ignore the extra key.
+  return { byTeam: view.byTeam, games: view.games, file, loading, error, hasSchedule: !!file }
 }
