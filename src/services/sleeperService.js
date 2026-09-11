@@ -7,6 +7,7 @@ import { cacheGet, cacheSet, TTL } from '../utils/cache'
 const KEYS = {
   PLAYERS: 'sleeper-players-v1',
   TRENDING: 'sleeper-trending-v1',
+  NFL_STATE: 'sleeper-nfl-state-v1',
   league: (id) => `sleeper-league-${id}`,
   rosters: (id) => `sleeper-rosters-${id}`,
   users: (id) => `sleeper-users-${id}`,
@@ -47,6 +48,22 @@ export function getLeagueMatchups(leagueId, week) {
   return cached(KEYS.matchups(leagueId, week), TTL.ROSTER, () =>
     sleeperApi.getMatchups(leagueId, week)
   )
+}
+
+// A completed week's scores never change again, so the 5-minute roster TTL is
+// wrong for them — season-history aggregates would re-fetch every past week
+// every 5 minutes. Same cache key as the live variant (so a week already
+// fetched live is reused), just written with a long TTL.
+export function getLeagueMatchupsHistorical(leagueId, week) {
+  return cached(KEYS.matchups(leagueId, week), TTL.NFLVERSE, () =>
+    sleeperApi.getMatchups(leagueId, week)
+  )
+}
+
+// Current NFL week straight from Sleeper, so season features don't depend on
+// the hand-typed currentWeek in Settings staying up to date.
+export function getNflState() {
+  return cached(KEYS.NFL_STATE, TTL.TRENDING, () => sleeperApi.getNflState())
 }
 
 export function getLeagueTransactions(leagueId, week) {

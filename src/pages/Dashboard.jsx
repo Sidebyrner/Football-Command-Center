@@ -1,12 +1,31 @@
-import { useMemo } from 'react'
-import { Link } from 'react-router-dom'
 import Header from '../components/layout/Header'
 import { getPositionColor } from '../utils/playerHelpers'
-import { useDraftPlayers } from '../hooks/useDraftPlayers'
-import { useLeagueTeamRosters } from '../hooks/useLeagueTeamRosters'
+import { useTeamPowerRankings } from '../hooks/useTeamPowerRankings'
 import { useLeagueMatchups } from '../hooks/useLeagueMatchups'
 import { useLeagueTransactions } from '../hooks/useLeagueTransactions'
+import { useSeasonMatchupHistory } from '../hooks/useSeasonMatchupHistory'
+import { useNflState } from '../hooks/useNflState'
+import LineupAlerts from '../components/dashboard/LineupAlerts'
+import TeamNews from '../components/dashboard/TeamNews'
+import QuickLinksStrip from '../components/dashboard/QuickLinksStrip'
+import StandingsCard from '../components/dashboard/StandingsCard'
+import WaiverTargets from '../components/dashboard/WaiverTargets'
+import DraftValueRealized from '../components/dashboard/DraftValueRealized'
+import BenchPoints from '../components/dashboard/BenchPoints'
+import WeeklyScoringTrend from '../components/dashboard/WeeklyScoringTrend'
+import { Link } from 'react-router-dom'
 import useAppStore from '../store/useAppStore'
+
+function Card({ title, children, className = '' }) {
+  return (
+    <div className={`border border-[var(--color-border)] rounded bg-[var(--color-surface)] p-4 ${className}`}>
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-faint)] mb-3">
+        {title}
+      </h2>
+      {children}
+    </div>
+  )
+}
 
 function PlayerRow({ id, playersById, muted }) {
   const p = playersById[id]
@@ -114,17 +133,18 @@ export default function Dashboard() {
   const sleeperUserId = useAppStore((s) => s.sleeperUserId)
   const currentWeek = useAppStore((s) => s.currentWeek)
 
-  const { players } = useDraftPlayers()
-  const { teams, loading: rostersLoading, error: rostersError } = useLeagueTeamRosters(leagueId)
-  const { matchups, loading: matchupsLoading, error: matchupsError } = useLeagueMatchups(leagueId, currentWeek)
+  // Sleeper's own current week beats the hand-typed Settings value, which
+  // goes stale the moment the season moves on; Settings stays the fallback.
+  const { week: liveWeek, detected } = useNflState(currentWeek)
+  const week = liveWeek ?? currentWeek
+  const throughWeek = Math.max(0, week - 1)
 
-  const playersById = useMemo(() => {
-    const map = {}
-    for (const p of players) map[p.id] = p
-    return map
-  }, [players])
-
-  const { transactions, loading: txLoading, error: txError } = useLeagueTransactions(leagueId, currentWeek, playersById)
+  const { teams, playersById, loading: rostersLoading, error: rostersError } = useTeamPowerRankings(leagueId, sleeperUserId)
+  const { matchups, loading: matchupsLoading, error: matchupsError } = useLeagueMatchups(leagueId, week)
+  const { transactions, loading: txLoading, error: txError } = useLeagueTransactions(leagueId, week, playersById)
+  const {
+    weeklyTotalsByRoster, weeklyByRoster, weeksLoaded, loading: historyLoading,
+  } = useSeasonMatchupHistory(leagueId, throughWeek)
 
   const myTeam = teams.find((t) => t.id === sleeperUserId)
   const myMatchup = myTeam ? matchups.find((m) => m.sides.some((s) => s.rosterId === myTeam.rosterId)) : null
@@ -150,38 +170,73 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col h-screen">
       <Header title="Dashboard" />
-      <main className="flex-1 overflow-auto p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          <div className="border border-[var(--color-border)] rounded bg-[var(--color-surface)] p-4">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-faint)] mb-3">
-              My Roster
-            </h2>
-            <RosterCard myTeam={myTeam} playersById={playersById} loading={rostersLoading} error={rostersError} />
-          </div>
 
-          <div className="border border-[var(--color-border)] rounded bg-[var(--color-surface)] p-4">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-faint)] mb-3">
-              This Week's Matchup
-            </h2>
+      <LineupAlerts myTeam={myTeam} playersById={playersById} currentWeek={week} />
+      <TeamNews myTeam={myTeam} playersById={playersById} />
+      <QuickLinksStrip teams={teams} myTeam={myTeam} playersById={playersById} />
+
+      <main className="flex-1 overflow-auto p-6 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <Card title="My Roster">
+            <RosterCard myTeam={myTeam} playersById={playersById} loading={rostersLoading} error={rostersError} />
+          </Card>
+
+          <Card title={`Week ${week} Matchup`}>
             <MatchupCard
               myTeam={myTeam}
               myMatchup={myMatchup}
               mySide={mySide}
               opponentTeam={opponentTeam}
               opponentSide={opponentSide}
-              currentWeek={currentWeek}
+              currentWeek={week}
               loading={rostersLoading || matchupsLoading}
               error={rostersError || matchupsError}
             />
-          </div>
+          </Card>
 
-          <div className="border border-[var(--color-border)] rounded bg-[var(--color-surface)] p-4">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-faint)] mb-3">
-              Waiver Wire
-            </h2>
+          <Card title="Standings">
+            <StandingsCard teams={teams} loading={rostersLoading} error={rostersError} />
+          </Card>
+
+          <Card title="Waiver Targets">
+            <WaiverTargets teams={teams} myTeam={myTeam} playersById={playersById} />
+          </Card>
+
+          <Card title="Waiver Wire Activity">
             <WaiverCard transactions={transactions} loading={txLoading} error={txError} />
-          </div>
+          </Card>
+
+          <Card title="Points Left On Bench">
+            <BenchPoints
+              myTeam={myTeam}
+              weeklyByRoster={weeklyByRoster}
+              playersById={playersById}
+              loading={historyLoading}
+            />
+          </Card>
         </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <Card title="Weekly Scoring vs. The League">
+            <WeeklyScoringTrend
+              myTeam={myTeam}
+              weeklyTotalsByRoster={weeklyTotalsByRoster}
+              weeksLoaded={weeksLoaded}
+              loading={historyLoading}
+            />
+          </Card>
+
+          <Card title="Draft Value Realized">
+            <DraftValueRealized playersById={playersById} throughWeek={throughWeek} />
+          </Card>
+        </div>
+
+        {!detected && (
+          <p className="text-[10px] text-[var(--color-text-faint)]">
+            Couldn't reach Sleeper for the current NFL week — using week {week} from{' '}
+            <Link to="/settings" className="underline">Settings</Link>.
+          </p>
+        )}
       </main>
     </div>
   )

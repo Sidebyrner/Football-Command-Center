@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react'
 import { getLeagueRosters, getLeagueUsers } from '../services/sleeperService'
 
 /**
- * @returns {{ teams: Array<{id, name, playerIds, starterIds, rosterId}>, loading, error }}
+ * @returns {{ teams: Array<{id, name, playerIds, starterIds, rosterId, record, pointsFor, pointsAgainst}>, loading, error }}
  *   `id` is the roster's owner_id (matches Sleeper's userId elsewhere in the app).
  *   `starterIds` is Sleeper's real starters array — use this for "what's
  *   actually started," not assignPicksToSlots (that's for grading roster
@@ -40,6 +40,16 @@ export function useLeagueTeamRosters(leagueId) {
             playerIds: r.players ?? [],
             starterIds: r.starters ?? [],
             rosterId: r.roster_id,
+            // Sleeper already returns season record and points here; this
+            // response was being read for rosters only and the rest thrown
+            // away, leaving the app with no standings anywhere.
+            record: {
+              wins: r.settings?.wins ?? 0,
+              losses: r.settings?.losses ?? 0,
+              ties: r.settings?.ties ?? 0,
+            },
+            pointsFor: (r.settings?.fpts ?? 0) + (r.settings?.fpts_decimal ?? 0) / 100,
+            pointsAgainst: (r.settings?.fpts_against ?? 0) + (r.settings?.fpts_against_decimal ?? 0) / 100,
           }))
         setTeams(joined)
         setLoading(false)

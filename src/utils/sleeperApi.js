@@ -22,6 +22,10 @@ async function get(path, { retries = 1 } = {}) {
 }
 
 export const sleeperApi = {
+  // Canonical current NFL week/season — { week, leg, season, season_type }.
+  // The app's own currentWeek is a hand-typed Settings field that goes stale;
+  // this is the authoritative source, one request, no league context needed.
+  getNflState: () => get(`/state/nfl`),
   getUser: (username) => get(`/user/${username}`),
   getLeagues: (userId, season) => get(`/user/${userId}/leagues/nfl/${season}`),
   getLeague: (leagueId) => get(`/league/${leagueId}`),
