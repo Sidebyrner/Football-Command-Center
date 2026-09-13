@@ -26,8 +26,14 @@ actor StubTransport: HTTPTransport {
         failures.insert(pathContains)
     }
 
+    private var paths: [String] = []
+
+    /// Every path requested, in order — for asserting *what* was re-read.
+    func requestedPaths() -> [String] { paths }
+
     func send(_ request: URLRequest) async throws -> HTTPResponse {
         requestCount += 1
+        paths.append(request.url?.path ?? "")
         let path = request.url?.absoluteString ?? ""
         for failure in failures where path.contains(failure) {
             throw StubError.offline

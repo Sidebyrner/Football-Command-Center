@@ -8,11 +8,20 @@ import FCData
 /// gives the Mac a sidebar and iPad a column, while iPhone falls back to a tab
 /// bar — the four screens are list-shaped and adapt without a separate layout.
 public struct RootView: View {
+    /// The only model the shell itself reads — whether setup is complete, and the
+    /// accent colour — so it is the only one the shell observes.
     @StateObject private var settingsModel: SettingsModel
-    @StateObject private var planningModel: PlanningModel
-    @StateObject private var dashboardModel: DashboardModel
-    @StateObject private var matchupModel: MatchupModel
-    @StateObject private var sitStartModel: SitStartModel
+
+    // The screen models are *held* here but deliberately not observed. They were
+    // @StateObject, which re-rendered the whole tab view every time any screen
+    // published — and at launch four screens publish repeatedly while they load.
+    // Scrolling Matchup while Planning finished loading in the background meant
+    // Matchup was being rebuilt mid-scroll, the likeliest cause of the jitter
+    // reported on device. Each screen observes its own model instead.
+    @State private var planningModel: PlanningModel
+    @State private var dashboardModel: DashboardModel
+    @State private var matchupModel: MatchupModel
+    @State private var sitStartModel: SitStartModel
     @State private var selection: Screen = .dashboard
     @State private var hasLoaded = false
 
@@ -33,15 +42,15 @@ public struct RootView: View {
             wrappedValue: SettingsModel(sleeper: sleeper, store: settingsStore)
         )
         let loader = LeagueContextLoader(sleeper: sleeper, staticData: staticData)
-        _planningModel = StateObject(wrappedValue: PlanningModel(loader: loader))
+        _planningModel = State(initialValue: PlanningModel(loader: loader))
         // The relay is optional and every call through it fails soft, so a
         // missing base URL simply means the news section never appears (§0).
         let relay = settingsStore.load().relayBaseURL.map { RelayClient(baseURL: $0) }
-        _dashboardModel = StateObject(
-            wrappedValue: DashboardModel(loader: loader, sleeper: sleeper, relay: relay)
+        _dashboardModel = State(
+            initialValue: DashboardModel(loader: loader, sleeper: sleeper, relay: relay)
         )
-        _matchupModel = StateObject(wrappedValue: MatchupModel(loader: loader, sleeper: sleeper))
-        _sitStartModel = StateObject(wrappedValue: SitStartModel(loader: loader))
+        _matchupModel = State(initialValue: MatchupModel(loader: loader, sleeper: sleeper))
+        _sitStartModel = State(initialValue: SitStartModel(loader: loader))
     }
 
     /// The four screens of the first release (§7), plus Settings.
@@ -186,11 +195,12 @@ public struct RootView: View {
         guard let leagueID = settingsModel.settings.leagueID,
               let rosterID = settingsModel.settings.rosterID else { return }
         hasLoaded = true
-        // Dashboard first: it is the screen a notification deep-links into,
-        // and its alerts are the time-sensitive part.
-        await dashboardModel.load(leagueID: leagueID, userRosterID: rosterID)
-        await matchupModel.load(leagueID: leagueID, userRosterID: rosterID)
-        await sitStartModel.load(leagueID: leagueID, userRosterID: rosterID)
-        await planningModel.load(leagueID: leagueID, userRosterID: rosterID)
+        // In parallel: they share one league context through the loader's memo,
+        // so this is one assembly, and no screen waits behind another.
+        async let dashboard: Void = dashboardModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
+        async let matchup: Void = matchupModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
+        async let sitStart: Void = sitStartModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
+        async let planning: Void = planningModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
+        _ = await (dashboard, matchup, sitStart, planning)
     }
 }

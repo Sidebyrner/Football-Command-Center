@@ -149,14 +149,33 @@ public final class DashboardModel: ObservableObject {
         context.flatMap { Freshness.label(for: $0.provenance) }
     }
 
-    public func load(leagueID: String, userRosterID: Int, season: Int? = nil) async {
+    private var lastRequest: (leagueID: String, rosterID: Int, season: Int?)?
+
+    /// Re-reads everything that can change during a week. Wired to pull-to-refresh.
+    public func refresh() async {
+        guard let request = lastRequest else { return }
+        await load(leagueID: request.leagueID, userRosterID: request.rosterID, season: request.season, force: true)
+        // Only a refresh that actually reached Sleeper counts. A failed fetch
+        // falls back to the cached copy, labelled offline — keeping the screen
+        // useful, but not something to confirm with a success haptic.
+        if errorMessage == nil, let context, !Freshness.isDegraded(context.provenance) {
+            refreshCount += 1
+        }
+    }
+
+    /// Bumped by each successful pull-to-refresh, so the screen can play a
+    /// success haptic for a refresh without also playing one on first load.
+    @Published public private(set) var refreshCount = 0
+
+    public func load(leagueID: String, userRosterID: Int, season: Int? = nil, force: Bool = false) async {
+        lastRequest = (leagueID, userRosterID, season)
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
 
         do {
             let context = try await loader.load(
-                leagueID: leagueID, userRosterID: userRosterID, season: season
+                leagueID: leagueID, userRosterID: userRosterID, season: season, force: force
             )
             self.context = context
 
@@ -172,7 +191,7 @@ public final class DashboardModel: ObservableObject {
             trend = Self.buildTrend(context: context, history: history)
 
             await loadDraftResults(context: context, history: history)
-            await loadTransactions(context: context)
+            await loadTransactions(context: context, force: force)
             await loadNews(context: context)
         } catch {
             errorMessage = String(describing: error)
@@ -393,7 +412,7 @@ public final class DashboardModel: ObservableObject {
 
     /// The last few weeks of league activity. Older weeks are not worth a
     /// request each — this is a "what did I miss" panel, not an archive.
-    private func loadTransactions(context: LeagueContext, weeksBack: Int = 3) async {
+    private func loadTransactions(context: LeagueContext, weeksBack: Int = 3, force: Bool = false) async {
         let managers = Dictionary(
             context.teams.map { ($0.rosterID, $0.manager) }, uniquingKeysWith: { first, _ in first }
         )
@@ -402,7 +421,7 @@ public final class DashboardModel: ObservableObject {
         var summaries: [TransactionSummary] = []
         for week in weeks {
             guard let fetched = try? await sleeper.transactions(
-                leagueID: context.league.leagueID, week: week
+                leagueID: context.league.leagueID, week: week, force: force
             ) else { continue }
 
             for transaction in fetched.value where transaction.isComplete {

@@ -19,11 +19,12 @@ public struct PlanningView: View {
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                if model.isLoading {
-                    ProgressView("Loading league…")
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 40)
-                } else if let error = model.errorMessage {
+                if let error = model.errorMessage, model.context != nil {
+                    InlineErrorBanner(message: error)
+                }
+                if model.context == nil, model.isLoading || model.errorMessage == nil {
+                    LoadingPlaceholder(label: "Loading league…")
+                } else if model.context == nil, let error = model.errorMessage {
                     errorBlock(error)
                 } else if model.context != nil {
                     header
@@ -34,6 +35,8 @@ public struct PlanningView: View {
             }
             .padding()
         }
+        .refreshable { await model.refresh() }
+        .sensoryFeedback(.success, trigger: model.refreshCount)
         .navigationTitle("Planning")
     }
 

@@ -122,14 +122,33 @@ public final class SitStartModel: ObservableObject {
 
     public var gain: Double? { proposal?.gain }
 
-    public func load(leagueID: String, userRosterID: Int, season: Int? = nil) async {
+    private var lastRequest: (leagueID: String, rosterID: Int, season: Int?)?
+
+    /// Re-reads everything that can change during a week. Wired to pull-to-refresh.
+    public func refresh() async {
+        guard let request = lastRequest else { return }
+        await load(leagueID: request.leagueID, userRosterID: request.rosterID, season: request.season, force: true)
+        // Only a refresh that actually reached Sleeper counts. A failed fetch
+        // falls back to the cached copy, labelled offline — keeping the screen
+        // useful, but not something to confirm with a success haptic.
+        if errorMessage == nil, let context, !Freshness.isDegraded(context.provenance) {
+            refreshCount += 1
+        }
+    }
+
+    /// Bumped by each successful pull-to-refresh, so the screen can play a
+    /// success haptic for a refresh without also playing one on first load.
+    @Published public private(set) var refreshCount = 0
+
+    public func load(leagueID: String, userRosterID: Int, season: Int? = nil, force: Bool = false) async {
+        lastRequest = (leagueID, userRosterID, season)
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
 
         do {
             let context = try await loader.load(
-                leagueID: leagueID, userRosterID: userRosterID, season: season
+                leagueID: leagueID, userRosterID: userRosterID, season: season, force: force
             )
             self.context = context
 

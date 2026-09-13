@@ -16,11 +16,12 @@ public struct MatchupView: View {
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                if model.isLoading {
-                    ProgressView("Loading matchup…")
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 40)
-                } else if let error = model.errorMessage {
+                if let error = model.errorMessage, model.context != nil {
+                    InlineErrorBanner(message: error)
+                }
+                if model.context == nil, model.isLoading || model.errorMessage == nil {
+                    LoadingPlaceholder(label: "Loading matchup…")
+                } else if model.context == nil, let error = model.errorMessage {
                     VStack(alignment: .leading, spacing: 8) {
                         Label("Could not load the matchup", systemImage: "exclamationmark.triangle")
                             .font(.headline)
@@ -59,7 +60,9 @@ public struct MatchupView: View {
             }
             .padding()
         }
-        .navigationTitle(model.week.map { "Week \($0)" } ?? "Matchup")
+        .refreshable { await model.refresh() }
+        .sensoryFeedback(.success, trigger: model.refreshCount)
+        .navigationTitle("Matchup")
     }
 
     // MARK: - Head to head

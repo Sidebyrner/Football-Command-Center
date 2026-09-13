@@ -39,18 +39,28 @@ public struct LeagueContextLoader: Sendable {
     ) async throws -> LeagueContext {
         let key = ContextMemo.Key(leagueID: leagueID, rosterID: userRosterID, season: season)
         return try await memo.value(for: key, force: force) {
-            try await self.assemble(leagueID: leagueID, userRosterID: userRosterID, season: season)
+            try await self.assemble(
+                leagueID: leagueID, userRosterID: userRosterID, season: season, force: force
+            )
         }
     }
 
-    private func assemble(leagueID: String, userRosterID: Int, season: Int?) async throws -> LeagueContext {
-        let state = try await sleeper.nflState()
+    /// - Parameter force: re-read what changes during a week — the current week,
+    ///   league settings, rosters and managers. The player index stays on its
+    ///   daily cache (Sleeper asks for once a day) and the static files on theirs.
+    private func assemble(
+        leagueID: String,
+        userRosterID: Int,
+        season: Int?,
+        force: Bool
+    ) async throws -> LeagueContext {
+        let state = try await sleeper.nflState(force: force)
         let scheduleSeason = season ?? state.value.seasonYear ?? Calendar.current.component(.year, from: Date())
         let currentWeek = state.value.week ?? 1
 
-        let league = try await sleeper.league(id: leagueID)
-        let rosters = try await sleeper.rosters(leagueID: leagueID)
-        let members = try await sleeper.members(leagueID: leagueID)
+        let league = try await sleeper.league(id: leagueID, force: force)
+        let rosters = try await sleeper.rosters(leagueID: leagueID, force: force)
+        let members = try await sleeper.members(leagueID: leagueID, force: force)
         let players = try await sleeper.playerIndex()
         let schedule = try await staticData.schedule(season: scheduleSeason)
         let (statsSeason, weekly) = try await loadStatsSeason(notAfter: scheduleSeason)

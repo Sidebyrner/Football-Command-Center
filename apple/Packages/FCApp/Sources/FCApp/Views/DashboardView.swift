@@ -17,11 +17,12 @@ public struct DashboardView: View {
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                if model.isLoading {
-                    ProgressView("Loading your league…")
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 40)
-                } else if let error = model.errorMessage {
+                if let error = model.errorMessage, model.context != nil {
+                    InlineErrorBanner(message: error)
+                }
+                if model.context == nil, model.isLoading || model.errorMessage == nil {
+                    LoadingPlaceholder(label: "Loading your league…")
+                } else if model.context == nil, let error = model.errorMessage {
                     errorBlock(error)
                 } else if let context = model.context {
                     FreshnessBanner(provenance: context.provenance)
@@ -36,6 +37,8 @@ public struct DashboardView: View {
             }
             .padding()
         }
+        .refreshable { await model.refresh() }
+        .sensoryFeedback(.success, trigger: model.refreshCount)
         .navigationTitle("Dashboard")
     }
 

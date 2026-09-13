@@ -17,11 +17,12 @@ public struct SitStartView: View {
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                if model.isLoading {
-                    ProgressView("Loading your roster…")
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 40)
-                } else if let error = model.errorMessage {
+                if let error = model.errorMessage, model.context != nil {
+                    InlineErrorBanner(message: error)
+                }
+                if model.context == nil, model.isLoading || model.errorMessage == nil {
+                    LoadingPlaceholder(label: "Loading your roster…")
+                } else if model.context == nil, let error = model.errorMessage {
                     VStack(alignment: .leading, spacing: 8) {
                         Label("Could not load your roster", systemImage: "exclamationmark.triangle")
                             .font(.headline)
@@ -44,6 +45,8 @@ public struct SitStartView: View {
             }
             .padding()
         }
+        .refreshable { await model.refresh() }
+        .sensoryFeedback(.success, trigger: model.refreshCount)
         .navigationTitle("Sit/Start")
     }
 
