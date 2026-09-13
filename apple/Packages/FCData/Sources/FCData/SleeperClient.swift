@@ -59,6 +59,14 @@ public struct SleeperClient: Sendable {
         try await get("/league/\(escaped(leagueID))/transactions/\(week)")
     }
 
+    public func drafts(leagueID: String) async throws -> [SleeperDraft] {
+        try await get("/league/\(escaped(leagueID))/drafts")
+    }
+
+    public func draftPicks(draftID: String) async throws -> [SleeperDraftPick] {
+        try await get("/draft/\(escaped(draftID))/picks")
+    }
+
     public func trendingAdds(limit: Int = 25) async throws -> [TrendingPlayer] {
         try await get("/players/nfl/trending/add?limit=\(limit)")
     }

@@ -30,6 +30,8 @@ public actor SleeperService {
         static func transactions(_ id: String, _ week: Int) -> String {
             "sleeper-transactions-\(id)-\(week)"
         }
+        static func drafts(_ id: String) -> String { "sleeper-drafts-\(id)" }
+        static func draftPicks(_ id: String) -> String { "sleeper-picks-\(id)" }
     }
 
     /// The one read path. Everything public below is this with a key and a TTL.
@@ -161,6 +163,22 @@ public actor SleeperService {
     ) async throws -> Fetched<[SleeperTransaction]> {
         try await through(key: Key.transactions(leagueID, week), ttl: CacheTTL.roster, force: force) {
             try await client.transactions(leagueID: leagueID, week: week)
+        }
+    }
+
+    // MARK: - Drafts
+
+    /// A completed draft never changes, so both of these are cached long. The
+    /// live-draft polling the web app does is out of scope for v1.
+    public func drafts(leagueID: String, force: Bool = false) async throws -> Fetched<[SleeperDraft]> {
+        try await through(key: Key.drafts(leagueID), ttl: CacheTTL.roster, force: force) {
+            try await client.drafts(leagueID: leagueID)
+        }
+    }
+
+    public func draftPicks(draftID: String) async throws -> Fetched<[SleeperDraftPick]> {
+        try await through(key: Key.draftPicks(draftID), ttl: CacheTTL.completedWeek) {
+            try await client.draftPicks(draftID: draftID)
         }
     }
 

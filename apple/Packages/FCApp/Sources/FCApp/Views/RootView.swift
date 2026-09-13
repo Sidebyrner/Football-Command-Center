@@ -10,7 +10,8 @@ import FCData
 public struct RootView: View {
     @StateObject private var settingsModel: SettingsModel
     @StateObject private var planningModel: PlanningModel
-    @State private var selection: Screen = .planning
+    @StateObject private var dashboardModel: DashboardModel
+    @State private var selection: Screen = .dashboard
     @State private var hasLoaded = false
 
     private let settingsStore: AppSettingsStore
@@ -24,19 +25,22 @@ public struct RootView: View {
         _settingsModel = StateObject(
             wrappedValue: SettingsModel(sleeper: sleeper, store: settingsStore)
         )
-        _planningModel = StateObject(
-            wrappedValue: PlanningModel(
-                loader: LeagueContextLoader(sleeper: sleeper, staticData: staticData)
-            )
+        let loader = LeagueContextLoader(sleeper: sleeper, staticData: staticData)
+        _planningModel = StateObject(wrappedValue: PlanningModel(loader: loader))
+        // The relay is optional and every call through it fails soft, so a
+        // missing base URL simply means the news section never appears (§0).
+        let relay = settingsStore.load().relayBaseURL.map { RelayClient(baseURL: $0) }
+        _dashboardModel = StateObject(
+            wrappedValue: DashboardModel(loader: loader, sleeper: sleeper, relay: relay)
         )
     }
 
-    /// The four screens of the first release (§7). Dashboard, Matchup and
-    /// Sit/Start are placeholders until they are built — shown rather than
-    /// hidden so the shape of the app is visible from the first run.
+    /// The four screens of the first release (§7). Matchup and Sit/Start are
+    /// placeholders until they are built — shown rather than hidden so the
+    /// shape of the app is visible from the first run.
     public enum Screen: String, CaseIterable, Identifiable, Hashable {
-        case planning = "Planning"
         case dashboard = "Dashboard"
+        case planning = "Planning"
         case matchup = "Matchup"
         case sitStart = "Sit/Start"
         case settings = "Settings"
@@ -54,7 +58,7 @@ public struct RootView: View {
         }
 
         var isBuilt: Bool {
-            self == .planning || self == .settings
+            self == .planning || self == .dashboard || self == .settings
         }
     }
 
@@ -121,11 +125,17 @@ public struct RootView: View {
             } else {
                 needsSetup
             }
+        case .dashboard:
+            if settingsModel.settings.isConfigured {
+                DashboardView(model: dashboardModel)
+            } else {
+                needsSetup
+            }
         case .settings:
             SettingsView(model: settingsModel) {
                 Task { await loadIfConfigured(force: true) }
             }
-        case .dashboard, .matchup, .sitStart:
+        case .matchup, .sitStart:
             notBuiltYet(screen)
         }
     }
@@ -156,6 +166,9 @@ public struct RootView: View {
         guard let leagueID = settingsModel.settings.leagueID,
               let rosterID = settingsModel.settings.rosterID else { return }
         hasLoaded = true
+        // Dashboard first: it is the screen a notification deep-links into,
+        // and its alerts are the time-sensitive part.
+        await dashboardModel.load(leagueID: leagueID, userRosterID: rosterID)
         await planningModel.load(leagueID: leagueID, userRosterID: rosterID)
     }
 }

@@ -254,3 +254,44 @@ public struct TrendingPlayer: Codable, Hashable, Sendable {
         case count
     }
 }
+
+/// `/league/{leagueId}/drafts`.
+///
+/// Draft *tooling* is out of scope for v1 (§7), but the Dashboard's
+/// "draft-pick value realized" needs the picks themselves, and the brief is
+/// explicit that deferred features should not be walled out of the data layer.
+public struct SleeperDraft: Codable, Hashable, Sendable {
+    public let draftID: String
+    public let status: String?
+    public let season: String?
+    public let startTime: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case draftID = "draft_id"
+        case status, season
+        case startTime = "start_time"
+    }
+
+    public var isComplete: Bool { status == "complete" }
+}
+
+/// `/draft/{draftId}/picks`.
+public struct SleeperDraftPick: Codable, Hashable, Sendable {
+    /// Overall pick number, 1-based. This is what a pick is graded against.
+    public let pickNo: Int
+    /// Nil for a skipped or auto-empty pick.
+    public let playerID: String?
+    public let rosterID: Int?
+    /// The user who made the pick, which is how a pick is attributed to the
+    /// user rather than to whichever roster later ended up with the player.
+    public let pickedBy: String?
+    public let round: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case pickNo = "pick_no"
+        case playerID = "player_id"
+        case rosterID = "roster_id"
+        case pickedBy = "picked_by"
+        case round
+    }
+}

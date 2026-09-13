@@ -36,11 +36,22 @@ public enum Availability: Hashable, Sendable {
 /// One team in the league, resolved down to what the algorithms need.
 public struct LeagueTeam: Hashable, Sendable, Identifiable {
     public let rosterID: Int
+    /// Sleeper's user id for the manager, which is how draft picks are
+    /// attributed — a pick belongs to whoever made it, not to whichever roster
+    /// later ended up with the player.
+    public let ownerID: String?
     public let manager: String
     public let isUser: Bool
     /// Every rostered player, with the position and team the crunch needs.
     public let roster: [RosterEntry]
+    /// Starters with unset slots removed.
     public let starterIDs: [String]
+    /// Starters exactly as Sleeper sent them, `"0"` included. Kept alongside
+    /// the filtered list because the count of `"0"` entries is the only way to
+    /// know how many slots are still unset (§3.1).
+    public let rawStarters: [String]
+    /// Record and points, which Sleeper returns with the roster itself.
+    public let settings: SleeperRoster.Settings?
 
     public var id: Int { rosterID }
 }
@@ -70,8 +81,26 @@ public struct LeagueContext: Sendable {
     /// Positions in this league's starting lineup that the weekly file has no
     /// data for — DEF and IDP. Stated, never papered over (§3.2).
     public let unsupportedPositions: [Position]
+    /// The trimmed player pool, kept so screens can name a player and read an
+    /// injury tag without another lookup layer.
+    public let players: PlayerIndex
     /// The weakest provenance of everything that went into this.
     public let provenance: Provenance
+
+    /// A player's display name, or `nil` when the pool has never heard of them.
+    public func playerName(_ id: String) -> String? {
+        players[id]?.name
+    }
+
+    public func position(_ id: String) -> Position? {
+        players[id]?.position
+    }
+
+    /// Sleeper's injury tag, only when there is actually one to report.
+    public func injuryStatus(_ id: String) -> String? {
+        guard let player = players[id], player.hasInjuryDesignation else { return nil }
+        return player.injuryStatus
+    }
 
     public var userTeam: LeagueTeam? {
         teams.first { $0.rosterID == userRosterID }

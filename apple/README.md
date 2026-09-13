@@ -185,16 +185,49 @@ simulator. The app target is 40 lines: build three objects, hand them to
 | `LeagueContext.swift` | the assembled league, with every dialect already translated |
 | `LeagueContextLoader.swift` | composes the FCData reads into that context |
 | `PlanningModel.swift` | the bye-crunch grid, the acquisition board, and the link |
+| `DashboardModel.swift` | alerts, standings, bench points, trend, draft value, moves |
+| `SeasonHistory.swift` | completed weeks, which three of the panels are built on |
 | `Freshness.swift` | turning a `Provenance` into the words the UI shows |
 | `Views/` | `RootView`, `PlanningView`, `SettingsView`, freshness chrome |
 
 ### What is built
 
-**Planning** (§7.4) and **Settings**. Planning came first on the brief's own
-advice — it exercises nearly the whole core, so getting it green proves the two
-packages underneath it. Dashboard, Matchup and Sit/Start are present in the
-navigation as honest "not built yet" screens rather than hidden, so the shape of
-the app is visible from the first run.
+**Dashboard** (§7.1), **Planning** (§7.4) and **Settings**. Planning came first
+on the brief's own advice — it exercises nearly the whole core, so getting it
+green proved the two packages underneath it. Matchup and Sit/Start are present
+in the navigation as honest "not built yet" screens rather than hidden, so the
+shape of the app is visible from the first run.
+
+### Dashboard
+
+Alerts pinned at the top, everything else scrolling below. It is the default tab
+because it is the screen a notification deep-links into, so whatever the
+notification raised has to be answerable without scrolling.
+
+Alerts are ordered by what it costs to ignore them: a starter **on bye** scores
+exactly zero, an **unset slot** scores exactly zero, and an **injury** is a risk
+rather than a certainty. Unset slots are counted from the raw `starters` array,
+since the `"0"` entries are the only record that a slot was never filled.
+
+Below that: standings (free — Sleeper returns records with the rosters),
+**points left on your bench**, a weekly scoring trend against the field you
+actually played, **draft value realized**, league moves, and — only when a relay
+is configured — news filtered to your own players.
+
+Two of those deserve a note:
+
+- **Points left on the bench** runs `LineupOptimizer` with points actually
+  scored as the basis, so overlapping flex slots are handled properly and
+  equal-value shuffles are never reported as missed moves. A player Sleeper gave
+  no number for is excluded rather than scored as zero — "didn't play" and "we
+  have no number" are different claims, and only one of them justifies telling
+  someone they made a mistake. The live week is never graded, because accusing
+  the user of a mistake they can still fix is the wrong thing for this screen
+  to do.
+- **Draft value realized** grades each of your picks against what that pick
+  number actually returned across the league this season — the *n*th-best real
+  season total among everyone drafted — not against anyone's preseason ranking.
+  Picks are attributed by who *made* them, not by who holds the player now.
 
 ### The link between the two halves
 
@@ -222,6 +255,11 @@ shipped data rather than typed into a fixture. That also exercises the `LAR` →
 `LA` normalisation — without it the Rams back reads as available and the alarm
 never fires.
 
+The Dashboard tests do the same with week 7, where the shipped schedule puts BAL
+and BUF on bye, so the fixture's BUF quarterback and BAL kicker are flagged from
+real data. Weeks 3 to 6 are deliberately left unscripted, which also exercises
+`SeasonHistory` skipping a week it cannot load rather than failing the screen.
+
 Sleeper responses come from a stub; nothing in the suite touches the network.
 
 ### Known gaps
@@ -229,5 +267,5 @@ Sleeper responses come from a stub; nothing in the suite touches the network.
 - The static store runs **bundle-only**: `baseURL` is `nil` until the generated
   JSON has a stable HTTPS home (§9, open question 2). Everything for the
   conditional refresh is built and tested — it just needs a URL.
-- Three of the four screens are placeholders.
+- Matchup and Sit/Start are placeholders.
 - No widgets, notifications or background refresh yet (§8).

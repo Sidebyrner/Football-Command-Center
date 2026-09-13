@@ -45,10 +45,13 @@ public struct LeagueContextLoader: Sendable {
         let teams = rosters.value.map { roster in
             LeagueTeam(
                 rosterID: roster.rosterID,
+                ownerID: roster.ownerID,
                 manager: roster.ownerID.flatMap { managerNames[$0] } ?? "Roster \(roster.rosterID)",
                 isUser: roster.rosterID == userRosterID,
                 roster: rosterEntries(for: roster, players: players.value),
-                starterIDs: roster.filledStarters
+                starterIDs: roster.filledStarters,
+                rawStarters: roster.starters ?? [],
+                settings: roster.settings
             )
         }
 
@@ -72,6 +75,7 @@ public struct LeagueContextLoader: Sendable {
             sleeperIDsByGSIS: crosswalk.value.sleeperIDsByGSIS(),
             availabilityBySleeperID: availability(teams: teams, userRosterID: userRosterID),
             unsupportedPositions: unsupportedStartingPositions(template: template),
+            players: players.value,
             provenance: Provenance.weakest([
                 state.provenance, league.provenance, rosters.provenance, members.provenance,
                 players.provenance, schedule.provenance, weekly.provenance, crosswalk.provenance,
