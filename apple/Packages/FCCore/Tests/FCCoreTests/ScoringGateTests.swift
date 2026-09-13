@@ -53,10 +53,10 @@ final class ScoringGateTests: XCTestCase {
 
         // Re-run the comparison by hand against the broken profile.
         var mismatches = 0
-        for (_, meta, rows) in file.allPlayers() {
-            let position = meta?.position
+        for player in file.allPlayers() {
+            let position = player.position
             if position == .k || position == .def { continue }
-            for row in rows {
+            for row in player.rows {
                 guard let reference = row.value(.pprReference),
                       let points = ScoringEngine.score(
                         row, profile: broken, position: position

@@ -38,7 +38,7 @@ final class WeeklyFileTests: XCTestCase {
                 """
                 {"fields":["opp","team","week","pass_yd","pass_td"],
                  "meta":{"x":{"n":"Test","p":"QB"}},
-                 "players":{"x":[["NYJ","BUF",1,394,2]]}}
+                 "players":{"x":[["BAL","BUF",1,394,2]]}}
                 """.utf8
             )
         )

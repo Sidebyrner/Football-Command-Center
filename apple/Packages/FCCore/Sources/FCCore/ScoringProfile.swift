@@ -130,7 +130,7 @@ public enum ScoringRule: String, CaseIterable, Hashable, Sendable {
 /// one point per ten yards) — the reciprocal of Sleeper's points-per-yard.
 /// Getting that backwards is silent and catastrophic, so every divide in the
 /// engine goes through one guarded helper.
-public struct ScoringProfile: Codable, Equatable, Sendable {
+public struct ScoringProfile: Codable, Hashable, Sendable {
     public var id: String
     public var name: String
     /// Where the profile came from, so the UI can say whether these are the
