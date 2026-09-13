@@ -81,3 +81,45 @@ struct StatPill: View {
         }
     }
 }
+
+/// A segmented control whose highlight slides between options. Used for the
+/// mode pickers on Matchup and Planning so they look and move the same.
+struct SlidingPicker<Option: Hashable>: View {
+    let options: [Option]
+    @Binding var selection: Option
+    let label: (Option) -> String
+    @Namespace private var highlight
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(options, id: \.self) { option in
+                let selected = selection == option
+                Button {
+                    selection = option
+                } label: {
+                    Text(label(option))
+                        .font(.footnote.weight(selected ? .semibold : .regular))
+                        .foregroundStyle(selected ? Color.primary : Color.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background {
+                            if selected {
+                                Capsule()
+                                    .fill(Color.accentColor.opacity(0.18))
+                                    .matchedGeometryEffect(id: "selection", in: highlight)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+        }
+        .padding(3)
+        .background(Capsule().fill(Palette.surface))
+        .motion(Motion.snappy, value: selection)
+        .sensoryFeedback(.selection, trigger: selection)
+    }
+}

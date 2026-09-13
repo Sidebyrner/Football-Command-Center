@@ -42,7 +42,7 @@ public struct RootView: View {
             wrappedValue: SettingsModel(sleeper: sleeper, store: settingsStore)
         )
         let loader = LeagueContextLoader(sleeper: sleeper, staticData: staticData)
-        _planningModel = State(initialValue: PlanningModel(loader: loader))
+        _planningModel = State(initialValue: PlanningModel(loader: loader, sleeper: sleeper))
         // The relay is optional and every call through it fails soft, so a
         // missing base URL simply means the news section never appears (§0).
         let relay = settingsStore.load().relayBaseURL.map { RelayClient(baseURL: $0) }
@@ -150,7 +150,11 @@ public struct RootView: View {
         switch screen {
         case .planning:
             if settingsModel.settings.isConfigured {
-                PlanningView(model: planningModel)
+                PlanningView(
+                    model: planningModel,
+                    introSeen: settingsModel.settings.hasSeenPlanningIntro,
+                    onDismissIntro: { settingsModel.markPlanningIntroSeen() }
+                )
             } else {
                 needsSetup
             }

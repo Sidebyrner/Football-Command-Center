@@ -62,10 +62,29 @@ public final class PlanningModel: ObservableObject {
         didSet { rebuildBoard() }
     }
 
-    private let loader: LeagueContextLoader
+    /// Which of the three jobs is on screen.
+    @Published public var mode: PlanningMode = .byes
 
-    public init(loader: LeagueContextLoader) {
+    @Published public private(set) var tradeTargets: [TradeTarget] = []
+    @Published public private(set) var waiverFills: [PlanningPlayer] = []
+    @Published public private(set) var waiverTrending: [PlanningPlayer] = []
+    @Published public private(set) var bestAvailable: [PlanningPlayer] = []
+    /// Set when trending adds could not be loaded, so the popularity-only
+    /// sections can say why they are empty.
+    @Published public private(set) var trendingUnavailable = false
+
+    /// League-wide trending adds, the only data covering DEF and IDP.
+    private(set) var trending: [TrendingPlayer] = []
+
+    private let loader: LeagueContextLoader
+    private let sleeper: SleeperService?
+
+    /// - Parameter sleeper: for trending adds. Optional: without it the planner
+    ///   still works on production data alone, and says the trending sections
+    ///   are unavailable.
+    public init(loader: LeagueContextLoader, sleeper: SleeperService? = nil) {
         self.loader = loader
+        self.sleeper = sleeper
     }
 
     private var lastRequest: (leagueID: String, rosterID: Int, season: Int?)?
@@ -99,6 +118,18 @@ public final class PlanningModel: ObservableObject {
             self.context = context
             self.grid = Self.buildGrid(context)
             rebuildBoard()
+
+            if let sleeper, let adds = try? await sleeper.trendingAdds(force: force) {
+                trending = adds.value
+                trendingUnavailable = false
+            } else {
+                trending = []
+                trendingUnavailable = true
+            }
+            tradeTargets = buildTradeTargets()
+            waiverFills = buildWaiverFills()
+            waiverTrending = buildWaiverTrending()
+            bestAvailable = buildBestAvailable()
         } catch {
             // Name what failed. "Couldn't load" with no subject is the failure
             // mode §6 exists to prevent.
@@ -190,7 +221,8 @@ public final class PlanningModel: ObservableObject {
         let names = context.unsupportedPositions.map(\.rawValue).joined(separator: ", ")
         return "No production data exists for \(names). "
             + "Bye weeks for those slots are still accurate — they come from the schedule, "
-            + "not from stats — but they will never appear on the acquisition board."
+            + "not from stats — but players there are only suggested from trending adds, "
+            + "which measure popularity, not production."
     }
 
     /// The one freshness note for the whole screen, since it is assembled from

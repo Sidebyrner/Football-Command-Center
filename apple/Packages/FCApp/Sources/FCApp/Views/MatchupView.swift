@@ -39,7 +39,6 @@ public struct MatchupView: View {
             }
         }
         .sensoryFeedback(.success, trigger: model.refreshCount)
-        .sensoryFeedback(.selection, trigger: model.mode)
         .navigationTitle("Matchup")
         #if os(iOS)
         // The pinned scoreboard is the headline here; a large title above it
@@ -247,40 +246,11 @@ public struct MatchupView: View {
 
 // MARK: - Mode picker
 
-/// A segmented control whose highlight slides between options.
 struct MatchupModePicker: View {
     @ObservedObject var model: MatchupModel
-    @Namespace private var highlight
 
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(model.availableModes, id: \.self) { mode in
-                Button {
-                    model.mode = mode
-                } label: {
-                    Text(mode.rawValue)
-                        .font(.footnote.weight(model.mode == mode ? .semibold : .regular))
-                        .foregroundStyle(model.mode == mode ? Color.primary : Color.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background {
-                            if model.mode == mode {
-                                Capsule()
-                                    .fill(Color.accentColor.opacity(0.18))
-                                    .matchedGeometryEffect(id: "mode", in: highlight)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(model.mode == mode ? .isSelected : [])
-            }
-        }
-        .padding(3)
-        .background(Capsule().fill(Palette.surface))
-        .motion(Motion.snappy, value: model.mode)
+        SlidingPicker(options: model.availableModes, selection: $model.mode) { $0.rawValue }
     }
 }
 
