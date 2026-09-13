@@ -119,6 +119,11 @@ public final class DashboardModel: ObservableObject {
     @Published public private(set) var isLoading = false
     @Published public private(set) var errorMessage: String?
 
+    /// You against your opponent this week. `nil` before Sleeper has matchups.
+    @Published public private(set) var thisWeek: ThisWeekSummary?
+    @Published public private(set) var waiverTargets: [WaiverTarget] = []
+    @Published public private(set) var waiverTargetsUnavailable = false
+
     /// Set when the draft panel cannot be shown, saying why rather than
     /// rendering an empty card.
     @Published public private(set) var draftUnavailable: String?
@@ -183,6 +188,23 @@ public final class DashboardModel: ObservableObject {
             // are built first and are on screen even if history fails.
             alerts = Self.buildAlerts(context: context)
             standings = Self.buildStandings(context: context)
+
+            // Same cache entry the Matchup screen reads, so no second request.
+            if let matchups = try? await sleeper.matchups(
+                leagueID: leagueID, week: context.currentWeek, force: force
+            ) {
+                thisWeek = Self.buildThisWeek(context: context, matchups: matchups.value)
+            } else {
+                thisWeek = nil
+            }
+
+            if let trending = try? await sleeper.trendingAdds(force: force) {
+                waiverTargets = Self.buildWaiverTargets(context: context, trending: trending.value)
+                waiverTargetsUnavailable = false
+            } else {
+                waiverTargets = []
+                waiverTargetsUnavailable = true
+            }
 
             let history = await SeasonHistory.load(
                 sleeper: sleeper, leagueID: leagueID, currentWeek: context.currentWeek

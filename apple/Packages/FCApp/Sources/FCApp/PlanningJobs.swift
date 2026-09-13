@@ -25,6 +25,18 @@ public enum PlanningMode: String, CaseIterable, Hashable, Sendable {
     }
 }
 
+public extension CrunchReport {
+    /// Positions that would fix this week: dedicated positions that are short,
+    /// plus every position eligible for a flex group that is short.
+    var neededPositions: Set<Position> {
+        var needed = Set(byPosition.filter { $0.value.shortfall > 0 }.keys)
+        for group in flexGroups where group.shortfall > 0 {
+            needed.formUnion(group.eligible)
+        }
+        return needed
+    }
+}
+
 /// One player the planner is suggesting, whichever job suggested him.
 public struct PlanningPlayer: Hashable, Sendable, Identifiable {
     public let id: String
@@ -65,11 +77,7 @@ extension PlanningModel {
     /// plus every position eligible for a flex group that is short.
     public func neededPositions(week: Int) -> Set<Position> {
         guard let context, let cell = cell(rosterID: context.userRosterID, week: week) else { return [] }
-        var needed = Set(cell.report.byPosition.filter { $0.value.shortfall > 0 }.keys)
-        for group in cell.report.flexGroups where group.shortfall > 0 {
-            needed.formUnion(group.eligible)
-        }
-        return needed
+        return cell.report.neededPositions
     }
 
     /// The user's short weeks, soonest first.

@@ -4,11 +4,14 @@ import FCData
 
 /// Dashboard — "what needs me right now" (§7.1).
 ///
-/// Alerts pinned at the top, everything else scrolling below. This is the
-/// screen a notification deep-links into, so whatever the notification was
-/// about has to be answerable without scrolling.
+/// Ordered by urgency: what to fix before kickoff, then this week's game, then
+/// who to pick up, then the season so far. This is the screen a notification
+/// deep-links into, so the top of it has to answer that notification.
 public struct DashboardView: View {
     @ObservedObject var model: DashboardModel
+    @Environment(\.openScreen) private var openScreen
+    @State private var showAllStandings = false
+    @State private var showAllMoves = false
 
     public init(model: DashboardModel) {
         self.model = model
@@ -16,38 +19,37 @@ public struct DashboardView: View {
 
     public var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 18) {
                 if let error = model.errorMessage, model.context != nil {
                     InlineErrorBanner(message: error)
                 }
                 if model.context == nil, model.isLoading || model.errorMessage == nil {
                     LoadingPlaceholder(label: "Loading your league…")
                 } else if model.context == nil, let error = model.errorMessage {
-                    errorBlock(error)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Could not load your league", systemImage: "exclamationmark.triangle")
+                            .font(.headline)
+                        Text(error).font(.footnote).foregroundStyle(.secondary)
+                    }
                 } else if let context = model.context {
-                    FreshnessBanner(provenance: context.provenance)
                     alertsSection
+                    thisWeekCard
+                    waiverTargetsSection
                     standingsSection
                     benchSection
                     trendSection
                     draftSection
                     newsSection
                     transactionsSection
+                    FreshnessBanner(provenance: context.provenance)
                 }
             }
             .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .refreshable { await model.refresh() }
         .sensoryFeedback(.success, trigger: model.refreshCount)
         .navigationTitle("Dashboard")
-    }
-
-    private func errorBlock(_ error: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Could not load your league", systemImage: "exclamationmark.triangle")
-                .font(.headline)
-            Text(error).font(.footnote).foregroundStyle(.secondary)
-        }
     }
 
     // MARK: - Alerts
@@ -55,16 +57,34 @@ public struct DashboardView: View {
     @ViewBuilder
     private var alertsSection: some View {
         if model.alerts.isEmpty {
-            Label("Lineup looks clean for this week.", systemImage: "checkmark.circle")
-                .font(.subheadline)
+            Label("Lineup looks clean for this week.", systemImage: "checkmark.seal.fill")
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Palette.start)
+                .card(fill: Palette.start.opacity(0.10))
+                .appear()
         } else {
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(model.alerts) { alert in
-                    HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Label("Before kickoff", systemImage: "exclamationmark.triangle.fill")
+                        .font(.headline)
+                        .foregroundStyle(Palette.caution)
+                        .symbolEffect(.bounce, value: model.alerts.count)
+                    Spacer()
+                    Button {
+                        openScreen(.sitStart)
+                    } label: {
+                        Label("Fix in Sit/Start", systemImage: "arrow.right")
+                            .labelStyle(.titleAndIcon)
+                            .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                ForEach(Array(model.alerts.enumerated()), id: \.element.id) { offset, alert in
+                    HStack(alignment: .top, spacing: 10) {
                         Image(systemName: icon(for: alert.kind))
                             .foregroundStyle(colour(for: alert.kind))
-                            .imageScale(.small)
+                            .frame(width: 20)
                         VStack(alignment: .leading, spacing: 1) {
                             if let name = alert.playerName {
                                 Text(name).font(.subheadline.weight(.semibold))
@@ -75,27 +95,133 @@ public struct DashboardView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
+                    .appear(index: offset)
                 }
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Palette.caution.opacity(0.10)))
+            .card(fill: Palette.caution.opacity(0.10))
         }
     }
 
     private func icon(for kind: LineupAlert.Kind) -> String {
         switch kind {
         case .onBye: return "calendar.badge.minus"
-        case .emptySlot: return "exclamationmark.triangle.fill"
-        case .injured: return "cross.case"
+        case .emptySlot: return "square.dashed"
+        case .injured: return "cross.case.fill"
         }
     }
 
     private func colour(for kind: LineupAlert.Kind) -> Color {
         switch kind {
         case .onBye: return Palette.sit
-        case .emptySlot: return Palette.caution
-        case .injured: return Palette.caution
+        case .emptySlot, .injured: return Palette.caution
+        }
+    }
+
+    // MARK: - This week
+
+    @ViewBuilder
+    private var thisWeekCard: some View {
+        if let week = model.thisWeek {
+            Button {
+                openScreen(.matchup)
+            } label: {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("WEEK \(week.week)")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .kerning(1.2)
+                        Spacer()
+                        HStack(spacing: 3) {
+                            Text("Matchup")
+                            Image(systemName: "chevron.right")
+                        }
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                    }
+                    HStack(alignment: .firstTextBaseline) {
+                        score(week.myManager, week.myPoints, week.myAverageTeamTotal, alignment: .leading)
+                        if let opponent = week.opponentManager {
+                            score(opponent, week.opponentPoints, week.opponentAverageTeamTotal, alignment: .trailing)
+                        }
+                    }
+                    Text(week.status)
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(PressableCardStyle())
+            .appear(index: 1)
+        }
+    }
+
+    private func score(_ manager: String, _ points: Double?, _ average: Double?, alignment: HorizontalAlignment) -> some View {
+        VStack(alignment: alignment, spacing: 2) {
+            Text(manager)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text(points.map { String(format: "%.1f", $0) } ?? "—")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(.primary)
+                .contentTransition(.numericText())
+            if let average {
+                Text(String(format: "teams avg %.1f pts", average))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .trailing)
+    }
+
+    // MARK: - Waiver targets
+
+    @ViewBuilder
+    private var waiverTargetsSection: some View {
+        if !model.waiverTargets.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(
+                    title: "Waiver targets",
+                    subtitle: "Trending adds nobody in your league has. Popularity only."
+                )
+                ForEach(model.waiverTargets) { target in
+                    HStack(spacing: 8) {
+                        PositionChip(position: target.position)
+                            .frame(width: 40, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 1) {
+                            HStack(spacing: 4) {
+                                Text(target.name).font(.subheadline).lineLimit(1)
+                                if let team = target.team {
+                                    Text(team).font(.caption2).foregroundStyle(.secondary)
+                                }
+                            }
+                            if target.fillsNeedThisWeek {
+                                Label("Fills a hole this week", systemImage: "checkmark.circle.fill")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(Palette.start)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Text(target.adds.formatted(.number.notation(.compactName)) + " adds")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .fixedSize()
+                    }
+                }
+                Button {
+                    openScreen(.planning)
+                } label: {
+                    Label("Plan waivers for the weeks ahead", systemImage: "arrow.right")
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.borderless)
+                .padding(.top, 2)
+            }
+            .card()
         }
     }
 
@@ -104,32 +230,43 @@ public struct DashboardView: View {
     @ViewBuilder
     private var standingsSection: some View {
         if !model.standings.isEmpty {
-            Section(header: sectionTitle("Standings")) {
-                VStack(spacing: 2) {
-                    ForEach(Array(model.standings.enumerated()), id: \.element.id) { index, row in
-                        HStack(spacing: 8) {
-                            Text("\(index + 1)")
-                                .font(.caption.monospacedDigit())
-                                .foregroundStyle(.tertiary)
-                                .frame(width: 18, alignment: .trailing)
-                            Text(row.isUser ? "\(row.manager) (you)" : row.manager)
-                                .font(.caption)
-                                .lineLimit(1)
-                                .fontWeight(row.isUser ? .semibold : .regular)
-                            Spacer()
-                            Text(row.record).font(.caption.monospacedDigit())
-                            Text(String(format: "%.1f", row.pointsFor))
-                                .font(.caption.monospacedDigit())
-                                .foregroundStyle(.secondary)
-                                .frame(width: 56, alignment: .trailing)
-                        }
-                        .padding(.vertical, 3)
-                        .padding(.horizontal, 6)
-                        .background(row.isUser ? Color.accentColor.opacity(0.10) : .clear)
-                        .clipShape(RoundedRectangle(cornerRadius: 5))
+            let shown = showAllStandings ? model.standings : Array(model.standings.prefix(5))
+            VStack(alignment: .leading, spacing: 4) {
+                SectionHeader(title: "Standings")
+                    .padding(.bottom, 4)
+                ForEach(Array(shown.enumerated()), id: \.element.id) { index, row in
+                    HStack(spacing: 8) {
+                        Text("\(index + 1)")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                            .frame(width: 18, alignment: .trailing)
+                        Text(row.isUser ? "\(row.manager) (you)" : row.manager)
+                            .font(.subheadline)
+                            .lineLimit(1)
+                            .fontWeight(row.isUser ? .semibold : .regular)
+                        Spacer()
+                        Text(row.record).font(.subheadline.monospacedDigit())
+                        Text(String(format: "%.1f", row.pointsFor))
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .frame(width: 58, alignment: .trailing)
                     }
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 6)
+                    .background(row.isUser ? Color.accentColor.opacity(0.12) : .clear)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+                if model.standings.count > 5 {
+                    Button(showAllStandings ? "Show top 5" : "Show all \(model.standings.count)") {
+                        showAllStandings.toggle()
+                    }
+                    .font(.caption.weight(.semibold))
+                    .buttonStyle(.borderless)
+                    .padding(.top, 4)
                 }
             }
+            .card()
+            .motion(Motion.snappy, value: showAllStandings)
         }
     }
 
@@ -139,45 +276,46 @@ public struct DashboardView: View {
     private var benchSection: some View {
         if !model.benchWeeks.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                sectionTitle("Left on your bench")
+                SectionHeader(
+                    title: "Left on your bench",
+                    subtitle: "What your lineup scored against the best one you had."
+                )
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(String(format: "%.1f", model.totalLeftOnBench))
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                    Text("pts across \(model.benchWeeks.count) week\(model.benchWeeks.count == 1 ? "" : "s")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
-                Text(String(format: "%.1f", model.totalLeftOnBench))
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                Text("total across \(model.benchWeeks.count) completed week\(model.benchWeeks.count == 1 ? "" : "s")")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-
-                let worst = model.benchWeeks.filter { $0.left > 0 }.sorted { $0.left > $1.left }.prefix(5)
+                let worst = model.benchWeeks.filter { $0.left > 0 }.sorted { $0.left > $1.left }.prefix(3)
                 if worst.isEmpty {
                     Text("Perfect lineups every week so far.")
                         .font(.caption)
                         .foregroundStyle(Palette.start)
                 } else {
                     ForEach(worst) { week in
-                        VStack(alignment: .leading, spacing: 1) {
-                            HStack {
-                                Text("Week \(week.week)").font(.caption).foregroundStyle(.secondary)
-                                Spacer()
-                                Text(String(format: "−%.1f", week.left))
-                                    .font(.caption.weight(.semibold).monospacedDigit())
-                                    .foregroundStyle(Palette.sit)
+                        HStack(alignment: .firstTextBaseline) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("Week \(week.week)").font(.caption.weight(.semibold))
+                                if let hero = week.shouldHaveStarted.first {
+                                    Text("should have started \(hero.name) (\(String(format: "%.1f", hero.points)))")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
                             }
-                            if let hero = week.shouldHaveStarted.first {
-                                Text("should have started \(hero.name) (\(String(format: "%.1f", hero.points)))")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                                    .lineLimit(1)
-                            }
+                            Spacer()
+                            Text(String(format: "−%.1f", week.left))
+                                .font(.caption.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(Palette.sit)
                         }
                     }
                 }
-
-                Text("\"Best available\" runs the same optimizer as Sit/Start, with points actually scored as the basis — so overlapping flex slots are handled properly and equal-value shuffles are not reported as missed moves.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
+            .card()
         }
     }
 
@@ -187,7 +325,7 @@ public struct DashboardView: View {
     private var trendSection: some View {
         if !model.trend.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                sectionTitle("Weekly scoring")
+                SectionHeader(title: "Weekly scoring", subtitle: "You against the league average — real results only.")
                 ForEach(model.trend) { point in
                     HStack(spacing: 8) {
                         Text("W\(point.week)")
@@ -198,23 +336,17 @@ public struct DashboardView: View {
                         Text(point.mine.map { String(format: "%.1f", $0) } ?? "—")
                             .font(.caption.monospacedDigit())
                             .frame(width: 48, alignment: .trailing)
-                        if let rank = point.rank {
-                            Text("#\(rank)")
-                                .font(.caption2.monospacedDigit())
-                                .foregroundStyle(.secondary)
-                                .frame(width: 28, alignment: .trailing)
-                        }
+                        Text(point.rank.map { "#\($0)" } ?? "")
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .frame(width: 28, alignment: .trailing)
                     }
                 }
-                Text("Real results only — the rank each week is against the field you actually played.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
             }
+            .card()
         }
     }
 
-    /// Mine against the league average that week, which is the comparison that
-    /// makes a raw total mean anything.
     private func bar(_ point: TrendPoint) -> some View {
         GeometryReader { geometry in
             let maximum = max(
@@ -223,52 +355,51 @@ public struct DashboardView: View {
             )
             let width = geometry.size.width
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.secondary.opacity(0.12))
-                if let average = point.leagueAverage, maximum > 0 {
-                    Capsule()
-                        .fill(Color.secondary.opacity(0.35))
-                        .frame(width: width * average / maximum, height: 3)
-                }
+                Capsule().fill(Palette.surfaceRaised)
                 if let mine = point.mine, maximum > 0 {
                     Capsule()
                         .fill(Color.accentColor)
                         .frame(width: width * mine / maximum, height: 8)
                 }
+                if let average = point.leagueAverage, maximum > 0 {
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.6))
+                        .frame(width: 2, height: 12)
+                        .offset(x: width * average / maximum - 1)
+                }
             }
         }
-        .frame(height: 10)
+        .frame(height: 12)
     }
 
     // MARK: - Draft
 
-    @ViewBuilder
     private var draftSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionTitle("Draft value realized")
-
+            SectionHeader(
+                title: "Draft value realized",
+                subtitle: "Each pick against what that pick number actually returned league-wide."
+            )
             if let unavailable = model.draftUnavailable {
                 Text(unavailable).font(.caption).foregroundStyle(.secondary)
             } else if model.draftResults.isEmpty {
                 Text("No graded picks yet.").font(.caption).foregroundStyle(.secondary)
             } else {
-                ForEach(model.draftResults.prefix(8)) { pick in
-                    HStack {
+                ForEach(model.draftResults.prefix(6)) { pick in
+                    HStack(spacing: 8) {
                         PositionChip(position: pick.position)
-                            .frame(width: 38, alignment: .leading)
-                        Text(pick.name).font(.caption).lineLimit(1)
-                        Text("pick \(pick.pickNo)").font(.caption2).foregroundStyle(.tertiary)
+                            .frame(width: 40, alignment: .leading)
+                        Text(pick.name).font(.subheadline).lineLimit(1)
+                        Text("#\(pick.pickNo)").font(.caption2).foregroundStyle(.secondary)
                         Spacer()
                         Text(String(format: "%+.1f", pick.surplus))
                             .font(.caption.weight(.semibold).monospacedDigit())
-                            .foregroundStyle(pick.surplus >= 0 ? Palette.start : Palette.sit)
+                            .foregroundStyle(Palette.delta(pick.surplus))
                     }
                 }
-                Text("Against what that pick number actually returned league-wide this season — not against anyone's preseason ranking.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .card()
     }
 
     // MARK: - News and transactions
@@ -277,7 +408,7 @@ public struct DashboardView: View {
     private var newsSection: some View {
         if !model.news.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                sectionTitle("Your players in the news")
+                SectionHeader(title: "Your players in the news")
                 ForEach(model.news.prefix(6), id: \.title) { item in
                     VStack(alignment: .leading, spacing: 1) {
                         Text(item.title).font(.caption).lineLimit(2)
@@ -287,37 +418,50 @@ public struct DashboardView: View {
                     }
                 }
             }
+            .card()
         }
     }
 
     @ViewBuilder
     private var transactionsSection: some View {
         if !model.transactions.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                sectionTitle("Recent league moves")
-                ForEach(model.transactions.prefix(10)) { transaction in
+            let shown = showAllMoves ? model.transactions : Array(model.transactions.prefix(5))
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(title: "Recent league moves")
+                ForEach(shown) { transaction in
                     VStack(alignment: .leading, spacing: 1) {
                         HStack {
-                            Text(transaction.manager).font(.caption.weight(.semibold))
-                            Text(transaction.type).font(.caption2).foregroundStyle(.secondary)
+                            Text(transaction.manager).font(.caption.weight(.semibold)).lineLimit(1)
+                            Text(transaction.type.replacingOccurrences(of: "_", with: " "))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                             Spacer()
                             Text("W\(transaction.week)").font(.caption2).foregroundStyle(.tertiary)
                         }
                         if !transaction.addedNames.isEmpty {
                             Text("+ \(transaction.addedNames.joined(separator: ", "))")
-                                .font(.caption2).foregroundStyle(Palette.start).lineLimit(1)
+                                .font(.caption2)
+                                .foregroundStyle(Palette.start)
+                                .lineLimit(1)
                         }
                         if !transaction.droppedNames.isEmpty {
                             Text("− \(transaction.droppedNames.joined(separator: ", "))")
-                                .font(.caption2).foregroundStyle(Palette.sit).lineLimit(1)
+                                .font(.caption2)
+                                .foregroundStyle(Palette.sit)
+                                .lineLimit(1)
                         }
                     }
                 }
+                if model.transactions.count > 5 {
+                    Button(showAllMoves ? "Show fewer" : "Show all \(model.transactions.count)") {
+                        showAllMoves.toggle()
+                    }
+                    .font(.caption.weight(.semibold))
+                    .buttonStyle(.borderless)
+                }
             }
+            .card()
+            .motion(Motion.snappy, value: showAllMoves)
         }
-    }
-
-    private func sectionTitle(_ text: String) -> some View {
-        Text(text).font(.headline)
     }
 }

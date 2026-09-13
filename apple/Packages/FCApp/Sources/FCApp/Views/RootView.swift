@@ -97,6 +97,9 @@ public struct RootView: View {
             #endif
         }
         .tint(settingsModel.settings.accentTheme.color)
+        .environment(\.openScreen, OpenScreenAction { screen in
+            selection = screen
+        })
         .task { await loadIfConfigured() }
         .onChange(of: settingsModel.settings.relayBaseURL) { _, url in
             dashboardModel.setRelay(baseURL: url)
