@@ -5,19 +5,38 @@ Swift port of the deterministic core of the web app, following
 
 ```
 apple/
+├── App/                 ← the app target: a thin shell and the bundled data
 ├── Packages/
 │   ├── FCCore/          ← step 1: pure value types + algorithms, no I/O,
 │   │                      tested against the real data
-│   └── FCData/          ← step 2: Sleeper client, disk cache, static data
-│                          store, optional relay — everything that can fail
+│   ├── FCData/          ← step 2: Sleeper client, disk cache, static data
+│   │                      store, optional relay — everything that can fail
+│   └── FCApp/           ← step 3: SwiftUI screens and their view models
+├── project.yml          ← XcodeGen source of truth for the project file
 └── Tools/
-    └── sync-fixtures.sh   copies public/data/** into both test bundles
+    └── sync-fixtures.sh   copies public/data/** into the test bundles and
+                           into the app bundle
 ```
 
-`FCApp` (SwiftUI, widgets, notifications) is the next step and does not exist
-yet. There is no Xcode app project until it does, so nothing here runs in a
-simulator — the two packages are verified by `swift test` alone, which is the
-point of keeping the domain I/O-free.
+## Building and running
+
+```sh
+cd apple
+xcodegen generate          # only after editing project.yml
+open FantasyCommandCenter.xcodeproj
+```
+
+The project file is generated from `project.yml` rather than hand-maintained,
+so it cannot drift from the folder layout. It is committed so that opening the
+project needs no extra tooling; regenerate after adding a target or changing
+build settings, not after adding a source file.
+
+One multiplatform target covers iPhone and Mac (§2), signed with the paid team
+`H9B7A5KQP3` — the same one the other apps here use. macOS will not build
+without it, because the sandbox entitlement requires signing.
+
+**Deployment target is iOS 17 / macOS 14**, matching the packages. Worth
+raising to whatever the test devices actually run before TestFlight.
 
 ## FCCore
 
@@ -149,3 +168,66 @@ the **real** shipped JSON, for the same reason `FCCore`'s do.
 The Settings screen named alongside `FCData` in the brief's step 2 is UI, so it
 belongs to `FCApp`. The service layer it needs is here and ready: `user(username:)`
 → `leagues(userID:season:)` → `league(id:)` is the username → league-pick flow.
+
+---
+
+## FCApp
+
+Step 3. The SwiftUI layer, kept as a **library** rather than living in the app
+target so that every view model is reachable from `swift test` without booting a
+simulator. The app target is 40 lines: build three objects, hand them to
+`RootView`.
+
+| File | What it owns |
+|---|---|
+| `AppSettings.swift` | the league and roster the user picked, persisted |
+| `SettingsModel.swift` | the username → league → team flow |
+| `LeagueContext.swift` | the assembled league, with every dialect already translated |
+| `LeagueContextLoader.swift` | composes the FCData reads into that context |
+| `PlanningModel.swift` | the bye-crunch grid, the acquisition board, and the link |
+| `Freshness.swift` | turning a `Provenance` into the words the UI shows |
+| `Views/` | `RootView`, `PlanningView`, `SettingsView`, freshness chrome |
+
+### What is built
+
+**Planning** (§7.4) and **Settings**. Planning came first on the brief's own
+advice — it exercises nearly the whole core, so getting it green proves the two
+packages underneath it. Dashboard, Matchup and Sit/Start are present in the
+navigation as honest "not built yet" screens rather than hidden, so the shape of
+the app is visible from the first run.
+
+### The link between the two halves
+
+Tapping a shortfall — a week where you cannot field a legal lineup — filters the
+acquisition board to players **not themselves on bye that week**. A player on
+bye in week 8 cannot solve week 8, however good he is. That link is the reason
+the grid and the board share a screen, and it is the thing the tests pin down
+hardest.
+
+The grid also shows rivals' rows, because the trade you actually want is with
+someone who is *not* short in the same week. `tradePartners(week:)` is that
+question asked directly.
+
+### Tests
+
+```sh
+cd apple/Packages/FCApp
+swift test
+```
+
+The Planning tests run against the **real** 2025 schedule and weekly files.
+Week 8 byes in that file are ARI, DET, JAX, LA, LV and SEA; the test roster's
+two backs are LAR and SEA, so the shortfall the tests assert on is derived from
+shipped data rather than typed into a fixture. That also exercises the `LAR` →
+`LA` normalisation — without it the Rams back reads as available and the alarm
+never fires.
+
+Sleeper responses come from a stub; nothing in the suite touches the network.
+
+### Known gaps
+
+- The static store runs **bundle-only**: `baseURL` is `nil` until the generated
+  JSON has a stable HTTPS home (§9, open question 2). Everything for the
+  conditional refresh is built and tested — it just needs a URL.
+- Three of the four screens are placeholders.
+- No widgets, notifications or background refresh yet (§8).

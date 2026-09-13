@@ -11,8 +11,10 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 src="$root/public/data"
 core="$root/apple/Packages/FCCore/Tests/FCCoreTests/Fixtures"
 data="$root/apple/Packages/FCData/Tests/FCDataTests/Fixtures"
+app="$root/apple/Packages/FCApp/Tests/FCAppTests/Fixtures"
+bundleRes="$root/apple/App/Resources"
 
-mkdir -p "$core" "$data"
+mkdir -p "$core" "$data" "$app" "$bundleRes"
 
 # FCCore: the algorithms are tested against production rows and the schedule.
 cp "$src/weekly/2025.json"      "$core/weekly-2025.json"
@@ -26,6 +28,24 @@ cp "$src/player-ids.json"       "$data/player-ids.json"
 cp "$src/weekly/2025.json"      "$data/weekly-2025.json"
 cp "$src/schedule-2025.json"    "$data/schedule-2025.json"
 
+# FCApp: the view models are exercised against a real league context, which
+# needs the same static files the store serves.
+cp "$src/player-ids.json"       "$app/player-ids.json"
+cp "$src/weekly/2025.json"      "$app/weekly-2025.json"
+cp "$src/schedule-2025.json"    "$app/schedule-2025.json"
+
+# The app bundle's own copies, so a first launch works offline before the app
+# has ever refreshed (§9). Names match what StaticResource looks for.
+cp "$src/weekly/2025.json"      "$bundleRes/weekly-2025.json"
+cp "$src/weekly/index.json"     "$bundleRes/weekly-index.json"
+cp "$src/schedule-2025.json"    "$bundleRes/schedule-2025.json"
+cp "$src/schedule-2026.json"    "$bundleRes/schedule-2026.json"
+cp "$src/player-ids.json"       "$bundleRes/player-ids.json"
+cp "$src/adp.json"              "$bundleRes/adp.json"
+cp "$src/cohorts.json"          "$bundleRes/cohorts.json"
+
 echo "Synced fixtures into:"
 echo "  $core"
 echo "  $data"
+echo "  $app"
+echo "  $bundleRes  (app bundle)"
