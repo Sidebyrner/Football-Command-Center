@@ -12,6 +12,7 @@ public struct RootView: View {
     @StateObject private var planningModel: PlanningModel
     @StateObject private var dashboardModel: DashboardModel
     @StateObject private var matchupModel: MatchupModel
+    @StateObject private var sitStartModel: SitStartModel
     @State private var selection: Screen = .dashboard
     @State private var hasLoaded = false
 
@@ -35,11 +36,10 @@ public struct RootView: View {
             wrappedValue: DashboardModel(loader: loader, sleeper: sleeper, relay: relay)
         )
         _matchupModel = StateObject(wrappedValue: MatchupModel(loader: loader, sleeper: sleeper))
+        _sitStartModel = StateObject(wrappedValue: SitStartModel(loader: loader))
     }
 
-    /// The four screens of the first release (§7). Sit/Start is a placeholder
-    /// until it is built — shown rather than hidden so the shape of the app is
-    /// visible from the first run.
+    /// The four screens of the first release (§7), plus Settings.
     public enum Screen: String, CaseIterable, Identifiable, Hashable {
         case dashboard = "Dashboard"
         case planning = "Planning"
@@ -59,9 +59,6 @@ public struct RootView: View {
             }
         }
 
-        var isBuilt: Bool {
-            self != .sitStart
-        }
     }
 
     public var body: some View {
@@ -144,7 +141,11 @@ public struct RootView: View {
                 needsSetup
             }
         case .sitStart:
-            notBuiltYet(screen)
+            if settingsModel.settings.isConfigured {
+                SitStartView(model: sitStartModel)
+            } else {
+                needsSetup
+            }
         }
     }
 
@@ -158,16 +159,6 @@ public struct RootView: View {
         }
     }
 
-    /// Honest about what is not built rather than showing an empty screen that
-    /// looks broken.
-    private func notBuiltYet(_ screen: Screen) -> some View {
-        ContentUnavailableView {
-            Label(screen.rawValue, systemImage: screen.systemImage)
-        } description: {
-            Text("Not built yet.")
-        }
-    }
-
     private func loadIfConfigured(force: Bool = false) async {
         guard settingsModel.settings.isConfigured else { return }
         guard force || !hasLoaded else { return }
@@ -178,6 +169,7 @@ public struct RootView: View {
         // and its alerts are the time-sensitive part.
         await dashboardModel.load(leagueID: leagueID, userRosterID: rosterID)
         await matchupModel.load(leagueID: leagueID, userRosterID: rosterID)
+        await sitStartModel.load(leagueID: leagueID, userRosterID: rosterID)
         await planningModel.load(leagueID: leagueID, userRosterID: rosterID)
     }
 }

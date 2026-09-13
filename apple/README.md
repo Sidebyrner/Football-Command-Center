@@ -188,16 +188,16 @@ simulator. The app target is 40 lines: build three objects, hand them to
 | `DashboardModel.swift` | alerts, standings, bench points, trend, draft value, moves |
 | `SeasonHistory.swift` | completed weeks, which three of the panels are built on |
 | `MatchupModel.swift` | both starting lineups this week, row by row |
+| `SitStartModel.swift` | the optimizer, one named basis at a time |
 | `Freshness.swift` | turning a `Provenance` into the words the UI shows |
 | `Views/` | `RootView`, `PlanningView`, `SettingsView`, freshness chrome |
 
 ### What is built
 
-**Dashboard** (§7.1), **Matchup** (§7.2), **Planning** (§7.4) and **Settings**.
-Planning came first on the brief's own advice — it exercises nearly the whole
-core, so getting it green proved the two packages underneath it. Sit/Start is
-present in the navigation as an honest "not built yet" screen rather than
-hidden, so the shape of the app is visible from the first run.
+All four v1 screens — **Dashboard** (§7.1), **Matchup** (§7.2), **Sit/Start**
+(§7.3), **Planning** (§7.4) — and **Settings**. Planning came first on the
+brief's own advice: it exercises nearly the whole core, so getting it green
+proved the two packages underneath it.
 
 ### Two seasons, not one
 
@@ -234,6 +234,31 @@ because they are different claims:
 Implied totals are labelled as recorded closing lines, and the defense ranks
 state their definition: points allowed per game to the position, counting every
 player who faced the defense.
+
+### Sit/Start
+
+The lineup optimizer, one basis at a time and always named (§7.3): season points
+per game, last-4 form, floor, ceiling, or game environment. Each is a different
+question rather than a better answer to the same one. Game environment is the
+only basis that knows nothing about the player — and the only one that can value
+DEF and IDP.
+
+The proposed swaps and their gain come first. When another basis would pick a
+different lineup the screen says which, because disagreement between measures is
+the signal that this is a judgement call rather than a calculation. That
+comparison uses the lineup that would actually take the field, so a DEF slot no
+stats basis can value does not, on its own, read as a disagreement — and on
+screen that slot keeps its current starter rather than showing as empty.
+
+Players the basis cannot value are left out and listed by cause, never scored as
+zero: no production data (DEF and IDP), no value in the stats season (rookies,
+missed games, or not matched), on bye, or no recorded line.
+
+**One deliberate departure from the web app:** a player on bye this week is
+unvalued on every basis. The web optimizer did not check, so on a season-average
+basis it would keep a bye-week star in the lineup, where he is guaranteed to
+score zero. The test for this was checked by removing the rule and watching it
+fail.
 
 ### Dashboard
 
@@ -304,5 +329,7 @@ Sleeper responses come from a stub; nothing in the suite touches the network.
 - The static store runs **bundle-only**: `baseURL` is `nil` until the generated
   JSON has a stable HTTPS home (§9, open question 2). Everything for the
   conditional refresh is built and tested — it just needs a URL.
-- Sit/Start is a placeholder.
+- The web app's 0–100 "model score" Sit/Start basis is not ported: it depends
+  on a season-scoring system that was not in the brief's port list. The screen
+  says so.
 - No widgets, notifications or background refresh yet (§8).
