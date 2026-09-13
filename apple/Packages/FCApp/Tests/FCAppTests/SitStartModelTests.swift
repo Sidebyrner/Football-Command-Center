@@ -122,6 +122,41 @@ final class SitStartModelTests: XCTestCase {
         XCTAssertEqual(gain, deltas, accuracy: 0.05 * Double(model.swaps.count) + 0.1)
     }
 
+    // MARK: - What to actually do
+
+    /// Week 7: Allen is benched for Goff. That is one start and one sit — not a
+    /// slot-by-slot list that makes a kept player look benched.
+    func testChangesReadAsStartsAndSits() async throws {
+        let model = try await loaded(week: 7)
+        XCTAssertTrue(model.starts.contains { $0.name == "Jared Goff" && $0.slot == "QB" })
+        XCTAssertTrue(model.sits.contains { $0.name == "Josh Allen" && $0.slot == "QB" })
+    }
+
+    /// Nobody can be both started and sat, and a player who only changes slot is
+    /// a move — never a sit.
+    func testStartsSitsAndMovesNeverOverlap() async throws {
+        for week in [1, 7] {
+            let model = try await loaded(week: week)
+            let started = Set(model.starts.map(\.playerID))
+            let sat = Set(model.sits.map(\.playerID))
+            let moved = Set(model.moves.map(\.playerID))
+            XCTAssertTrue(started.isDisjoint(with: sat), "week \(week)")
+            XCTAssertTrue(moved.isDisjoint(with: sat), "week \(week): a moved player is still starting")
+            XCTAssertTrue(moved.isDisjoint(with: started), "week \(week)")
+        }
+    }
+
+    /// The changes must reproduce the proposed lineup exactly from the current one.
+    func testChangesAccountForTheWholeProposedLineup() async throws {
+        let model = try await loaded(week: 7)
+        let current = Set((model.context?.userTeam?.rawStarters ?? []).filter { $0 != "0" })
+        let proposed = Set(model.lineup.compactMap(\.playerID))
+        let rebuilt = current
+            .subtracting(model.sits.map(\.playerID))
+            .union(model.starts.map(\.playerID))
+        XCTAssertEqual(rebuilt, proposed)
+    }
+
     // MARK: - Unvalued players, by cause
 
     /// On a stats basis DEF and IDP cannot be valued, so their slots show the

@@ -135,6 +135,7 @@ struct ByesSection: View {
                 ForEach(Array(short.enumerated()), id: \.element.id) { offset, cell in
                     ShortWeekCard(model: model, cell: cell)
                         .appear(index: offset)
+                        .scrollFade()
                 }
             }
 

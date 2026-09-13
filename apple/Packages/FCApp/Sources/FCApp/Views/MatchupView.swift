@@ -200,6 +200,7 @@ public struct MatchupView: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("matchup.row.\(pair.index)")
                 .appear(index: offset)
+                .scrollFade()
             }
         }
     }

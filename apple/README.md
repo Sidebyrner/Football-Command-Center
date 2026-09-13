@@ -333,3 +333,37 @@ Sleeper responses come from a stub; nothing in the suite touches the network.
   on a season-scoring system that was not in the brief's port list. The screen
   says so.
 - No widgets, notifications or background refresh yet (§8).
+
+
+---
+
+## Seeing it without a league: the demo league
+
+Debug builds accept `-FCCDemoLeague`, which runs the app against a generated
+four-team league with no network — built from the shipped 2025 files by
+`apple/Tools/make-demo-league.py`, current week 7 (BUF and BAL on bye). Add
+`-FCCTab <screen>` to open a tab directly and `-FCCAccent <theme>` to pick an
+accent. All of it is compiled out of Release.
+
+## UI tests
+
+`FantasyCommandCenterUITests` runs against the demo league:
+
+- **Every screen renders** from the fixture with no network (§10).
+- **Matchup pages swipe and nothing drifts sideways** — pages Head-to-head → You
+  → Opponent and back, checking that nothing straddles the window edge and the
+  content returns exactly where it started. This guards the drift Connor saw.
+- **Screenshot tour** — walks every screen and mode and saves images to
+  `FCC_SCREENSHOT_DIR` (`TEST_RUNNER_FCC_SCREENSHOT_DIR=… xcodebuild test …`),
+  optionally with `FCC_ACCENT`. Skipped when the variable isn't set.
+
+## Look and feel
+
+`FCApp/Sources/FCApp/Theme/` holds the palette (the web app's start/caution/sit
+and position colours), six accent themes picked in Settings, shared components
+(card, section header, position chip, sliding picker), and `Motion`, which every
+animation routes through so Reduce Motion is honoured in one place.
+
+Screens refresh with pull-to-refresh and a success haptic (only when Sleeper was
+actually reached), show placeholder cards instead of a spinner while loading, and
+animate numbers, mode switches and list entrances.

@@ -14,9 +14,18 @@ enum DemoMode {
     }
 
     /// Already configured, so the app opens straight onto the screens.
-    static let settings = AppSettings(
-        sleeperUsername: "connor", userID: "u1", leagueID: "L1", rosterID: 1
-    )
+    /// `-FCCAccent <theme>` picks the accent, for comparing themes in screenshots.
+    static var settings: AppSettings {
+        let arguments = ProcessInfo.processInfo.arguments
+        var accent = AccentTheme.default
+        if let flag = arguments.firstIndex(of: "-FCCAccent"), arguments.indices.contains(flag + 1) {
+            accent = AccentTheme(stored: arguments[flag + 1])
+        }
+        return AppSettings(
+            sleeperUsername: "connor", userID: "u1", leagueID: "L1", rosterID: 1,
+            accentTheme: accent
+        )
+    }
 
     /// A throwaway cache, so demo data can never leak into a real install's cache.
     static func cacheDirectory() -> URL {

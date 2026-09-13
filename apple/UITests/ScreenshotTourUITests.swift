@@ -25,9 +25,15 @@ final class ScreenshotTourUITests: XCTestCase {
         try? data.write(to: directory!.appendingPathComponent("\(name).png"))
     }
 
+    /// `FCC_ACCENT` picks the demo's accent theme for this run.
+    private var accentArguments: [String] {
+        guard let accent = ProcessInfo.processInfo.environment["FCC_ACCENT"], !accent.isEmpty else { return [] }
+        return ["-FCCAccent", accent]
+    }
+
     private func launch(tab: String, extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-FCCDemoLeague", "-FCCTab", tab] + extra
+        app.launchArguments = ["-FCCDemoLeague", "-FCCTab", tab] + accentArguments + extra
         app.launch()
         return app
     }

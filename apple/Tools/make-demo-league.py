@@ -259,7 +259,10 @@ league = {
                          "IDP_FLEX", "IDP_FLEX", "BN", "BN", "BN", "BN", "BN", "IR"],
     "scoring_settings": {"pass_yd": 0.05, "pass_td": 6, "pass_int": -5, "pass_fd": 1,
                          "rec": 0, "rec_yd": 0.1, "rec_td": 6, "rec_fd": 1,
-                         "rush_yd": 0.1, "rush_td": 6, "rush_fd": 1, "fum_lost": -3},
+                         "rush_yd": 0.1, "rush_td": 6, "rush_fd": 1, "fum_lost": -3,
+                         # Kicking, so demo kickers aren't all 0.0 pts/gm.
+                         "fgm_0_19": 3, "fgm_20_29": 3, "fgm_30_39": 3, "fgm_40_49": 4,
+                         "fgm_50p": 5, "xpm": 1, "fgmiss": -1},
 }
 routes["/v1/league/L1"] = league
 routes["/v1/user/u1/leagues/nfl/2025"] = [league]

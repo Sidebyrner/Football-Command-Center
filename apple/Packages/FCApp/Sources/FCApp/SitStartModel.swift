@@ -71,6 +71,28 @@ public struct SwapRow: Hashable, Sendable, Identifiable {
     public var id: String { "\(slot)-\(inName)" }
 }
 
+/// A player coming into, or going out of, the starting lineup.
+public struct LineupChange: Hashable, Sendable, Identifiable {
+    public let playerID: String
+    public let name: String
+    /// The slot he takes (for a start) or leaves (for a sit).
+    public let slot: String
+    /// His value on the active basis; `nil` when the basis can't value him.
+    public let value: Double?
+
+    public var id: String { playerID }
+}
+
+/// A player who starts either way but changes slot — a flex shuffle.
+public struct SlotMove: Hashable, Sendable, Identifiable {
+    public let playerID: String
+    public let name: String
+    public let from: String
+    public let to: String
+
+    public var id: String { playerID }
+}
+
 /// One slot of the proposed lineup.
 public struct ProposedSlot: Hashable, Sendable, Identifiable {
     public let index: Int
@@ -104,6 +126,17 @@ public final class SitStartModel: ObservableObject {
     @Published public private(set) var unranked = UnrankedBreakdown(
         noProductionData: [], noSeasonLine: [], onBye: [], noGameLine: []
     )
+    /// Who comes in, who goes out, and who just changes slot.
+    ///
+    /// The optimizer reports changes slot by slot, which is exact but reads
+    /// badly: moving a flex starter into an RB slot showed as that player being
+    /// benched ("RB: Barkley → McCaffrey", then "FLEX: McCaffrey → Smith-Njigba
+    /// −6.6") when he starts either way. These three lists say what a manager
+    /// actually has to do.
+    @Published public private(set) var starts: [LineupChange] = []
+    @Published public private(set) var sits: [LineupChange] = []
+    @Published public private(set) var moves: [SlotMove] = []
+
     /// Other bases that reach a *different* lineup. The honest signal: when the
     /// measures disagree, this is a judgement call, not a calculation.
     @Published public private(set) var disagreeingBases: [LineupBasis] = []
@@ -249,12 +282,50 @@ public final class SitStartModel: ObservableObject {
             )
         }
 
+        buildChanges(current: current, context: context)
+
         unranked = breakdown(active.unranked, context: context)
 
         let mine = effectiveLineup(active, context: context)
         disagreeingBases = LineupBasis.allCases
             .filter { $0 != basis }
             .filter { effectiveLineup(optimize($0, context: context), context: context) != mine }
+    }
+
+    /// Compares the lineup as it stands with the lineup that would take the field.
+    private func buildChanges(current: [String], context: LeagueContext) {
+        var currentSlot: [String: String] = [:]
+        for (index, id) in current.enumerated()
+        where id != SleeperRoster.emptyStarterSlot && context.template.starters.indices.contains(index) {
+            currentSlot[id] = context.template.starters[index].token
+        }
+        var proposedSlot: [String: String] = [:]
+        for slot in lineup {
+            if let id = slot.playerID { proposedSlot[id] = slot.slot }
+        }
+
+        func change(_ id: String, slot: String) -> LineupChange {
+            LineupChange(
+                playerID: id,
+                name: context.playerName(id) ?? id,
+                slot: slot,
+                value: value(of: id, basis: basis, context: context)
+            )
+        }
+
+        starts = lineup.compactMap { slot in
+            guard let id = slot.playerID, currentSlot[id] == nil else { return nil }
+            return change(id, slot: slot.slot)
+        }
+        sits = current.enumerated().compactMap { index, id in
+            guard id != SleeperRoster.emptyStarterSlot, proposedSlot[id] == nil,
+                  context.template.starters.indices.contains(index) else { return nil }
+            return change(id, slot: context.template.starters[index].token)
+        }
+        moves = lineup.compactMap { slot in
+            guard let id = slot.playerID, let from = currentSlot[id], from != slot.slot else { return nil }
+            return SlotMove(playerID: id, name: context.playerName(id) ?? id, from: from, to: slot.slot)
+        }
     }
 
     private func breakdown(_ ids: [String], context: LeagueContext) -> UnrankedBreakdown {

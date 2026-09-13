@@ -57,3 +57,27 @@ extension View {
         modifier(AppearModifier(index: index))
     }
 }
+
+/// Rows ease back and fade slightly as they scroll past the edges — the depth
+/// cue good list apps have. Off entirely under Reduce Motion.
+struct ScrollFadeModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        if reduceMotion {
+            content
+        } else {
+            content.scrollTransition(.interactive, axis: .vertical) { view, phase in
+                view
+                    .opacity(phase.isIdentity ? 1 : 0.55)
+                    .scaleEffect(phase.isIdentity ? 1 : 0.97)
+            }
+        }
+    }
+}
+
+extension View {
+    func scrollFade() -> some View {
+        modifier(ScrollFadeModifier())
+    }
+}
