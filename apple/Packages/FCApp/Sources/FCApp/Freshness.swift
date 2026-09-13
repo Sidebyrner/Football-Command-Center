@@ -37,12 +37,17 @@ public enum Freshness {
         }
     }
 
-    /// Whether to draw the label in a warning colour. Cached data inside its
-    /// TTL is normal; stale data after a failed fetch is not.
+    /// Whether to draw the label in a warning colour. Only stale data after a
+    /// failed fetch is a problem.
+    ///
+    /// Bundled data used to count as degraded too, but seeing the app for the
+    /// first time with data in it showed that was wrong: the bundled stats are
+    /// the *normal* state until a static-data host exists, so every screen wore
+    /// a permanent orange warning. It is still labelled — just not as an alarm.
     public static func isDegraded(_ provenance: Provenance) -> Bool {
         switch provenance {
-        case .live, .cached: return false
-        case .staleCache, .bundled: return true
+        case .live, .cached, .bundled: return false
+        case .staleCache: return true
         }
     }
 

@@ -14,19 +14,47 @@ public struct AppSettings: Codable, Hashable, Sendable {
     /// Base URL for the optional relay. Absent means the enrichment features
     /// simply don't appear — no v1 feature depends on it (§0).
     public var relayBaseURL: URL?
+    /// The accent colour picked in Settings.
+    public var accentTheme: AccentTheme
+    /// Whether the Planning explainer has been dismissed.
+    public var hasSeenPlanningIntro: Bool
 
     public init(
         sleeperUsername: String? = nil,
         userID: String? = nil,
         leagueID: String? = nil,
         rosterID: Int? = nil,
-        relayBaseURL: URL? = nil
+        relayBaseURL: URL? = nil,
+        accentTheme: AccentTheme = .default,
+        hasSeenPlanningIntro: Bool = false
     ) {
         self.sleeperUsername = sleeperUsername
         self.userID = userID
         self.leagueID = leagueID
         self.rosterID = rosterID
         self.relayBaseURL = relayBaseURL
+        self.accentTheme = accentTheme
+        self.hasSeenPlanningIntro = hasSeenPlanningIntro
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case sleeperUsername, userID, leagueID, rosterID, relayBaseURL
+        case accentTheme, hasSeenPlanningIntro
+    }
+
+    /// Settings saved by an older version lack the newer fields, and a theme
+    /// saved by a newer version may not exist in this one. Both must decode to
+    /// sensible defaults — a synthesised decoder would throw, and a thrown
+    /// decode here silently resets the user's league selection.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        sleeperUsername = try container.decodeIfPresent(String.self, forKey: .sleeperUsername)
+        userID = try container.decodeIfPresent(String.self, forKey: .userID)
+        leagueID = try container.decodeIfPresent(String.self, forKey: .leagueID)
+        rosterID = try container.decodeIfPresent(Int.self, forKey: .rosterID)
+        relayBaseURL = try container.decodeIfPresent(URL.self, forKey: .relayBaseURL)
+        accentTheme = AccentTheme(stored: try? container.decodeIfPresent(String.self, forKey: .accentTheme))
+        hasSeenPlanningIntro = (try? container.decodeIfPresent(Bool.self, forKey: .hasSeenPlanningIntro)) ?? false
     }
 
     /// Whether there is enough here to load a league. Until this is true the

@@ -86,7 +86,7 @@ public struct SitStartView: View {
                 Label {
                     Text("Your lineup is already the best one by **\(model.basis.label)**.")
                 } icon: {
-                    Image(systemName: "checkmark.circle").foregroundStyle(.green)
+                    Image(systemName: "checkmark.circle").foregroundStyle(Palette.start)
                 }
                 .font(.subheadline)
             } else {
@@ -97,7 +97,7 @@ public struct SitStartView: View {
                     if let gain = model.gain {
                         Text(String(format: "%+.1f", gain))
                             .font(.title3.weight(.bold).monospacedDigit())
-                            .foregroundStyle(gain >= 0 ? .green : .red)
+                            .foregroundStyle(gain >= 0 ? Palette.start : Palette.sit)
                     }
                 }
                 ForEach(model.swaps) { swap in
@@ -118,7 +118,7 @@ public struct SitStartView: View {
                         Spacer()
                         Text(String(format: "%+.1f", swap.delta))
                             .font(.caption.monospacedDigit())
-                            .foregroundStyle(swap.delta >= 0 ? .green : .red)
+                            .foregroundStyle(swap.delta >= 0 ? Palette.start : Palette.sit)
                     }
                 }
             }
@@ -130,10 +130,10 @@ public struct SitStartView: View {
 
     private var disagreement: some View {
         HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange).imageScale(.small)
+            Image(systemName: "exclamationmark.triangle").foregroundStyle(Palette.caution).imageScale(.small)
             Text("\(model.disagreeingBases.map(\.label).joined(separator: ", ")) pick\(model.disagreeingBases.count == 1 ? "s" : "") a different lineup. The measures disagree about these players, so this is a judgement call, not a calculation.")
                 .font(.caption)
-                .foregroundStyle(.orange)
+                .foregroundStyle(Palette.caution)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -154,7 +154,7 @@ public struct SitStartView: View {
                     Text(slot.name ?? "Empty")
                         .font(.caption)
                         .fontWeight(slot.changed ? .semibold : .regular)
-                        .foregroundStyle(slot.playerID == nil ? .orange : .primary)
+                        .foregroundStyle(slot.playerID == nil ? Palette.caution : .primary)
                         .lineLimit(1)
                     if slot.keptBecauseUnvalued {
                         Text("kept — can't be valued")

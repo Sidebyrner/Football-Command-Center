@@ -125,12 +125,19 @@ public final class DashboardModel: ObservableObject {
 
     private let loader: LeagueContextLoader
     private let sleeper: SleeperService
-    private let relay: RelayClient?
+    private var relay: RelayClient?
 
     public init(loader: LeagueContextLoader, sleeper: SleeperService, relay: RelayClient? = nil) {
         self.loader = loader
         self.sleeper = sleeper
         self.relay = relay
+    }
+
+    /// Points the news panel at a relay, or removes it. Takes effect on the
+    /// next load, so a URL entered in Settings works without a relaunch.
+    public func setRelay(baseURL: URL?) {
+        relay = baseURL.map { RelayClient(baseURL: $0) }
+        if baseURL == nil { news = [] }
     }
 
     /// Total left on the bench across every completed week.

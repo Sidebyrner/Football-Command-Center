@@ -22,6 +22,7 @@ public final class SettingsModel: ObservableObject {
     @Published public private(set) var teams: [(rosterID: Int, manager: String)] = []
     @Published public private(set) var isWorking = false
     @Published public private(set) var errorMessage: String?
+    @Published public private(set) var relayError: String?
     @Published public private(set) var settings: AppSettings
 
     private let sleeper: SleeperService
@@ -131,6 +132,40 @@ public final class SettingsModel: ObservableObject {
 
     public func setRelayURL(_ url: URL?) {
         settings.relayBaseURL = url
+        store.save(settings)
+    }
+
+    /// Accepts what a person types — trims it, adds `https://` when no scheme
+    /// was given — and rejects anything that isn't an http(s) address rather
+    /// than saving a URL every request would fail against.
+    @discardableResult
+    public func setRelayURL(text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            setRelayURL(nil)
+            relayError = nil
+            return true
+        }
+        let candidate = trimmed.contains("://") ? trimmed : "https://" + trimmed
+        guard let url = URL(string: candidate),
+              let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https",
+              let host = url.host, !host.isEmpty
+        else {
+            relayError = "That isn't a web address the relay could be reached at."
+            return false
+        }
+        relayError = nil
+        setRelayURL(url)
+        return true
+    }
+
+    public func setAccentTheme(_ theme: AccentTheme) {
+        settings.accentTheme = theme
+        store.save(settings)
+    }
+
+    public func markPlanningIntroSeen() {
+        settings.hasSeenPlanningIntro = true
         store.save(settings)
     }
 

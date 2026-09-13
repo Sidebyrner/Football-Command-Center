@@ -19,7 +19,7 @@ public struct FreshnessBanner: View {
                 Text(label)
                     .font(.footnote)
             }
-            .foregroundStyle(Freshness.isDegraded(provenance) ? .orange : .secondary)
+            .foregroundStyle(Freshness.isDegraded(provenance) ? Palette.caution : Color.secondary)
             .accessibilityElement(children: .combine)
         }
     }

@@ -99,7 +99,7 @@ public struct PlanningView: View {
                 Spacer()
                 Text("\(cell.shortfall) slot\(cell.shortfall == 1 ? "" : "s") short")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Palette.caution)
             }
             if !cell.shortPositions.isEmpty {
                 Text(cell.shortPositions.map(\.rawValue).joined(separator: ", "))
@@ -178,7 +178,7 @@ public struct PlanningView: View {
 
     private func cellColour(_ cell: CrunchCell?) -> Color {
         guard let cell, cell.isShort else { return Color.secondary.opacity(0.06) }
-        return cell.shortfall >= 2 ? .red.opacity(0.85) : .orange.opacity(0.85)
+        return cell.shortfall >= 2 ? Palette.sit.opacity(0.85) : Palette.caution.opacity(0.85)
     }
 
     // MARK: - Acquisition board
@@ -225,11 +225,7 @@ struct BoardRowView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(row.name)
                     .font(.subheadline.weight(.semibold))
-                Text(row.position.rawValue)
-                    .font(.caption2.weight(.semibold))
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .background(Color.secondary.opacity(0.15), in: Capsule())
+                PositionChip(position: row.position)
                 if let team = row.team {
                     Text(team)
                         .font(.caption2)
@@ -238,7 +234,7 @@ struct BoardRowView: View {
                 Spacer()
                 Text(String(format: "%+.1f", row.valueOverStartLine))
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(row.valueOverStartLine >= 0 ? .green : .secondary)
+                    .foregroundStyle(row.valueOverStartLine >= 0 ? Palette.start : .secondary)
             }
 
             Text(row.availability.label)

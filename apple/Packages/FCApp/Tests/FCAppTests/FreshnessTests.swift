@@ -29,9 +29,11 @@ final class FreshnessTests: XCTestCase {
         XCTAssertTrue(Freshness.isDegraded(.staleCache(age: 1, failure: "x")))
     }
 
-    func testBundledDataSaysWhereItCameFrom() {
+    /// Labelled, but not as a warning: bundled stats are the normal state until
+    /// a static-data host exists.
+    func testBundledDataSaysWhereItCameFromWithoutAlarm() {
         XCTAssertEqual(Freshness.label(for: .bundled), "Shipped with the app")
-        XCTAssertTrue(Freshness.isDegraded(.bundled))
+        XCTAssertFalse(Freshness.isDegraded(.bundled))
     }
 
     /// A screen assembled from several reads is only as fresh as its oldest

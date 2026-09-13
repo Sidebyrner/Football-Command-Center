@@ -87,7 +87,14 @@ public struct RootView: View {
             splitLayout
             #endif
         }
+        .tint(settingsModel.settings.accentTheme.color)
         .task { await loadIfConfigured() }
+        .onChange(of: settingsModel.settings.relayBaseURL) { _, url in
+            dashboardModel.setRelay(baseURL: url)
+            guard let leagueID = settingsModel.settings.leagueID,
+                  let rosterID = settingsModel.settings.rosterID else { return }
+            Task { await dashboardModel.load(leagueID: leagueID, userRosterID: rosterID) }
+        }
     }
 
     // MARK: - Layouts

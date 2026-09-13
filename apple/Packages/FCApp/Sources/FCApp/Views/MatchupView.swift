@@ -114,7 +114,7 @@ public struct MatchupView: View {
         if !problems.isEmpty {
             Text(problems.joined(separator: " · "))
                 .font(.caption)
-                .foregroundStyle(.orange)
+                .foregroundStyle(Palette.caution)
         }
     }
 }
@@ -134,21 +134,19 @@ struct MatchupRowView: View {
             if row.isEmptySlot {
                 Text("Empty — set this slot on Sleeper")
                     .font(.subheadline)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Palette.caution)
                 Spacer()
             } else {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text(row.name ?? "Unknown").font(.subheadline.weight(.semibold)).lineLimit(1)
                         if let position = row.position {
-                            Text(position.rawValue)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+                            PositionChip(position: position)
                         }
                     }
                     Text(gameLine)
                         .font(.caption)
-                        .foregroundStyle(row.onBye ? .red : .secondary)
+                        .foregroundStyle(row.onBye ? Palette.sit : .secondary)
 
                     if let season = row.season {
                         Text(seasonText(season))
@@ -199,6 +197,6 @@ struct MatchupRowView: View {
 
     private var defenseColour: Color {
         guard let delta = row.defense?.vsLeagueAverage else { return .secondary }
-        return delta >= 0 ? .green : .red
+        return delta >= 0 ? Palette.start : Palette.sit
     }
 }

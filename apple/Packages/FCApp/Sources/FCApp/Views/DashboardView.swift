@@ -54,7 +54,7 @@ public struct DashboardView: View {
         if model.alerts.isEmpty {
             Label("Lineup looks clean for this week.", systemImage: "checkmark.circle")
                 .font(.subheadline)
-                .foregroundStyle(.green)
+                .foregroundStyle(Palette.start)
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(model.alerts) { alert in
@@ -76,7 +76,7 @@ public struct DashboardView: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.orange.opacity(0.10)))
+            .background(RoundedRectangle(cornerRadius: 10).fill(Palette.caution.opacity(0.10)))
         }
     }
 
@@ -90,9 +90,9 @@ public struct DashboardView: View {
 
     private func colour(for kind: LineupAlert.Kind) -> Color {
         switch kind {
-        case .onBye: return .red
-        case .emptySlot: return .orange
-        case .injured: return .yellow
+        case .onBye: return Palette.sit
+        case .emptySlot: return Palette.caution
+        case .injured: return Palette.caution
         }
     }
 
@@ -149,7 +149,7 @@ public struct DashboardView: View {
                 if worst.isEmpty {
                     Text("Perfect lineups every week so far.")
                         .font(.caption)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Palette.start)
                 } else {
                     ForEach(worst) { week in
                         VStack(alignment: .leading, spacing: 1) {
@@ -158,7 +158,7 @@ public struct DashboardView: View {
                                 Spacer()
                                 Text(String(format: "−%.1f", week.left))
                                     .font(.caption.weight(.semibold).monospacedDigit())
-                                    .foregroundStyle(.red)
+                                    .foregroundStyle(Palette.sit)
                             }
                             if let hero = week.shouldHaveStarted.first {
                                 Text("should have started \(hero.name) (\(String(format: "%.1f", hero.points)))")
@@ -250,16 +250,14 @@ public struct DashboardView: View {
             } else {
                 ForEach(model.draftResults.prefix(8)) { pick in
                     HStack {
-                        Text(pick.position?.rawValue ?? "?")
-                            .font(.caption2.weight(.semibold))
-                            .frame(width: 30, alignment: .leading)
-                            .foregroundStyle(.secondary)
+                        PositionChip(position: pick.position)
+                            .frame(width: 38, alignment: .leading)
                         Text(pick.name).font(.caption).lineLimit(1)
                         Text("pick \(pick.pickNo)").font(.caption2).foregroundStyle(.tertiary)
                         Spacer()
                         Text(String(format: "%+.1f", pick.surplus))
                             .font(.caption.weight(.semibold).monospacedDigit())
-                            .foregroundStyle(pick.surplus >= 0 ? .green : .red)
+                            .foregroundStyle(pick.surplus >= 0 ? Palette.start : Palette.sit)
                     }
                 }
                 Text("Against what that pick number actually returned league-wide this season — not against anyone's preseason ranking.")
@@ -304,11 +302,11 @@ public struct DashboardView: View {
                         }
                         if !transaction.addedNames.isEmpty {
                             Text("+ \(transaction.addedNames.joined(separator: ", "))")
-                                .font(.caption2).foregroundStyle(.green).lineLimit(1)
+                                .font(.caption2).foregroundStyle(Palette.start).lineLimit(1)
                         }
                         if !transaction.droppedNames.isEmpty {
                             Text("− \(transaction.droppedNames.joined(separator: ", "))")
-                                .font(.caption2).foregroundStyle(.red).lineLimit(1)
+                                .font(.caption2).foregroundStyle(Palette.sit).lineLimit(1)
                         }
                     }
                 }

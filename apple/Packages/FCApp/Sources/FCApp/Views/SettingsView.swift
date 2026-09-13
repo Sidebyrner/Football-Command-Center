@@ -29,9 +29,12 @@ public struct SettingsView: View {
                 Section {
                     Text(error)
                         .font(.footnote)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Palette.sit)
                 }
             }
+
+            appearanceSection
+            relaySection
 
             if model.settings.isConfigured {
                 Section {
@@ -44,6 +47,72 @@ public struct SettingsView: View {
             if stage == .ready { onReady() }
         }
     }
+
+    // MARK: - Appearance
+
+    private var appearanceSection: some View {
+        Section {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 14)], spacing: 14) {
+                ForEach(AccentTheme.allCases) { theme in
+                    let selected = model.settings.accentTheme == theme
+                    Button {
+                        model.setAccentTheme(theme)
+                    } label: {
+                        Circle()
+                            .fill(theme.color)
+                            .frame(width: 34, height: 34)
+                            .overlay {
+                                if selected {
+                                    Image(systemName: "checkmark")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(.white)
+                                        .transition(.scale.combined(with: .opacity))
+                                }
+                            }
+                            .padding(4)
+                            .overlay(Circle().strokeBorder(theme.color, lineWidth: selected ? 2 : 0))
+                            .scaleEffect(selected ? 1.06 : 1)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(theme.label)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                }
+            }
+            .padding(.vertical, 4)
+            .motion(Motion.snappy, value: model.settings.accentTheme)
+            .sensoryFeedback(.selection, trigger: model.settings.accentTheme)
+        } header: {
+            Text("Accent color")
+        } footer: {
+            Text(model.settings.accentTheme.label)
+        }
+    }
+
+    // MARK: - Relay
+
+    @State private var relayText = ""
+
+    private var relaySection: some View {
+        Section {
+            TextField("relay.example.com", text: $relayText)
+                .autocorrectionDisabled()
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                .keyboardType(.URL)
+                #endif
+                .onSubmit { model.setRelayURL(text: relayText) }
+                .onAppear { relayText = model.settings.relayBaseURL?.absoluteString ?? "" }
+            if let error = model.relayError {
+                Text(error).font(.footnote).foregroundStyle(Palette.sit)
+            }
+        } header: {
+            Text("Relay (optional)")
+        } footer: {
+            Text("Your own relay server adds news about your players. Everything else works without it.")
+        }
+    }
+
+    // MARK: - Sleeper
 
     private var usernameSection: some View {
         Section {
