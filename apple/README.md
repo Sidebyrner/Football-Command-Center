@@ -6,14 +6,18 @@ Swift port of the deterministic core of the web app, following
 ```
 apple/
 ├── Packages/
-│   └── FCCore/          ← step 1 of the brief's build order: pure value types
-│                          + algorithms, no I/O, tested against the real data
+│   ├── FCCore/          ← step 1: pure value types + algorithms, no I/O,
+│   │                      tested against the real data
+│   └── FCData/          ← step 2: Sleeper client, disk cache, static data
+│                          store, optional relay — everything that can fail
 └── Tools/
-    └── sync-fixtures.sh   copies public/data/** into the FCCore test bundle
+    └── sync-fixtures.sh   copies public/data/** into both test bundles
 ```
 
-`FCData` (Sleeper client, disk cache, static data store) and `FCApp` (SwiftUI,
-widgets, notifications) are the next two steps and do not exist yet.
+`FCApp` (SwiftUI, widgets, notifications) is the next step and does not exist
+yet. There is no Xcode app project until it does, so nothing here runs in a
+simulator — the two packages are verified by `swift test` alone, which is the
+point of keeping the domain I/O-free.
 
 ## FCCore
 
@@ -84,3 +88,64 @@ web app rounds the start line to one decimal before comparing against it, which
 pushes the line above the very player who set it — measured on the 2025 file
 that makes seven of eight kickers clear an eight-kicker line. Rounding is a
 display concern and happens only in the human-readable strings.
+
+---
+
+## FCData
+
+Step 2 of the build order. Everything that can fail, go stale, or be offline
+lives here, which is precisely why none of it is in `FCCore`.
+
+| File | What it owns |
+|---|---|
+| `HTTPTransport.swift` | the one seam between this package and the network |
+| `SleeperClient.swift` | the `api.sleeper.app` endpoints, 8 s timeout, one retry |
+| `SleeperModels.swift` | Sleeper's payloads, decoded only as far as the app uses them |
+| `PlayerIndex.swift` | the **trimmed projection** of the ~5 MB player payload |
+| `DiskCache.swift` | TTL'd file cache in Application Support — never `UserDefaults` |
+| `SleeperService.swift` | cache-through reads: fresh cache → network → stale cache |
+| `StaticDataStore.swift` | bundled nflverse files + conditional HTTP refresh |
+| `PlayerIDCrosswalk.swift` | `player-ids.json` and its three dialect traps |
+| `RelayClient.swift` | optional enrichment; every call fails soft |
+| `Fetched.swift` | a value plus where it came from |
+
+### Running the tests
+
+```sh
+cd apple/Packages/FCData
+swift test
+```
+
+Nothing in the suite touches the network. Every request goes through a
+`StubTransport`, because the cases worth testing — a 304, a 500 that then
+succeeds, a truncated body — are exactly the ones a live server will not
+produce on request. The crosswalk and static-store tests still assert against
+the **real** shipped JSON, for the same reason `FCCore`'s do.
+
+### Three decisions worth knowing about
+
+1. **Provenance is part of the return type.** Reads come back as
+   `Fetched<Value>`, which pairs the value with where it came from — live,
+   cached, stale-cached after a failed fetch, or the bundled copy. The house
+   style (§6) requires saying where a number came from, and "cached four hours
+   ago" is a materially different claim from "live". Putting it in the type
+   means a caller has to destructure it to get at the value, so it cannot
+   quietly go unmentioned.
+
+2. **A failed fetch serves expired cache rather than an error.** Read order is
+   fresh cache → network → *stale* cache. On a phone with no signal, old data
+   beats no data — but it arrives labelled `staleCache`, never disguised as
+   current (§8.1).
+
+3. **The player payload is trimmed at the client boundary.**
+   `SleeperClient.playerIndex()` returns the projection and never hands back the
+   raw ~5 MB body, so there is no way for a caller to hold or cache it. The web
+   app's silent `localStorage` quota failure looked exactly like a working cache
+   while re-downloading megabytes on every load (§3.1); the cache here is
+   file-backed and its writes throw rather than fail quietly.
+
+### Not built yet
+
+The Settings screen named alongside `FCData` in the brief's step 2 is UI, so it
+belongs to `FCApp`. The service layer it needs is here and ready: `user(username:)`
+→ `leagues(userID:season:)` → `league(id:)` is the username → league-pick flow.
