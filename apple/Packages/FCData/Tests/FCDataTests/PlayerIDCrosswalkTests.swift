@@ -99,6 +99,31 @@ final class PlayerIDCrosswalkTests: XCTestCase {
         XCTAssertTrue(rams.allSatisfy { $0.nflverseTeam == "LA" })
     }
 
+    /// The file's own team dialect: every team code it uses must translate to
+    /// one of the 32 codes the schedule actually contains, or bye detection
+    /// silently fails for that team.
+    func testEveryTeamCodeTranslatesToAScheduleTeam() throws {
+        let file = try crosswalk()
+        let schedule = try JSONDecoder().decode(ScheduleFile.self, from: Fixtures.data("schedule-2025"))
+        let scheduleTeams = Set(schedule.byWeek.values.flatMap { $0.flatMap { [$0.home, $0.away] } }.compactMap { $0 })
+        XCTAssertEqual(scheduleTeams.count, 32)
+
+        let untranslated = Set(
+            file.players.values
+                .filter { !$0.isFreeAgent && $0.team != "FA*" && $0.team != nil }
+                .compactMap(\.nflverseTeam)
+                .filter { !scheduleTeams.contains($0) }
+        )
+        XCTAssertTrue(untranslated.isEmpty, "untranslated team codes: \(untranslated.sorted())")
+    }
+
+    func testKansasCityIsNotLeftAsKCC() throws {
+        let file = try crosswalk()
+        let chiefs = file.players.values.filter { $0.team == "KCC" }
+        XCTAssertFalse(chiefs.isEmpty)
+        XCTAssertTrue(chiefs.allSatisfy { $0.nflverseTeam == "KC" })
+    }
+
     func testFreeAgentsAreFlagged() throws {
         let file = try crosswalk()
         let freeAgents = file.players.values.filter { $0.team == "FA" }

@@ -45,6 +45,10 @@ public struct MatchupView: View {
                         sideSummary(side)
                         ForEach(side.rows) { row in
                             MatchupRowView(row: row)
+                                // Contain, so the id lands on the row and not on
+                                // every text inside it.
+                                .accessibilityElement(children: .contain)
+                                .accessibilityIdentifier("matchup.row.\(row.index)")
                         }
                     }
                     VStack(alignment: .leading, spacing: 4) {

@@ -46,6 +46,9 @@ targets:
         product: FCData
       - package: FCApp
         product: FCApp
+    scheme:
+      testTargets:
+        - FantasyCommandCenterUITests
     info:
       path: App/Info.plist
       properties:
@@ -73,3 +76,22 @@ targets:
         ENABLE_APP_SANDBOX: YES
         ENABLE_USER_SELECTED_FILES: readonly
         CODE_SIGN_ENTITLEMENTS: App/FantasyCommandCenter.entitlements
+
+  # UI tests run against the Debug-only demo league (-FCCDemoLeague): real 2025
+  # data, no network. They check that every screen renders and that nothing is
+  # wider than the phone — the Matchup sideways-drift regression.
+  FantasyCommandCenterUITests:
+    type: bundle.ui-testing
+    supportedDestinations: [iOS]
+    sources:
+      - path: UITests
+    dependencies:
+      - target: FantasyCommandCenter
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        DEVELOPMENT_TEAM: H9B7A5KQP3
+        CODE_SIGN_STYLE: Automatic
+        PRODUCT_BUNDLE_IDENTIFIER: com.connorbyrne.FantasyCommandCenterUITests
+        TEST_TARGET_NAME: FantasyCommandCenter
+        SWIFT_VERSION: "5.9"

@@ -37,7 +37,15 @@ public struct PlayerIDCrosswalk: Decodable, Sendable {
 
         /// Team in nflverse's spelling, which is what the weekly and schedule
         /// files use (§5.6).
-        public var nflverseTeam: String? { NFLTeams.nflverse(team) }
+        ///
+        /// This file has its **own** team dialect on top of everything else —
+        /// `KCC`, `GBP`, `NEP`, `NOS`, `SFO`, `TBB`, `LVR`, `JAC`, plus retired
+        /// codes like `OAK`, `SDC`, `STL` and `RAM` — so it is translated here
+        /// before the Sleeper-to-nflverse step.
+        public var nflverseTeam: String? {
+            guard let team else { return nil }
+            return NFLTeams.nflverse(PlayerIDCrosswalk.dynastyProcessTeams[team] ?? team)
+        }
 
         /// dynastyprocess marks unrostered players `FA`.
         public var isFreeAgent: Bool { team == "FA" }
@@ -46,6 +54,12 @@ public struct PlayerIDCrosswalk: Decodable, Sendable {
     enum CodingKeys: String, CodingKey {
         case players
     }
+
+    /// dynastyprocess team code → the common code Sleeper and nflverse share.
+    static let dynastyProcessTeams: [String: String] = [
+        "GBP": "GB", "KCC": "KC", "NEP": "NE", "NOS": "NO", "SFO": "SF", "TBB": "TB",
+        "LVR": "LV", "JAC": "JAX", "OAK": "LV", "SDC": "LAC", "STL": "LA", "RAM": "LA",
+    ]
 
     /// The gsis id for a Sleeper player id, or `nil` when this file has no row.
     ///

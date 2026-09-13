@@ -11,15 +11,28 @@
 		219EB5EFBF7FE324297D0AEF /* weekly-2025.json in Resources */ = {isa = PBXBuildFile; fileRef = A6FE8C13A6F8AF02B7647613 /* weekly-2025.json */; };
 		22360523F04329AD4320AA45 /* weekly-index.json in Resources */ = {isa = PBXBuildFile; fileRef = 5497C6C0FD39CC8B938131A1 /* weekly-index.json */; };
 		28434C00628D7A2B7C46990F /* player-ids.json in Resources */ = {isa = PBXBuildFile; fileRef = 921769FD62F18B727E614082 /* player-ids.json */; };
+		38C11AC1F52A5C550C32AF23 /* DemoTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 552D4996A984790B432C5EEA /* DemoTransport.swift */; };
 		3C6D85F3CA6CEE03E18ECB58 /* adp.json in Resources */ = {isa = PBXBuildFile; fileRef = A86246221C6E59445252612F /* adp.json */; };
 		5351A7AABC6FD8AA47FDEA86 /* schedule-2026.json in Resources */ = {isa = PBXBuildFile; fileRef = 11EB2E0610115B8172B89753 /* schedule-2026.json */; };
 		665C3E6CAA21F6885481CE7D /* schedule-2025.json in Resources */ = {isa = PBXBuildFile; fileRef = 8F8B2045B42966D65DF4B15B /* schedule-2025.json */; };
 		6B1F927BA6E1684F10601441 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 191359DCB92C26CC09D7CC86 /* Assets.xcassets */; };
+		8EA2A298888083A04E659898 /* DemoLeagueData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82C37DD3BF3824ABEFDEF2CE /* DemoLeagueData.swift */; };
+		A183CDACF435D438576BAC5E /* DemoLeagueUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF3B83A38E8E6068E5D55025 /* DemoLeagueUITests.swift */; };
 		A3EBE36BEF686E90140ECCF9 /* FCApp in Frameworks */ = {isa = PBXBuildFile; productRef = C340AB5D7B8A0F676ACB2AF7 /* FCApp */; };
 		C9908DD993E4DD955052F38C /* FantasyCommandCenterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39DB11979C8FB73D50BE94D4 /* FantasyCommandCenterApp.swift */; };
 		DCC5196D65298F4D7640EFBF /* FCData in Frameworks */ = {isa = PBXBuildFile; productRef = 3275F82A8E40E0742D084761 /* FCData */; };
 		E3BF89406E882F92E46B3290 /* FCCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9FD3FCC4AB98081B3A6D46CA /* FCCore */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		88FC28178AC64A28AF4CE970 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3C83909E9E40B5317829EBF9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 162C9617AFE2C73E93DB16A9;
+			remoteInfo = FantasyCommandCenter;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		0C05AEAB27A2395EA53DD8AC /* FantasyCommandCenter.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FantasyCommandCenter.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -30,13 +43,17 @@
 		39DB11979C8FB73D50BE94D4 /* FantasyCommandCenterApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FantasyCommandCenterApp.swift; sourceTree = "<group>"; };
 		4F855745678D2A4762309A3D /* cohorts.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = cohorts.json; sourceTree = "<group>"; };
 		5497C6C0FD39CC8B938131A1 /* weekly-index.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "weekly-index.json"; sourceTree = "<group>"; };
+		552D4996A984790B432C5EEA /* DemoTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoTransport.swift; sourceTree = "<group>"; };
 		5DEA31094EE3A51E1CD615B8 /* FCData */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FCData; path = Packages/FCData; sourceTree = SOURCE_ROOT; };
 		62B5A6A6131B734B963D7304 /* FantasyCommandCenter.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FantasyCommandCenter.entitlements; sourceTree = "<group>"; };
+		82C37DD3BF3824ABEFDEF2CE /* DemoLeagueData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoLeagueData.swift; sourceTree = "<group>"; };
 		8F8B2045B42966D65DF4B15B /* schedule-2025.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "schedule-2025.json"; sourceTree = "<group>"; };
 		921769FD62F18B727E614082 /* player-ids.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "player-ids.json"; sourceTree = "<group>"; };
 		9634B2AC4C70B005FE918E16 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A6FE8C13A6F8AF02B7647613 /* weekly-2025.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "weekly-2025.json"; sourceTree = "<group>"; };
 		A86246221C6E59445252612F /* adp.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = adp.json; sourceTree = "<group>"; };
+		AFCA1C7440DE5256738B3BA2 /* FantasyCommandCenterUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FantasyCommandCenterUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FF3B83A38E8E6068E5D55025 /* DemoLeagueUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoLeagueUITests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -67,10 +84,19 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		104A93882A03F7D710B5BB42 /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				FF3B83A38E8E6068E5D55025 /* DemoLeagueUITests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
 		5339D3954B5735244E3A108A /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				0C05AEAB27A2395EA53DD8AC /* FantasyCommandCenter.app */,
+				AFCA1C7440DE5256738B3BA2 /* FantasyCommandCenterUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -80,8 +106,18 @@
 			children = (
 				F5AB47BB5A6645FA753D8A87 /* App */,
 				B2AFAB43B8A7542D5007FE21 /* Packages */,
+				104A93882A03F7D710B5BB42 /* UITests */,
 				5339D3954B5735244E3A108A /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		780E7FD6C803BB22C53C4334 /* Demo */ = {
+			isa = PBXGroup;
+			children = (
+				82C37DD3BF3824ABEFDEF2CE /* DemoLeagueData.swift */,
+				552D4996A984790B432C5EEA /* DemoTransport.swift */,
+			);
+			path = Demo;
 			sourceTree = "<group>";
 		};
 		B2AFAB43B8A7542D5007FE21 /* Packages */ = {
@@ -97,6 +133,7 @@
 		F5AB47BB5A6645FA753D8A87 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				780E7FD6C803BB22C53C4334 /* Demo */,
 				0A002C1DD4CC41C108E8BFB6 /* Resources */,
 				191359DCB92C26CC09D7CC86 /* Assets.xcassets */,
 				62B5A6A6131B734B963D7304 /* FantasyCommandCenter.entitlements */,
@@ -131,6 +168,24 @@
 			productReference = 0C05AEAB27A2395EA53DD8AC /* FantasyCommandCenter.app */;
 			productType = "com.apple.product-type.application";
 		};
+		8096A5BC8D632936FD7B0B54 /* FantasyCommandCenterUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3973C33D5336DB717512F4CE /* Build configuration list for PBXNativeTarget "FantasyCommandCenterUITests" */;
+			buildPhases = (
+				9886A10F017B8D9739567DCF /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0F9A9747BCDFAAC73B9CC338 /* PBXTargetDependency */,
+			);
+			name = FantasyCommandCenterUITests;
+			packageProductDependencies = (
+			);
+			productName = FantasyCommandCenterUITests;
+			productReference = AFCA1C7440DE5256738B3BA2 /* FantasyCommandCenterUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -143,6 +198,11 @@
 					162C9617AFE2C73E93DB16A9 = {
 						DevelopmentTeam = H9B7A5KQP3;
 						ProvisioningStyle = Automatic;
+					};
+					8096A5BC8D632936FD7B0B54 = {
+						DevelopmentTeam = H9B7A5KQP3;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 162C9617AFE2C73E93DB16A9;
 					};
 				};
 			};
@@ -166,6 +226,7 @@
 			projectRoot = "";
 			targets = (
 				162C9617AFE2C73E93DB16A9 /* FantasyCommandCenter */,
+				8096A5BC8D632936FD7B0B54 /* FantasyCommandCenterUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -189,17 +250,59 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		9886A10F017B8D9739567DCF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A183CDACF435D438576BAC5E /* DemoLeagueUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C0F073E8D8D0BA55DA364348 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8EA2A298888083A04E659898 /* DemoLeagueData.swift in Sources */,
+				38C11AC1F52A5C550C32AF23 /* DemoTransport.swift in Sources */,
 				C9908DD993E4DD955052F38C /* FantasyCommandCenterApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		0F9A9747BCDFAAC73B9CC338 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 162C9617AFE2C73E93DB16A9 /* FantasyCommandCenter */;
+			targetProxy = 88FC28178AC64A28AF4CE970 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		43D3A37BD45E3A8B5C44DECA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = H9B7A5KQP3;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.connorbyrne.FantasyCommandCenterUITests;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FantasyCommandCenter;
+			};
+			name = Release;
+		};
 		A20B9CE61DB2D75F6FD2E8E1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -383,6 +486,30 @@
 			};
 			name = Release;
 		};
+		F877B475036B9E8FC50EEC98 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = H9B7A5KQP3;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.connorbyrne.FantasyCommandCenterUITests;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FantasyCommandCenter;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -391,6 +518,15 @@
 			buildConfigurations = (
 				EF788B8B1E419997BBADC755 /* Debug */,
 				F75B0763B1332EFBB6DE44A8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		3973C33D5336DB717512F4CE /* Build configuration list for PBXNativeTarget "FantasyCommandCenterUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F877B475036B9E8FC50EEC98 /* Debug */,
+				43D3A37BD45E3A8B5C44DECA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

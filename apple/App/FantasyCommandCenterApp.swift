@@ -14,7 +14,8 @@ struct FantasyCommandCenterApp: App {
             RootView(
                 sleeper: composition.sleeper,
                 staticData: composition.staticData,
-                settingsStore: composition.settingsStore
+                settingsStore: composition.settingsStore,
+                initialScreen: Composition.initialScreen
             )
         }
         #if os(macOS)
@@ -36,7 +37,35 @@ final class Composition: ObservableObject {
     let staticData: StaticDataStore
     let settingsStore: AppSettingsStore
 
+    /// Debug-only `-FCCTab <screen>` opens a specific tab, for screenshots and
+    /// UI tests. Release builds always open on the Dashboard.
+    static var initialScreen: RootView.Screen {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if let flag = arguments.firstIndex(of: "-FCCTab"), arguments.indices.contains(flag + 1),
+           let screen = RootView.Screen(argument: arguments[flag + 1]) {
+            return screen
+        }
+        #endif
+        return .dashboard
+    }
+
     init() {
+        #if DEBUG
+        if DemoMode.isActive {
+            let cache = DiskCache(directory: DemoMode.cacheDirectory())
+            self.sleeper = SleeperService(
+                client: SleeperClient(transport: DemoTransport(), retries: 0), cache: cache
+            )
+            self.staticData = StaticDataStore(
+                bundle: .main, bundleSubdirectory: nil, cache: cache,
+                transport: DemoTransport(), baseURL: nil
+            )
+            self.settingsStore = InMemorySettingsStore(DemoMode.settings)
+            return
+        }
+        #endif
+
         let cache = DiskCache()
         self.sleeper = SleeperService(client: SleeperClient(), cache: cache)
         self.staticData = StaticDataStore(

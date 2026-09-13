@@ -18,12 +18,17 @@ public struct RootView: View {
 
     private let settingsStore: AppSettingsStore
 
+    /// - Parameter initialScreen: the tab to open on. The app passes a Debug-only
+    ///   launch argument through here so screenshots and UI tests can open any
+    ///   screen directly.
     public init(
         sleeper: SleeperService,
         staticData: StaticDataStore,
-        settingsStore: AppSettingsStore
+        settingsStore: AppSettingsStore,
+        initialScreen: Screen = .dashboard
     ) {
         self.settingsStore = settingsStore
+        _selection = State(initialValue: initialScreen)
         _settingsModel = StateObject(
             wrappedValue: SettingsModel(sleeper: sleeper, store: settingsStore)
         )
@@ -41,6 +46,15 @@ public struct RootView: View {
 
     /// The four screens of the first release (§7), plus Settings.
     public enum Screen: String, CaseIterable, Identifiable, Hashable {
+        /// Parses a launch-argument value like `matchup` or `sitstart`.
+        public init?(argument: String) {
+            let wanted = argument.lowercased().filter(\.isLetter)
+            guard let match = Screen.allCases.first(where: {
+                $0.rawValue.lowercased().filter(\.isLetter) == wanted
+            }) else { return nil }
+            self = match
+        }
+
         case dashboard = "Dashboard"
         case planning = "Planning"
         case matchup = "Matchup"
