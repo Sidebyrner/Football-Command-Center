@@ -12,15 +12,38 @@ import FCData
 public struct LeagueContextLoader: Sendable {
     private let sleeper: SleeperService
     private let staticData: StaticDataStore
+    private let memo: ContextMemo
 
-    public init(sleeper: SleeperService, staticData: StaticDataStore) {
+    /// - Parameter reuseFor: how long an assembled context is handed to other
+    ///   callers before being rebuilt. Dashboard, Matchup and Planning share one
+    ///   loader, so without this a launch decoded the weekly file and re-scored
+    ///   the whole season three times in a row. The underlying reads are still
+    ///   cached and TTL'd individually in FCData; this only stops the *assembly*
+    ///   being repeated.
+    public init(sleeper: SleeperService, staticData: StaticDataStore, reuseFor: TimeInterval = 60) {
         self.sleeper = sleeper
         self.staticData = staticData
+        self.memo = ContextMemo(maxAge: reuseFor)
     }
 
-    /// - Parameter season: overrides the schedule season. Normally `nil`, which
-    ///   means "the season Sleeper says is current".
-    public func load(leagueID: String, userRosterID: Int, season: Int? = nil) async throws -> LeagueContext {
+    /// - Parameters:
+    ///   - season: overrides the schedule season. Normally `nil`, which means
+    ///     "the season Sleeper says is current".
+    ///   - force: rebuild even if a recent context exists, e.g. after the user
+    ///     changes league in Settings or pulls to refresh.
+    public func load(
+        leagueID: String,
+        userRosterID: Int,
+        season: Int? = nil,
+        force: Bool = false
+    ) async throws -> LeagueContext {
+        let key = ContextMemo.Key(leagueID: leagueID, rosterID: userRosterID, season: season)
+        return try await memo.value(for: key, force: force) {
+            try await self.assemble(leagueID: leagueID, userRosterID: userRosterID, season: season)
+        }
+    }
+
+    private func assemble(leagueID: String, userRosterID: Int, season: Int?) async throws -> LeagueContext {
         let state = try await sleeper.nflState()
         let scheduleSeason = season ?? state.value.seasonYear ?? Calendar.current.component(.year, from: Date())
         let currentWeek = state.value.week ?? 1
@@ -72,6 +95,8 @@ public struct LeagueContextLoader: Sendable {
             teams: teams,
             userRosterID: userRosterID,
             byeCalendar: byeCalendar,
+            schedule: schedule.value,
+            weekly: weekly.value,
             currentWeek: currentWeek,
             seasonWeeks: weeks(in: schedule.value),
             seasonProfiles: seasonProfiles,
@@ -169,5 +194,49 @@ public struct LeagueContextLoader: Sendable {
 
     private func weeks(in schedule: ScheduleFile) -> [Int] {
         schedule.byWeek.keys.compactMap(Int.init).sorted()
+    }
+}
+
+
+/// Shares one assembled `LeagueContext` between screens.
+///
+/// Two screens asking at the same moment get the same in-flight load rather
+/// than starting a second one, which is exactly what happens at launch.
+actor ContextMemo {
+    struct Key: Hashable, Sendable {
+        let leagueID: String
+        let rosterID: Int
+        let season: Int?
+    }
+
+    private let maxAge: TimeInterval
+    private var entries: [Key: (builtAt: Date, context: LeagueContext)] = [:]
+    private var inFlight: [Key: Task<LeagueContext, Error>] = [:]
+
+    init(maxAge: TimeInterval) {
+        self.maxAge = maxAge
+    }
+
+    func value(
+        for key: Key,
+        force: Bool,
+        make: @escaping @Sendable () async throws -> LeagueContext
+    ) async throws -> LeagueContext {
+        if !force, let entry = entries[key], Date().timeIntervalSince(entry.builtAt) < maxAge {
+            return entry.context
+        }
+        if !force, let running = inFlight[key] {
+            return try await running.value
+        }
+
+        let task = Task { try await make() }
+        inFlight[key] = task
+        defer { inFlight[key] = nil }
+
+        // A failure is not memoised: the next screen to ask should try again,
+        // not inherit the error.
+        let context = try await task.value
+        entries[key] = (Date(), context)
+        return context
     }
 }

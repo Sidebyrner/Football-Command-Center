@@ -73,6 +73,11 @@ public struct LeagueContext: Sendable {
     public let teams: [LeagueTeam]
     public let userRosterID: Int
     public let byeCalendar: ByeCalendar
+    /// The schedule-season file itself, for opponents and recorded lines.
+    public let schedule: ScheduleFile
+    /// The stats-season weekly file, for anything computed across the whole
+    /// league rather than per rostered player — defense-vs-position, today.
+    public let weekly: WeeklyFile
     public let currentWeek: Int
     public let seasonWeeks: [Int]
     /// Season production for every player the weekly file covers, already

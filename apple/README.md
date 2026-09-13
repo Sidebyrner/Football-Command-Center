@@ -187,16 +187,53 @@ simulator. The app target is 40 lines: build three objects, hand them to
 | `PlanningModel.swift` | the bye-crunch grid, the acquisition board, and the link |
 | `DashboardModel.swift` | alerts, standings, bench points, trend, draft value, moves |
 | `SeasonHistory.swift` | completed weeks, which three of the panels are built on |
+| `MatchupModel.swift` | both starting lineups this week, row by row |
 | `Freshness.swift` | turning a `Provenance` into the words the UI shows |
 | `Views/` | `RootView`, `PlanningView`, `SettingsView`, freshness chrome |
 
 ### What is built
 
-**Dashboard** (§7.1), **Planning** (§7.4) and **Settings**. Planning came first
-on the brief's own advice — it exercises nearly the whole core, so getting it
-green proved the two packages underneath it. Matchup and Sit/Start are present
-in the navigation as honest "not built yet" screens rather than hidden, so the
-shape of the app is visible from the first run.
+**Dashboard** (§7.1), **Matchup** (§7.2), **Planning** (§7.4) and **Settings**.
+Planning came first on the brief's own advice — it exercises nearly the whole
+core, so getting it green proved the two packages underneath it. Sit/Start is
+present in the navigation as an honest "not built yet" screen rather than
+hidden, so the shape of the app is visible from the first run.
+
+### Two seasons, not one
+
+The **schedule season** is the current one: byes, opponents, recorded lines.
+The **stats season** is the newest season with a weekly production file, which
+early in a year is *last* year — a weekly file cannot exist before games are
+played. `LeagueContext` carries both and says so whenever they differ, so last
+season's points per game are never read as this season's. Collapsing the two
+was a real bug: a 2026 league would not load at all.
+
+### One context, three screens
+
+Dashboard, Matchup and Planning share a single `LeagueContextLoader`, which
+reuses an assembled context for 60 seconds and shares an in-flight load between
+screens that ask at the same moment. Without that, a launch decoded the weekly
+file and re-scored the whole season three times back to back. Changing league or
+team is a different cache key, so Settings never sees a stale context.
+
+### Matchup
+
+A head-to-head summary on top, then one side at a time behind a segmented
+control — two columns do not fit a phone (§7.2). Each starting slot is a row,
+labelled by the slot it fills, with the unset ones kept in place.
+
+Per player: this week's opponent and venue, the player's team's implied total,
+live points, season points per game, last-4 form, floor–ceiling, and where the
+opponent defense ranks against that position. Three states are kept distinct
+because they are different claims:
+
+- **no production data** — DEF and IDP, which the weekly file does not cover;
+- **no season line** — a covered position the crosswalk could not join;
+- **no live points** — not kicked off, or Sleeper has no number; never zero.
+
+Implied totals are labelled as recorded closing lines, and the defense ranks
+state their definition: points allowed per game to the position, counting every
+player who faced the defense.
 
 ### Dashboard
 
@@ -267,5 +304,5 @@ Sleeper responses come from a stub; nothing in the suite touches the network.
 - The static store runs **bundle-only**: `baseURL` is `nil` until the generated
   JSON has a stable HTTPS home (§9, open question 2). Everything for the
   conditional refresh is built and tested — it just needs a URL.
-- Matchup and Sit/Start are placeholders.
+- Sit/Start is a placeholder.
 - No widgets, notifications or background refresh yet (§8).

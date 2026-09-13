@@ -11,6 +11,7 @@ public struct RootView: View {
     @StateObject private var settingsModel: SettingsModel
     @StateObject private var planningModel: PlanningModel
     @StateObject private var dashboardModel: DashboardModel
+    @StateObject private var matchupModel: MatchupModel
     @State private var selection: Screen = .dashboard
     @State private var hasLoaded = false
 
@@ -33,11 +34,12 @@ public struct RootView: View {
         _dashboardModel = StateObject(
             wrappedValue: DashboardModel(loader: loader, sleeper: sleeper, relay: relay)
         )
+        _matchupModel = StateObject(wrappedValue: MatchupModel(loader: loader, sleeper: sleeper))
     }
 
-    /// The four screens of the first release (§7). Matchup and Sit/Start are
-    /// placeholders until they are built — shown rather than hidden so the
-    /// shape of the app is visible from the first run.
+    /// The four screens of the first release (§7). Sit/Start is a placeholder
+    /// until it is built — shown rather than hidden so the shape of the app is
+    /// visible from the first run.
     public enum Screen: String, CaseIterable, Identifiable, Hashable {
         case dashboard = "Dashboard"
         case planning = "Planning"
@@ -58,7 +60,7 @@ public struct RootView: View {
         }
 
         var isBuilt: Bool {
-            self == .planning || self == .dashboard || self == .settings
+            self != .sitStart
         }
     }
 
@@ -135,7 +137,13 @@ public struct RootView: View {
             SettingsView(model: settingsModel) {
                 Task { await loadIfConfigured(force: true) }
             }
-        case .matchup, .sitStart:
+        case .matchup:
+            if settingsModel.settings.isConfigured {
+                MatchupView(model: matchupModel)
+            } else {
+                needsSetup
+            }
+        case .sitStart:
             notBuiltYet(screen)
         }
     }
@@ -156,7 +164,7 @@ public struct RootView: View {
         ContentUnavailableView {
             Label(screen.rawValue, systemImage: screen.systemImage)
         } description: {
-            Text("Not built yet. Planning came first — it exercises the whole core.")
+            Text("Not built yet.")
         }
     }
 
@@ -169,6 +177,7 @@ public struct RootView: View {
         // Dashboard first: it is the screen a notification deep-links into,
         // and its alerts are the time-sensitive part.
         await dashboardModel.load(leagueID: leagueID, userRosterID: rosterID)
+        await matchupModel.load(leagueID: leagueID, userRosterID: rosterID)
         await planningModel.load(leagueID: leagueID, userRosterID: rosterID)
     }
 }
