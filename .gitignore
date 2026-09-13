@@ -8,3 +8,10 @@ dist
 # documented local-dev default). In the container this lives on a bind mount
 # instead, so this only ever matches a developer's own machine.
 server/.data/
+
+# Swift Package Manager / Xcode build state for apple/
+.build/
+.swiftpm/
+DerivedData/
+*.xcuserstate
+xcuserdata/
