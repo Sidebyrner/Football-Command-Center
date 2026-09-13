@@ -18,17 +18,19 @@ public struct LeagueContextLoader: Sendable {
         self.staticData = staticData
     }
 
+    /// - Parameter season: overrides the schedule season. Normally `nil`, which
+    ///   means "the season Sleeper says is current".
     public func load(leagueID: String, userRosterID: Int, season: Int? = nil) async throws -> LeagueContext {
         let state = try await sleeper.nflState()
-        let resolvedSeason = season ?? state.value.seasonYear ?? Calendar.current.component(.year, from: Date())
+        let scheduleSeason = season ?? state.value.seasonYear ?? Calendar.current.component(.year, from: Date())
         let currentWeek = state.value.week ?? 1
 
         let league = try await sleeper.league(id: leagueID)
         let rosters = try await sleeper.rosters(leagueID: leagueID)
         let members = try await sleeper.members(leagueID: leagueID)
         let players = try await sleeper.playerIndex()
-        let schedule = try await staticData.schedule(season: resolvedSeason)
-        let weekly = try await staticData.weeklyFile(season: resolvedSeason)
+        let schedule = try await staticData.schedule(season: scheduleSeason)
+        let (statsSeason, weekly) = try await loadStatsSeason(notAfter: scheduleSeason)
         let crosswalk = try await staticData.playerCrosswalk()
 
         let template = league.value.slotTemplate
@@ -63,6 +65,8 @@ public struct LeagueContextLoader: Sendable {
 
         return LeagueContext(
             league: league.value,
+            scheduleSeason: scheduleSeason,
+            statsSeason: statsSeason,
             template: template,
             scoring: scoring,
             teams: teams,
@@ -81,6 +85,33 @@ public struct LeagueContextLoader: Sendable {
                 players.provenance, schedule.provenance, weekly.provenance, crosswalk.provenance,
             ])
         )
+    }
+
+    /// The weekly production file to use, which is **not** necessarily the
+    /// current season's.
+    ///
+    /// The schedule for a season exists before a snap is played; its weekly
+    /// production file does not. Asking for the current season's weekly file in
+    /// week 2 used to fail the whole league load. So, as the web app does, the
+    /// stats season is the newest season the manifest lists at or before the
+    /// schedule season — and the context records which one it was, so the UI
+    /// can say "2025 production" rather than implying it is this year's.
+    private func loadStatsSeason(notAfter scheduleSeason: Int) async throws -> (Int, Fetched<WeeklyFile>) {
+        let listed = (try? await staticData.weeklyManifest())?.value.seasons.map(\.season) ?? []
+        var candidates = listed.filter { $0 <= scheduleSeason }.sorted(by: >)
+        // Without a manifest, fall back to this season then last season rather
+        // than giving up.
+        if candidates.isEmpty { candidates = [scheduleSeason, scheduleSeason - 1] }
+
+        var lastError: Error = DataLayerError.noFallbackAvailable(resource: "weekly-\(scheduleSeason)")
+        for candidate in candidates {
+            do {
+                return (candidate, try await staticData.weeklyFile(season: candidate))
+            } catch {
+                lastError = error
+            }
+        }
+        throw lastError
     }
 
     /// Resolves a roster's Sleeper ids into the entries the crunch needs.

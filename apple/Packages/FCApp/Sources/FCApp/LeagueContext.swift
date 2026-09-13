@@ -63,6 +63,11 @@ public struct LeagueTeam: Hashable, Sendable, Identifiable {
 /// the production data, nflverse team spellings throughout.
 public struct LeagueContext: Sendable {
     public let league: SleeperLeague
+    /// The season the schedule, byes and opponents come from — the current one.
+    public let scheduleSeason: Int
+    /// The season the production numbers come from. Early in a year this is
+    /// last season, because a weekly file cannot exist before games are played.
+    public let statsSeason: Int
     public let template: SlotTemplate
     public let scoring: SleeperScoringTranslation
     public let teams: [LeagueTeam]
@@ -100,6 +105,14 @@ public struct LeagueContext: Sendable {
     public func injuryStatus(_ id: String) -> String? {
         guard let player = players[id], player.hasInjuryDesignation else { return nil }
         return player.injuryStatus
+    }
+
+    /// Said out loud whenever production is from a different season than the
+    /// schedule, so last year's points per game are never read as this year's
+    /// (§6). `nil` when they match.
+    public var statsSeasonNote: String? {
+        guard statsSeason != scheduleSeason else { return nil }
+        return "Production numbers are from the \(statsSeason) season — there is no \(scheduleSeason) weekly data yet."
     }
 
     public var userTeam: LeagueTeam? {

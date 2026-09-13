@@ -33,6 +33,10 @@ cp "$src/schedule-2025.json"    "$data/schedule-2025.json"
 cp "$src/player-ids.json"       "$app/player-ids.json"
 cp "$src/weekly/2025.json"      "$app/weekly-2025.json"
 cp "$src/schedule-2025.json"    "$app/schedule-2025.json"
+# 2026 schedule with no 2026 weekly file: the real shape of the app early in a
+# season, which is what the stats-season tests exercise.
+cp "$src/schedule-2026.json"    "$app/schedule-2026.json"
+cp "$src/weekly/index.json"     "$app/weekly-index.json"
 
 # The app bundle's own copies, so a first launch works offline before the app
 # has ever refreshed (§9). Names match what StaticResource looks for.

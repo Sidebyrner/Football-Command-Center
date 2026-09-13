@@ -45,6 +45,9 @@ public struct PlanningView: View {
             if let context = model.context {
                 FreshnessBanner(provenance: context.provenance)
             }
+            if let note = model.context?.statsSeasonNote {
+                CoverageNote(text: note)
+            }
             if let warning = model.coverageWarning {
                 CoverageNote(text: warning)
             }

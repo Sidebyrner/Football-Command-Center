@@ -218,6 +218,12 @@ public actor StaticDataStore {
         try await load(ScheduleFile.self, resource: .schedule(season: season), force: force)
     }
 
+    /// Which seasons have a weekly production file. The newest one is the
+    /// stats season, which early in a year is usually *last* year's.
+    public func weeklyManifest(force: Bool = false) async throws -> Fetched<WeeklyManifest> {
+        try await load(WeeklyManifest.self, resource: .weeklyIndex, force: force)
+    }
+
     public func playerCrosswalk(force: Bool = false) async throws -> Fetched<PlayerIDCrosswalk> {
         try await load(PlayerIDCrosswalk.self, resource: .playerIDs, force: force)
     }
