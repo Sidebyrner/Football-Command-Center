@@ -235,12 +235,80 @@ final class MatchupModelTests: XCTestCase {
 
     // MARK: - Interaction and failure
 
-    func testTheSegmentedControlSwitchesSides() async throws {
-        let model = try await loaded()
-        XCTAssertEqual(model.visibleSide?.rosterID, 1)
+    // MARK: - Modes
 
-        model.showing = .opponent
+    /// Head-to-head is the default, because it answers "who's winning where"
+    /// without switching teams.
+    func testOpensHeadToHeadWithBothLineupsPaired() async throws {
+        let model = try await loaded()
+        XCTAssertEqual(model.mode, .headToHead)
+        XCTAssertNil(model.visibleSide, "no single team in head-to-head")
+
+        XCTAssertEqual(model.pairedSlots.count, 11)
+        XCTAssertEqual(model.pairedSlots[0].slot, "QB")
+        XCTAssertEqual(model.pairedSlots[0].mine?.name, "Josh Allen")
+        XCTAssertEqual(model.pairedSlots[0].theirs?.name, "Rival QB")
+    }
+
+    func testIndividualModesShowOneTeam() async throws {
+        let model = try await loaded()
+        model.mode = .mine
+        XCTAssertEqual(model.visibleSide?.rosterID, 1)
+        model.mode = .opponent
         XCTAssertEqual(model.visibleSide?.rosterID, 2)
+    }
+
+    func testAllThreeModesWhenThereIsAnOpponent() async throws {
+        let model = try await loaded()
+        XCTAssertEqual(model.availableModes, [.headToHead, .mine, .opponent])
+    }
+
+    /// No Opponent page to swipe onto when there is no opponent this week.
+    func testNoOpponentPageWithoutAnOpponent() async throws {
+        let model = try await loaded(userMatchupID: "null")
+        XCTAssertEqual(model.availableModes, [.headToHead, .mine])
+    }
+
+    // MARK: - Pairing
+
+    /// Allen has a live score, so the whole matchup compares live points.
+    func testALiveScoreSwitchesTheBasisToLivePoints() async throws {
+        let model = try await loaded()
+        XCTAssertEqual(model.comparisonBasis, .livePoints)
+    }
+
+    /// A rival yet to kick off has no live number; that slot is undecided, not a
+    /// loss for him.
+    func testAPlayerYetToPlayMakesHisSlotUndecided() async throws {
+        let model = try await loaded()
+        let qb = model.pairedSlots[0]
+        XCTAssertEqual(qb.myValue, 30.5)
+        XCTAssertNil(qb.theirValue)
+        XCTAssertEqual(qb.leader, .undecided)
+    }
+
+    /// The user's flex is empty: a certain zero, so the rival is ahead there even
+    /// before his player has played.
+    func testAnEmptySlotLosesToAFieldedPlayer() async throws {
+        let model = try await loaded()
+        let flex = model.pairedSlots[6]
+        XCTAssertTrue(flex.mine?.isEmptySlot ?? false)
+        XCTAssertEqual(flex.leader, .theirs)
+    }
+
+    // MARK: - Lineup environment
+
+    /// The header used to show a raw sum ("208 implied") next to the score. The
+    /// average of the teams' totals is a number a person can read.
+    func testAverageTeamTotalIsOverTeamsWithALine() async throws {
+        let model = try await loaded()
+        let environment = try XCTUnwrap(model.mySide?.environment)
+        let total = try XCTUnwrap(environment.total)
+        let average = try XCTUnwrap(environment.averageTeamTotal)
+
+        XCTAssertEqual(average, total / Double(environment.teamCount - environment.missingTeams.count), accuracy: 0.001)
+        XCTAssertGreaterThan(average, 10)
+        XCTAssertLessThan(average, 40, "a team total, not a sum of nine")
     }
 
     func testAFailedLoadNamesWhatFailed() async {

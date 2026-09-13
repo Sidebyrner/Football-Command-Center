@@ -63,6 +63,64 @@ public struct LineupEnvironment: Hashable, Sendable {
     public let teamCount: Int
     /// NFL teams with no recorded line — named, not counted as zero.
     public let missingTeams: [String]
+
+    /// The average implied total of the NFL teams in the lineup.
+    ///
+    /// The raw total sums every team's number, which reads as nonsense next to
+    /// a fantasy score ("86.7 · 208.0 implied"). The average answers something a
+    /// person can use: how many points the teams your players are on are
+    /// expected to score. Averaged over the teams that *have* a line.
+    public var averageTeamTotal: Double? {
+        let counted = teamCount - missingTeams.count
+        guard let total, counted > 0 else { return nil }
+        return total / Double(counted)
+    }
+}
+
+/// Which number the head-to-head bars compare. One basis for the whole matchup,
+/// always named, never mixed row by row.
+public enum ComparisonBasis: Hashable, Sendable {
+    /// At least one game has started, so real points exist.
+    case livePoints
+    /// Nothing has kicked off; season points per game is the only comparable number.
+    case seasonAverage
+
+    public var label: String {
+        switch self {
+        case .livePoints: return "Comparing live points"
+        case .seasonAverage: return "No games yet — comparing season pts/gm"
+        }
+    }
+}
+
+/// Who is ahead in one slot.
+public enum SlotLeader: Hashable, Sendable {
+    case mine
+    case theirs
+    case even
+    /// One or both sides has no number on this basis yet — not yet played, or no
+    /// production data. Stated rather than guessed.
+    case undecided
+}
+
+/// One starting slot with both players side by side.
+public struct PairedSlot: Hashable, Sendable, Identifiable {
+    public let index: Int
+    public let slot: String
+    public let mine: MatchupRow?
+    public let theirs: MatchupRow?
+    public let myValue: Double?
+    public let theirValue: Double?
+    public let leader: SlotLeader
+
+    public var id: Int { index }
+
+    /// My share of the slot's combined value, 0…1, for the comparison bar.
+    /// `nil` when there is nothing to compare.
+    public var myShare: Double? {
+        guard let myValue, let theirValue, myValue + theirValue > 0 else { return nil }
+        return max(0, myValue) / (max(0, myValue) + max(0, theirValue))
+    }
 }
 
 /// One side of the matchup.
@@ -81,7 +139,10 @@ public struct MatchupSide: Hashable, Sendable {
 /// Matchup — "this week, both sides" (§7.2).
 @MainActor
 public final class MatchupModel: ObservableObject {
-    public enum Showing: String, CaseIterable, Hashable, Sendable {
+    /// Head-to-head shows both lineups slot by slot; the other two show one team
+    /// in full detail.
+    public enum Mode: String, CaseIterable, Hashable, Sendable {
+        case headToHead = "Head-to-head"
         case mine = "You"
         case opponent = "Opponent"
     }
@@ -97,8 +158,11 @@ public final class MatchupModel: ObservableObject {
     @Published public private(set) var isLoading = false
     @Published public private(set) var errorMessage: String?
 
-    /// On a phone the two sides are a segmented control, not two columns (§7.2).
-    @Published public var showing: Showing = .mine
+    @Published public var mode: Mode = .headToHead
+
+    /// Both lineups paired by slot, for head-to-head.
+    @Published public private(set) var pairedSlots: [PairedSlot] = []
+    @Published public private(set) var comparisonBasis: ComparisonBasis = .seasonAverage
 
     private let loader: LeagueContextLoader
     private let sleeper: SleeperService
@@ -108,8 +172,19 @@ public final class MatchupModel: ObservableObject {
         self.sleeper = sleeper
     }
 
+    /// The single team shown in an individual mode; `nil` in head-to-head.
     public var visibleSide: MatchupSide? {
-        showing == .mine ? mySide : opponentSide
+        switch mode {
+        case .headToHead: return nil
+        case .mine: return mySide
+        case .opponent: return opponentSide
+        }
+    }
+
+    /// The modes that make sense right now: no Opponent page when there is no
+    /// opponent this week.
+    public var availableModes: [Mode] {
+        opponentSide == nil ? [.headToHead, .mine] : Mode.allCases
     }
 
     /// Recorded lines never move during the week, and the UI owes the user
@@ -160,9 +235,77 @@ public final class MatchupModel: ObservableObject {
             mySide = built.mine
             opponentSide = built.opponent
             noOpponentReason = built.noOpponentReason
+            let paired = Self.pair(mine: built.mine, theirs: built.opponent)
+            comparisonBasis = paired.basis
+            pairedSlots = paired.slots
+            if opponentSide == nil, mode == .opponent { mode = .mine }
         } catch {
             errorMessage = String(describing: error)
         }
+    }
+
+    // MARK: - Pairing
+
+    /// Pairs both lineups by slot index — both follow the same slot template, so
+    /// index `n` is the same slot on each side.
+    ///
+    /// The basis is chosen once for the whole matchup: live points as soon as
+    /// anyone on either side has a live number, otherwise season points per game.
+    /// Within live points a player yet to play has no value, so his slot is
+    /// undecided rather than counted as a zero-point loss.
+    nonisolated static func pair(
+        mine: MatchupSide?,
+        theirs: MatchupSide?
+    ) -> (basis: ComparisonBasis, slots: [PairedSlot]) {
+        let allRows = (mine?.rows ?? []) + (theirs?.rows ?? [])
+        let basis: ComparisonBasis = allRows.contains { $0.livePoints != nil } ? .livePoints : .seasonAverage
+
+        func value(_ row: MatchupRow?) -> Double? {
+            guard let row, !row.isEmptySlot else { return nil }
+            // A starter on bye is a certain zero on either basis.
+            if row.onBye { return 0 }
+            switch basis {
+            case .livePoints: return row.livePoints
+            case .seasonAverage: return row.season?.pointsPerGame
+            }
+        }
+
+        let count = max(mine?.rows.count ?? 0, theirs?.rows.count ?? 0)
+        let slots = (0..<count).map { index -> PairedSlot in
+            let left = mine?.rows.indices.contains(index) == true ? mine?.rows[index] : nil
+            let right = theirs?.rows.indices.contains(index) == true ? theirs?.rows[index] : nil
+            let myValue = value(left)
+            let theirValue = value(right)
+
+            // An empty slot is a certain zero, so it loses to any real player
+            // who isn't on bye — even one yet to kick off.
+            func fielded(_ row: MatchupRow?) -> Bool {
+                guard let row else { return false }
+                return !row.isEmptySlot && !row.onBye
+            }
+
+            let leader: SlotLeader
+            if left?.isEmptySlot == true, fielded(right) {
+                leader = .theirs
+            } else if right?.isEmptySlot == true, fielded(left) {
+                leader = .mine
+            } else if let myValue, let theirValue {
+                leader = abs(myValue - theirValue) < 0.05 ? .even : (myValue > theirValue ? .mine : .theirs)
+            } else {
+                leader = .undecided
+            }
+
+            return PairedSlot(
+                index: index,
+                slot: left?.slot ?? right?.slot ?? "—",
+                mine: left,
+                theirs: right,
+                myValue: myValue,
+                theirValue: theirValue,
+                leader: leader
+            )
+        }
+        return (basis, slots)
     }
 
     // MARK: - Building

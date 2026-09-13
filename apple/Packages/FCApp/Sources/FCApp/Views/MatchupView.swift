@@ -4,105 +4,227 @@ import FCData
 
 /// Matchup — "this week, both sides" (§7.2).
 ///
-/// Phone-first: a head-to-head summary on top, then one side at a time behind a
-/// segmented control rather than two cramped columns.
+/// Head-to-head by default: both lineups paired slot by slot, so nobody has to
+/// flip between teams to see who is winning where. You and Opponent show one
+/// team in full detail. The three are one swipe apart.
 public struct MatchupView: View {
     @ObservedObject var model: MatchupModel
+    @State private var selectedPair: PairedSlot?
 
     public init(model: MatchupModel) {
         self.model = model
     }
 
     public var body: some View {
+        Group {
+            if let context = model.context {
+                loaded(context)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if model.isLoading || model.errorMessage == nil {
+                            LoadingPlaceholder(label: "Loading matchup…")
+                        } else if let error = model.errorMessage {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Label("Could not load the matchup", systemImage: "exclamationmark.triangle")
+                                    .font(.headline)
+                                Text(error).font(.footnote).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .refreshable { await model.refresh() }
+            }
+        }
+        .sensoryFeedback(.success, trigger: model.refreshCount)
+        .sensoryFeedback(.selection, trigger: model.mode)
+        .navigationTitle("Matchup")
+        #if os(iOS)
+        // The pinned scoreboard is the headline here; a large title above it
+        // pushed the first slot most of the way down the screen.
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .sheet(item: $selectedPair) { pair in
+            SlotDetailSheet(pair: pair, mine: model.mySide, theirs: model.opponentSide)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+    }
+
+    /// The scoreboard and mode picker stay pinned; each mode is a page.
+    ///
+    /// On iPhone the pages swipe natively. An earlier version put a drag gesture
+    /// on the scroll view instead, and it fired exactly once: after the first
+    /// switch the content was plain cards, whose horizontal drags the scroll view
+    /// claimed and cancelled. Native paging has no such conflict, snaps cleanly,
+    /// and every page's content is still pinned to the screen width.
+    @ViewBuilder
+    private func loaded(_ context: LeagueContext) -> some View {
+        VStack(spacing: 10) {
+            VStack(spacing: 10) {
+                scoreboard
+                MatchupModePicker(model: model)
+            }
+            .padding(.horizontal)
+            .padding(.top, 4)
+
+            #if os(iOS)
+            TabView(selection: $model.mode) {
+                ForEach(model.availableModes, id: \.self) { mode in
+                    page(mode, context: context).tag(mode)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            #else
+            page(model.mode, context: context)
+            #endif
+        }
+    }
+
+    private func page(_ mode: MatchupModel.Mode, context: LeagueContext) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if let error = model.errorMessage, model.context != nil {
+            VStack(alignment: .leading, spacing: 14) {
+                if let error = model.errorMessage {
                     InlineErrorBanner(message: error)
                 }
-                if model.context == nil, model.isLoading || model.errorMessage == nil {
-                    LoadingPlaceholder(label: "Loading matchup…")
-                } else if model.context == nil, let error = model.errorMessage {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Could not load the matchup", systemImage: "exclamationmark.triangle")
-                            .font(.headline)
-                        Text(error).font(.footnote).foregroundStyle(.secondary)
-                    }
-                } else if let context = model.context {
+                if let reason = model.noOpponentReason {
+                    CoverageNote(text: reason)
+                }
+                switch mode {
+                case .headToHead:
+                    headToHead
+                case .mine:
+                    if let side = model.mySide { individual(side) }
+                case .opponent:
+                    if let side = model.opponentSide { individual(side) }
+                }
+                VStack(alignment: .leading, spacing: 4) {
                     FreshnessBanner(provenance: context.provenance)
                     if let note = context.statsSeasonNote {
                         CoverageNote(text: note)
                     }
-                    header
-                    if let reason = model.noOpponentReason {
-                        CoverageNote(text: reason)
-                    }
-                    if model.opponentSide != nil {
-                        Picker("Side", selection: $model.showing) {
-                            ForEach(MatchupModel.Showing.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                        }
-                        .pickerStyle(.segmented)
-                    }
-                    if let side = model.visibleSide {
-                        sideSummary(side)
-                        ForEach(side.rows) { row in
-                            MatchupRowView(row: row)
-                                // Contain, so the id lands on the row and not on
-                                // every text inside it.
-                                .accessibilityElement(children: .contain)
-                                .accessibilityIdentifier("matchup.row.\(row.index)")
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        CoverageNote(text: MatchupModel.linesNote)
-                        CoverageNote(text: MatchupModel.defenseNote)
-                    }
+                    CoverageNote(text: MatchupModel.linesNote)
+                    CoverageNote(text: MatchupModel.defenseNote)
                 }
             }
             .padding()
+            // Nothing in a page may be wider than the screen — content wider than
+            // its scroll view is what lets it slide sideways.
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
         .refreshable { await model.refresh() }
-        .sensoryFeedback(.success, trigger: model.refreshCount)
-        .navigationTitle("Matchup")
     }
 
-    // MARK: - Head to head
+    // MARK: - Scoreboard
 
     @ViewBuilder
-    private var header: some View {
+    private var scoreboard: some View {
         if let mine = model.mySide {
-            HStack(alignment: .top) {
-                teamColumn(mine, alignment: .leading)
-                Spacer()
-                Text("vs").font(.caption).foregroundStyle(.secondary).padding(.top, 6)
-                Spacer()
+            VStack(spacing: 10) {
+                if let week = model.week {
+                    Text("WEEK \(week)")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .kerning(1.2)
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    teamScore(mine, alignment: .leading)
+                    Text("vs")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize()
+                    if let opponent = model.opponentSide {
+                        teamScore(opponent, alignment: .trailing)
+                    } else {
+                        Text("No opponent")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                }
                 if let opponent = model.opponentSide {
-                    teamColumn(opponent, alignment: .trailing)
-                } else {
-                    Text("No opponent").font(.subheadline).foregroundStyle(.secondary)
+                    ScoreShareBar(mine: mine.livePoints ?? 0, theirs: opponent.livePoints ?? 0)
                 }
             }
-            .padding(12)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.08)))
+            .card()
         }
     }
 
-    private func teamColumn(_ side: MatchupSide, alignment: HorizontalAlignment) -> some View {
+    private func teamScore(_ side: MatchupSide, alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: 2) {
             Text(side.manager)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
+                .minimumScaleFactor(0.8)
             Text(side.livePoints.map { String(format: "%.1f", $0) } ?? "—")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .font(.system(size: 32, weight: .bold, design: .rounded))
                 .monospacedDigit()
-            if let total = side.environment.total {
-                Text(String(format: "%.1f implied", total))
+                .contentTransition(.numericText())
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            if let average = side.environment.averageTeamTotal {
+                Text(String(format: "teams avg %.1f pts", average))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .trailing)
+    }
+
+    // MARK: - Head-to-head
+
+    private var headToHead: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(model.comparisonBasis.label)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if model.opponentSide != nil {
+                    Text(slotTally)
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .contentTransition(.numericText())
+                }
+            }
+            ForEach(Array(model.pairedSlots.enumerated()), id: \.element.id) { offset, pair in
+                Button {
+                    selectedPair = pair
+                } label: {
+                    PairedSlotRow(pair: pair, hasOpponent: model.opponentSide != nil)
+                }
+                .buttonStyle(PressableCardStyle())
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("matchup.row.\(pair.index)")
+                .appear(index: offset)
             }
         }
     }
 
-    // MARK: - One side
+    /// "Winning 6 of 11 slots" — the head-to-head read in one line.
+    private var slotTally: String {
+        let decided = model.pairedSlots.filter { $0.leader == .mine || $0.leader == .theirs }
+        let mine = decided.filter { $0.leader == .mine }.count
+        return "Ahead in \(mine) of \(model.pairedSlots.count)"
+    }
+
+    // MARK: - Individual
+
+    private func individual(_ side: MatchupSide) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sideSummary(side)
+            ForEach(Array(side.rows.enumerated()), id: \.element.id) { offset, row in
+                MatchupRowView(row: row)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("matchup.detail.\(row.index)")
+                    .appear(index: offset)
+            }
+        }
+    }
 
     @ViewBuilder
     private func sideSummary(_ side: MatchupSide) -> some View {
@@ -115,13 +237,187 @@ public struct MatchupView: View {
         ].compactMap { $0 }
 
         if !problems.isEmpty {
-            Text(problems.joined(separator: " · "))
+            Label(problems.joined(separator: " · "), systemImage: "exclamationmark.triangle.fill")
                 .font(.caption)
                 .foregroundStyle(Palette.caution)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
 
+// MARK: - Mode picker
+
+/// A segmented control whose highlight slides between options.
+struct MatchupModePicker: View {
+    @ObservedObject var model: MatchupModel
+    @Namespace private var highlight
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(model.availableModes, id: \.self) { mode in
+                Button {
+                    model.mode = mode
+                } label: {
+                    Text(mode.rawValue)
+                        .font(.footnote.weight(model.mode == mode ? .semibold : .regular))
+                        .foregroundStyle(model.mode == mode ? Color.primary : Color.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background {
+                            if model.mode == mode {
+                                Capsule()
+                                    .fill(Color.accentColor.opacity(0.18))
+                                    .matchedGeometryEffect(id: "mode", in: highlight)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(model.mode == mode ? .isSelected : [])
+            }
+        }
+        .padding(3)
+        .background(Capsule().fill(Palette.surface))
+        .motion(Motion.snappy, value: model.mode)
+    }
+}
+
+// MARK: - Rows
+
+/// Both players in one slot, with a bar showing who is ahead.
+struct PairedSlotRow: View {
+    let pair: PairedSlot
+    let hasOpponent: Bool
+
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(alignment: .center, spacing: 8) {
+                side(pair.mine, value: pair.myValue, alignment: .leading, leading: pair.leader == .mine)
+                Text(pair.slot)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .frame(width: 42)
+                if hasOpponent {
+                    side(pair.theirs, value: pair.theirValue, alignment: .trailing, leading: pair.leader == .theirs)
+                } else {
+                    Spacer().frame(maxWidth: .infinity)
+                }
+            }
+            if hasOpponent {
+                SlotShareBar(share: pair.myShare, leader: pair.leader)
+            }
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func side(_ row: MatchupRow?, value: Double?, alignment: HorizontalAlignment, leading: Bool) -> some View {
+        let frameAlignment: Alignment = alignment == .leading ? .leading : .trailing
+        return VStack(alignment: alignment, spacing: 2) {
+            if let row, !row.isEmptySlot {
+                HStack(spacing: 4) {
+                    if alignment == .trailing { valueText(value, leading: leading) }
+                    Text(row.name ?? "Unknown")
+                        .font(.subheadline.weight(leading ? .semibold : .regular))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    if alignment == .leading { valueText(value, leading: leading) }
+                }
+                Text(subtitle(row))
+                    .font(.caption2)
+                    .foregroundStyle(row.onBye ? Palette.sit : Color.secondary)
+                    .lineLimit(1)
+            } else {
+                Text("Empty")
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.caution)
+                Text("set on Sleeper")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: frameAlignment)
+    }
+
+    private func valueText(_ value: Double?, leading: Bool) -> some View {
+        Text(value.map { String(format: "%.1f", $0) } ?? "–")
+            .font(.subheadline.weight(.semibold).monospacedDigit())
+            .foregroundStyle(leading ? Color.accentColor : Color.secondary)
+            .contentTransition(.numericText())
+            .fixedSize()
+    }
+
+    private func subtitle(_ row: MatchupRow) -> String {
+        if row.onBye { return "\(row.nflTeam ?? "") bye" }
+        let position = row.position?.rawValue ?? ""
+        guard let opponent = row.opponent else { return position }
+        return "\(position) \(row.isHome == true ? "vs" : "@") \(opponent)"
+    }
+}
+
+/// Split bar for one slot: my share on the left in the accent colour.
+struct SlotShareBar: View {
+    let share: Double?
+    let leader: SlotLeader
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Palette.surfaceRaised)
+                if let share {
+                    Capsule()
+                        .fill(Color.accentColor.opacity(leader == .theirs ? 0.45 : 0.9))
+                        .frame(width: max(4, geometry.size.width * share))
+                }
+            }
+        }
+        .frame(height: 4)
+        .motion(Motion.number, value: share)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Whole-matchup share of points.
+struct ScoreShareBar: View {
+    let mine: Double
+    let theirs: Double
+
+    var body: some View {
+        let total = max(mine, 0) + max(theirs, 0)
+        let share = total > 0 ? max(mine, 0) / total : 0.5
+        return GeometryReader { geometry in
+            HStack(spacing: 2) {
+                Capsule().fill(Color.accentColor)
+                    .frame(width: max(6, (geometry.size.width - 2) * share))
+                Capsule().fill(Palette.surfaceRaised)
+            }
+        }
+        .frame(height: 6)
+        .motion(Motion.number, value: share)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Card-style press feedback for tappable rows.
+struct PressableCardStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(configuration.isPressed ? Palette.surfaceRaised : Palette.surface)
+            )
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(Motion.snappy, value: configuration.isPressed)
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+/// One team's player in full detail.
 struct MatchupRowView: View {
     let row: MatchupRow
 
@@ -130,61 +426,76 @@ struct MatchupRowView: View {
             Text(row.slot)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
-                .frame(width: 44, alignment: .leading)
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.6)
+                .frame(width: 44, alignment: .leading)
 
             if row.isEmptySlot {
                 Text("Empty — set this slot on Sleeper")
                     .font(.subheadline)
                     .foregroundStyle(Palette.caution)
-                Spacer()
+                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        Text(row.name ?? "Unknown").font(.subheadline.weight(.semibold)).lineLimit(1)
-                        if let position = row.position {
-                            PositionChip(position: position)
-                        }
-                    }
-                    Text(gameLine)
-                        .font(.caption)
-                        .foregroundStyle(row.onBye ? Palette.sit : .secondary)
-
-                    if let season = row.season {
-                        Text(seasonText(season))
-                            .font(.caption2.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    } else if !row.hasProductionData {
-                        Text("No production data for \(row.position?.rawValue ?? "this position")")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    } else {
-                        Text("No season line")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-
-                    if let summary = row.defenseSummary {
-                        Text(summary)
-                            .font(.caption2)
-                            .foregroundStyle(defenseColour)
-                    }
-                }
-                Spacer()
+                PlayerDetail(row: row)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 Text(row.livePoints.map { String(format: "%.1f", $0) } ?? "—")
                     .font(.subheadline.weight(.semibold).monospacedDigit())
+                    .contentTransition(.numericText())
+                    .fixedSize()
             }
         }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
+        .card(padding: 12)
+    }
+}
+
+/// Everything known about one player this week. Shared by the individual rows
+/// and the head-to-head detail sheet.
+struct PlayerDetail: View {
+    let row: MatchupRow
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text(row.name ?? "Unknown")
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                PositionChip(position: row.position)
+            }
+            Text(gameLine)
+                .font(.caption)
+                .foregroundStyle(row.onBye ? Palette.sit : Color.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let season = row.season {
+                Text(seasonText(season))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if !row.hasProductionData {
+                Text("No production data for \(row.position?.rawValue ?? "this position")")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            } else {
+                Text("No season line")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+
+            if let summary = row.defenseSummary {
+                Text(summary)
+                    .font(.caption)
+                    .foregroundStyle(defenseColour)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     private var gameLine: String {
         guard !row.onBye else { return "\(row.nflTeam ?? "") on bye — scores 0" }
         guard let opponent = row.opponent else { return row.nflTeam ?? "" }
         let venue = row.isHome == true ? "vs" : "@"
-        let implied = row.impliedTotal.map { String(format: " · %.1f implied", $0) } ?? ""
+        let implied = row.impliedTotal.map { String(format: " · team total %.1f", $0) } ?? ""
         return "\(row.nflTeam ?? "") \(venue) \(opponent)\(implied)"
     }
 
@@ -201,5 +512,56 @@ struct MatchupRowView: View {
     private var defenseColour: Color {
         guard let delta = row.defense?.vsLeagueAverage else { return .secondary }
         return delta >= 0 ? Palette.start : Palette.sit
+    }
+}
+
+/// Both players in one slot, in full.
+struct SlotDetailSheet: View {
+    let pair: PairedSlot
+    let mine: MatchupSide?
+    let theirs: MatchupSide?
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    player(pair.mine, manager: mine?.manager ?? "You", value: pair.myValue)
+                    if theirs != nil {
+                        player(pair.theirs, manager: theirs?.manager ?? "Opponent", value: pair.theirValue)
+                    }
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .navigationTitle(pair.slot)
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+        }
+    }
+
+    private func player(_ row: MatchupRow?, manager: String, value: Double?) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(manager.uppercased())
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .kerning(0.8)
+                    .lineLimit(1)
+                Spacer()
+                if let points = row?.livePoints {
+                    Text(String(format: "%.1f pts", points))
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                }
+            }
+            if let row, !row.isEmptySlot {
+                PlayerDetail(row: row)
+            } else {
+                Text("Empty — set this slot on Sleeper")
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.caution)
+            }
+        }
+        .card()
     }
 }
