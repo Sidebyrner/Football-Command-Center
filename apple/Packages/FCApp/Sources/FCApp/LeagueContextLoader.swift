@@ -73,7 +73,7 @@ public struct LeagueContextLoader: Sendable {
         let members = try await sleeper.members(leagueID: leagueID, force: force)
         let players = try await sleeper.playerIndex()
         let schedule = try await staticData.schedule(season: scheduleSeason)
-        let (statsSeason, weekly) = try await loadStatsSeason(notAfter: scheduleSeason)
+        let (statsSeason, weekly, currentSeasonWeeks) = try await loadStatsSeason(notAfter: scheduleSeason)
         let crosswalk = try await staticData.playerCrosswalk()
 
         let template = league.value.slotTemplate
@@ -110,6 +110,7 @@ public struct LeagueContextLoader: Sendable {
             league: league.value,
             scheduleSeason: scheduleSeason,
             statsSeason: statsSeason,
+            currentSeasonWeeks: currentSeasonWeeks,
             template: template,
             scoring: scoring,
             teams: teams,
@@ -143,23 +144,42 @@ public struct LeagueContextLoader: Sendable {
     /// stats season is the newest season the manifest lists at or before the
     /// schedule season — and the context records which one it was, so the UI
     /// can say "2025 production" rather than implying it is this year's.
-    private func loadStatsSeason(notAfter scheduleSeason: Int) async throws -> (Int, Fetched<WeeklyFile>) {
-        let listed = (try? await staticData.weeklyManifest())?.value.seasons.map(\.season) ?? []
-        var candidates = listed.filter { $0 <= scheduleSeason }.sorted(by: >)
-        // Without a manifest, fall back to this season then last season rather
-        // than giving up.
-        if candidates.isEmpty { candidates = [scheduleSeason, scheduleSeason - 1] }
+    private func loadStatsSeason(
+        notAfter scheduleSeason: Int
+    ) async throws -> (season: Int, weekly: Fetched<WeeklyFile>, currentSeasonWeeks: Int) {
+        let listed = (try? await staticData.weeklyManifest())?.value.seasons ?? []
+        let eligible = listed.filter { $0.season <= scheduleSeason }.sorted { $0.season > $1.season }
+        let currentSeasonWeeks = listed.first { $0.season == scheduleSeason }.map(Self.weeksPlayed) ?? 0
+
+        // A season with fewer than three weeks of games is too thin to average
+        // over — one game is a noisy floor and ceiling — so it is tried only
+        // after every season that clears the bar. Three matches the baselines'
+        // own minimum games for a line.
+        var candidates = eligible.filter { Self.weeksPlayed($0) >= Self.minimumWeeksForStatsSeason }.map(\.season)
+            + eligible.filter { Self.weeksPlayed($0) < Self.minimumWeeksForStatsSeason }.map(\.season)
+        // Without a manifest, fall back to last season then this one rather than
+        // giving up.
+        if candidates.isEmpty { candidates = [scheduleSeason - 1, scheduleSeason] }
 
         var lastError: Error = DataLayerError.noFallbackAvailable(resource: "weekly-\(scheduleSeason)")
         for candidate in candidates {
             do {
-                return (candidate, try await staticData.weeklyFile(season: candidate))
+                return (candidate, try await staticData.weeklyFile(season: candidate), currentSeasonWeeks)
             } catch {
                 lastError = error
             }
         }
         throw lastError
     }
+
+    /// Weeks of games a season has, 18 for a complete one.
+    static func weeksPlayed(_ entry: WeeklyManifest.SeasonEntry) -> Int {
+        entry.weeks ?? entry.latestWeek ?? 0
+    }
+
+    /// The current season becomes the stats season once it has this many weeks.
+    public static let minimumWeeksForStatsSeason = 3
+
 
     /// Resolves a roster's Sleeper ids into the entries the crunch needs.
     ///

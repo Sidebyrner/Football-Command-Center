@@ -27,16 +27,20 @@ struct FantasyCommandCenterApp: App {
 
 /// The composition root.
 ///
-/// `StaticDataStore` is pointed at the app bundle, so the nflverse files
-/// shipped at build time work on a first launch with no network. Give it a
-/// `baseURL` to enable the 7-day conditional refresh described in §9 — until
-/// the generated JSON has a stable HTTPS home, bundle-only is the honest
-/// configuration rather than pointing at a URL that does not exist yet.
+/// `StaticDataStore` refreshes the nflverse files from the repo's `data` branch,
+/// which a scheduled GitHub Action rebuilds from nflverse (§9). The copies bundled
+/// at build time are the fallback: a first launch works with no network, and if
+/// the data host is unreachable — or the branch doesn't exist yet — nothing
+/// breaks; the screens just say the data shipped with the app.
 @MainActor
 final class Composition: ObservableObject {
     let sleeper: SleeperService
     let staticData: StaticDataStore
     let settingsStore: AppSettingsStore
+
+    /// Where refreshed nflverse files are published. Paths under it mirror
+    /// `public/data` (`weekly/index.json`, `schedule-2026.json`, …).
+    static let dataHost = URL(string: "https://raw.githubusercontent.com/Sidebyrner/Football-Command-Center/data/")
 
     /// Debug-only `-FCCTab <screen>` opens a specific tab, for screenshots and
     /// UI tests. Release builds always open on the Dashboard.
@@ -91,7 +95,7 @@ final class Composition: ObservableObject {
             bundleSubdirectory: nil,
             cache: cache,
             transport: URLSessionTransport(),
-            baseURL: nil
+            baseURL: Composition.dataHost
         )
         self.settingsStore = UserDefaultsSettingsStore()
     }

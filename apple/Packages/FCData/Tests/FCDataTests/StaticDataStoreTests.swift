@@ -172,3 +172,42 @@ final class StaticDataStoreTests: XCTestCase {
         XCTAssertEqual(schedule.value.byWeek["1"]?.first?.home, "SEA")
     }
 }
+
+/// Per-file cache lifetimes.
+final class StaticResourceTTLTests: XCTestCase {
+    func testInSeasonFilesAreRecheckedTwiceADay() {
+        XCTAssertEqual(StaticResource.weeklyIndex.ttl, 12 * 60 * 60)
+        XCTAssertEqual(StaticResource.weekly(season: 2026).ttl, 12 * 60 * 60)
+        XCTAssertEqual(StaticResource.schedule(season: 2026).ttl, 12 * 60 * 60)
+    }
+
+    func testSlowMovingFilesKeepAWeek() {
+        XCTAssertEqual(StaticResource.playerIDs.ttl, CacheTTL.staticData)
+        XCTAssertEqual(StaticResource.adp.ttl, CacheTTL.staticData)
+    }
+
+    /// The resource's own TTL governs the cache: an expired entry is re-checked
+    /// with If-None-Match rather than served.
+    func testAnExpiredResourceIsRecheckedWithItsETag() async throws {
+        let transport = StubTransport()
+        await transport.on("tiny.json", respond: [
+            .success(HTTPResponse(status: 200, body: Data(#"{"byWeek":{}}"#.utf8), headers: ["ETag": "v1"])),
+            .success(HTTPResponse(status: 304, body: Data())),
+        ])
+        let (cache, directory) = makeTemporaryCache()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = StaticDataStore(
+            bundle: .module, cache: cache, transport: transport,
+            baseURL: URL(string: "https://data.example.test")!
+        )
+        let resource = StaticResource(bundledName: "none", remotePath: "tiny.json", identifier: "tiny", ttl: 0)
+
+        _ = try await store.load(ScheduleFile.self, resource: resource)
+        _ = try await store.load(ScheduleFile.self, resource: resource)
+
+        let count = await transport.requestCount
+        XCTAssertEqual(count, 2, "a zero TTL means the second read asks the server again")
+        let etag = await transport.header("If-None-Match", onRequestAt: 1)
+        XCTAssertEqual(etag, "v1")
+    }
+}

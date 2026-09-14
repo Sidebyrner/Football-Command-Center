@@ -9,18 +9,28 @@ public struct StaticResource: Hashable, Sendable {
     public let remotePath: String
     /// Cache key, also used in error messages, so a failure names the file.
     public let identifier: String
+    /// How long a downloaded copy is trusted before asking the server again.
+    /// Files that change during a season are re-checked twice a day; the ETag
+    /// makes an unchanged answer a few hundred bytes.
+    public let ttl: TimeInterval
 
-    public init(bundledName: String, remotePath: String, identifier: String) {
+    public init(bundledName: String, remotePath: String, identifier: String, ttl: TimeInterval = CacheTTL.staticData) {
         self.bundledName = bundledName
         self.remotePath = remotePath
         self.identifier = identifier
+        self.ttl = ttl
     }
+
+    /// Files that change during the season: the manifest, weekly stats, the
+    /// schedule's recorded lines.
+    public static let inSeasonTTL: TimeInterval = 12 * 60 * 60
 
     public static func weekly(season: Int) -> StaticResource {
         StaticResource(
             bundledName: "weekly-\(season)",
             remotePath: "weekly/\(season).json",
-            identifier: "weekly-\(season)"
+            identifier: "weekly-\(season)",
+            ttl: inSeasonTTL
         )
     }
 
@@ -28,12 +38,14 @@ public struct StaticResource: Hashable, Sendable {
         StaticResource(
             bundledName: "schedule-\(season)",
             remotePath: "schedule-\(season).json",
-            identifier: "schedule-\(season)"
+            identifier: "schedule-\(season)",
+            ttl: inSeasonTTL
         )
     }
 
     public static let weeklyIndex = StaticResource(
-        bundledName: "weekly-index", remotePath: "weekly/index.json", identifier: "weekly-index"
+        bundledName: "weekly-index", remotePath: "weekly/index.json", identifier: "weekly-index",
+        ttl: inSeasonTTL
     )
 
     public static let playerIDs = StaticResource(
@@ -120,7 +132,7 @@ public actor StaticDataStore {
                 )
                 switch refreshed {
                 case .updated(let payload):
-                    try? await cache.store(payload, key: key, ttl: CacheTTL.staticData)
+                    try? await cache.store(payload, key: key, ttl: resource.ttl)
                     return Fetched(
                         value: try decode(type, from: payload.data, resource: resource),
                         provenance: .live
@@ -129,7 +141,7 @@ public actor StaticDataStore {
                     // The server confirmed what we hold is current, so re-stamp
                     // the TTL rather than re-downloading in seven days' time.
                     if let stale {
-                        try? await cache.store(stale.value, key: key, ttl: CacheTTL.staticData)
+                        try? await cache.store(stale.value, key: key, ttl: resource.ttl)
                         return Fetched(
                             value: try decode(type, from: stale.value.data, resource: resource),
                             provenance: .cached(age: stale.age)

@@ -68,6 +68,9 @@ public struct LeagueContext: Sendable {
     /// The season the production numbers come from. Early in a year this is
     /// last season, because a weekly file cannot exist before games are played.
     public let statsSeason: Int
+    /// Weeks of games the schedule season has in the stats manifest — 0 before
+    /// its weekly file exists.
+    public let currentSeasonWeeks: Int
     public let template: SlotTemplate
     public let scoring: SleeperScoringTranslation
     public let teams: [LeagueTeam]
@@ -122,7 +125,12 @@ public struct LeagueContext: Sendable {
     /// (§6). `nil` when they match.
     public var statsSeasonNote: String? {
         guard statsSeason != scheduleSeason else { return nil }
-        return "Production numbers are from the \(statsSeason) season — there is no \(scheduleSeason) weekly data yet."
+        guard currentSeasonWeeks > 0 else {
+            return "Production numbers are from the \(statsSeason) season — there is no \(scheduleSeason) weekly data yet."
+        }
+        let minimum = LeagueContextLoader.minimumWeeksForStatsSeason
+        return "Production numbers are from the \(statsSeason) season until \(scheduleSeason) has \(minimum) weeks of games "
+            + "(it has \(currentSeasonWeeks))."
     }
 
     public var userTeam: LeagueTeam? {
