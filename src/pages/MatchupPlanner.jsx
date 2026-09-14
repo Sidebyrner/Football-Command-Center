@@ -230,7 +230,7 @@ export default function MatchupPlanner() {
     if (!myTeam || !slotTemplate) return null
     return optimizeLineup({
       currentStarterIds: myTeam.starterIds,
-      playerIds: myTeam.playerIds,
+      playerIds: myTeam.startableIds ?? myTeam.playerIds,
       template: slotTemplate,
       playersById,
       valueOf,
@@ -250,7 +250,7 @@ export default function MatchupPlanner() {
     }
     return optimizeLineup({
       currentStarterIds: myTeam.starterIds,
-      playerIds: myTeam.playerIds,
+      playerIds: myTeam.startableIds ?? myTeam.playerIds,
       template: slotTemplate,
       playersById,
       valueOf: pick,

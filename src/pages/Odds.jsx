@@ -15,6 +15,7 @@ import { useMissingPlayerMeta } from '../hooks/useMissingPlayerMeta'
 import { makeImpliedResolver } from '../utils/oddsHelpers'
 import useAppStore from '../store/useAppStore'
 import { kickoffIso } from '../utils/gameClock'
+import { findMyTeam } from '../utils/leagueTeams'
 
 function formatSpread(spread) {
   if (spread == null) return '—'
@@ -36,7 +37,7 @@ export default function Odds() {
   const { odds, quota, loading, error, fetchOdds } = useOdds(oddsApiKey)
   const { players } = useDraftPlayers()
   const { teams } = useLeagueTeamRosters(leagueId)
-  const myTeam = teams.find((t) => t.id === sleeperUserId)
+  const myTeam = findMyTeam(teams, sleeperUserId)
   // Free fallback. nfldata publishes spread and total per game alongside the
   // schedule, so the page has something real to draw before anyone pays for a
   // key. These are NOT live odds — they're whatever nfldata last recorded — and

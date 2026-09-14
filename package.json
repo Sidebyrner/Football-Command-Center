@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "preprocess-nflverse": "node scripts/preprocess-nflverse.mjs",
     "preprocess-nflverse:all": "node scripts/preprocess-nflverse.mjs --seasons=2025,2024,2023",
+    "check-league": "node scripts/check-league.mjs",
     "test": "node --test \"src/**/*.test.js\" \"scripts/*.test.mjs\""
   },
   "dependencies": {

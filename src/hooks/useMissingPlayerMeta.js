@@ -13,7 +13,10 @@ import { getPlayerMeta } from '../services/sleeperService'
 function normalizeRawPlayer(id, raw) {
   if (!raw) return null
   const name = raw.full_name || [raw.first_name, raw.last_name].filter(Boolean).join(' ') || id
-  return { id, name, position: raw.position, team: raw.team || 'FA' }
+  return {
+    id, name, position: raw.position, fantasyPositions: raw.fantasy_positions ?? null,
+    team: raw.team || 'FA', injuryStatus: raw.injury_status ?? null,
+  }
 }
 
 /**

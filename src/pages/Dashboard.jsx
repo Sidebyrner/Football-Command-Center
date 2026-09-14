@@ -15,6 +15,7 @@ import BenchPoints from '../components/dashboard/BenchPoints'
 import WeeklyScoringTrend from '../components/dashboard/WeeklyScoringTrend'
 import { Link } from 'react-router-dom'
 import useAppStore from '../store/useAppStore'
+import { findMyTeam } from '../utils/leagueTeams'
 
 function Card({ title, children, className = '' }) {
   return (
@@ -146,7 +147,7 @@ export default function Dashboard() {
     weeklyTotalsByRoster, weeklyByRoster, weeksLoaded, loading: historyLoading,
   } = useSeasonMatchupHistory(leagueId, throughWeek)
 
-  const myTeam = teams.find((t) => t.id === sleeperUserId)
+  const myTeam = findMyTeam(teams, sleeperUserId)
   const myMatchup = myTeam ? matchups.find((m) => m.sides.some((s) => s.rosterId === myTeam.rosterId)) : null
   const mySide = myMatchup?.sides.find((s) => s.rosterId === myTeam?.rosterId)
   const opponentSide = myMatchup?.sides.find((s) => s.rosterId !== myTeam?.rosterId)

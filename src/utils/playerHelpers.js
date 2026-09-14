@@ -1,8 +1,17 @@
+// Every tag seen on Sleeper's live player index (checked week 1, 2026): Out, IR,
+// PUP, Questionable, Sus, DNR, COV, NA, and an occasional empty string. The
+// first three unlisted ones used to fall through to 'caution', so a suspended
+// starter read as a game-time decision. NA is Sleeper's own "not available"
+// label with no stated reason; it stays a caution because it isn't a ruling.
 export const INJURY_STATUS = {
   Out: 'sit',
   IR: 'sit',
   PUP: 'sit',
   Doubtful: 'sit',
+  Sus: 'sit',
+  DNR: 'sit',
+  COV: 'sit',
+  NA: 'caution',
   Questionable: 'caution',
   Probable: 'start',
   Healthy: 'start',
@@ -17,9 +26,11 @@ export function getStatusColor(injuryStatus) {
   return 'var(--color-start)'
 }
 
+const STATUS_LABELS = { Sus: 'Suspended', DNR: 'Did not report', COV: 'COVID list', NA: 'Not available' }
+
 export function getStatusLabel(injuryStatus) {
   if (!injuryStatus) return 'Active'
-  return injuryStatus
+  return STATUS_LABELS[injuryStatus] ?? injuryStatus
 }
 
 export function getPositionColor(position) {

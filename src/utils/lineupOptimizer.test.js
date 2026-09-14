@@ -123,3 +123,20 @@ test('no locks gives exactly the plain result', () => {
   const tokens = ['QB', 'RB', 'RB', 'FLEX']
   assert.deepEqual(run(tokens, starters, roster, values, { locked: [] }), run(tokens, starters, roster, values))
 })
+
+test('defenders are started through fantasy_positions, and a dual-eligible one fills either slot', () => {
+  const roster = {
+    de: { position: 'DE', fantasyPositions: ['DL'] },
+    hybrid: { position: 'LB', fantasyPositions: ['DL', 'LB'] },
+    ilb: { position: 'ILB' }, // no fantasy_positions: falls back to LB
+  }
+  const r = optimizeLineup({
+    currentStarterIds: ['0', '0'],
+    playerIds: Object.keys(roster),
+    template: parseRosterPositions(['DL', 'LB']),
+    playersById: roster,
+    valueOf: (id) => ({ de: 5, hybrid: 9, ilb: 4 })[id],
+  })
+  assert.deepEqual(r.proposedIds, ['de', 'hybrid'], 'hybrid at LB and the DE at DL beats hybrid at DL and the ILB')
+  assert.equal(r.proposedTotal, 14)
+})

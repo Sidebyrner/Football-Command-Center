@@ -13,6 +13,7 @@ import { usePlayerScores } from './usePlayerScores'
 import { useLeagueTeamRosters } from './useLeagueTeamRosters'
 import { useLeagueRosterSettings } from './useLeagueRosterSettings'
 import { useMissingPlayerMeta } from './useMissingPlayerMeta'
+import { isMyTeam } from '../utils/leagueTeams'
 
 /**
  * @returns {{ teams: Array, playersById: Record<string, object>, loading: boolean, error: string|null }}
@@ -46,7 +47,7 @@ export function useTeamPowerRankings(leagueId, sleeperUserId) {
   const mergedPlayersById = useMemo(() => ({ ...playersById, ...idpMeta }), [playersById, idpMeta])
 
   const teamsInput = useMemo(
-    () => rosters.map((t) => ({ ...t, isMe: !!sleeperUserId && t.id === sleeperUserId })),
+    () => rosters.map((t) => ({ ...t, isMe: isMyTeam(t, sleeperUserId) })),
     [rosters, sleeperUserId]
   )
 

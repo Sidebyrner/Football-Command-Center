@@ -7,6 +7,7 @@
 import { useMemo } from 'react'
 import { byeWeeksFromSchedule, crunchForWeek } from '../utils/byeWeeks'
 import { toNflverseTeam } from '../utils/nflTeams'
+import { isMyTeam } from '../utils/leagueTeams'
 import { useSchedule } from './useSchedule'
 import { useLeagueTeamRosters } from './useLeagueTeamRosters'
 import { useLeagueRosterSettings } from './useLeagueRosterSettings'
@@ -40,11 +41,12 @@ export function useByeOutlook(leagueId, season, fromWeek, sleeperUserId) {
       .sort((a, b) => a - b)
 
     const teamRows = rosters.map((t) => {
-      const isMe = !!sleeperUserId && t.id === sleeperUserId
+      const isMe = isMyTeam(t, sleeperUserId)
       const byWeek = {}
       for (const week of weeks) {
         const byeTeams = new Set(byes.byWeek[week] ?? [])
-        byWeek[week] = crunchForWeek(t.playerIds, {
+        // IR and taxi players can't cover a bye — Sleeper won't start them.
+        byWeek[week] = crunchForWeek(t.startableIds ?? t.playerIds, {
           playersById,
           byeTeams,
           template: slotTemplate,

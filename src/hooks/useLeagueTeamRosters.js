@@ -6,10 +6,13 @@
 
 import { useState, useEffect } from 'react'
 import { getLeagueRosters, getLeagueUsers } from '../services/sleeperService'
+import { joinLeagueTeams } from '../utils/leagueTeams'
 
 /**
- * @returns {{ teams: Array<{id, name, playerIds, starterIds, rosterId, record, pointsFor, pointsAgainst}>, loading, error }}
- *   `id` is the roster's owner_id (matches Sleeper's userId elsewhere in the app).
+ * @returns {{ teams: Array<{id, name, memberIds, isOpen, playerIds, starterIds, rosterId, record, pointsFor, pointsAgainst}>, loading, error }}
+ *   `id` is the roster's owner_id (matches Sleeper's userId elsewhere in the
+ *   app), or `roster-<n>` for an open team. Match the user with isMyTeam /
+ *   findMyTeam from utils/leagueTeams so co-owners find their team too.
  *   `starterIds` is Sleeper's real starters array — use this for "what's
  *   actually started," not assignPicksToSlots (that's for grading roster
  *   construction quality, a different question). `rosterId` is Sleeper's
@@ -29,28 +32,7 @@ export function useLeagueTeamRosters(leagueId) {
     Promise.all([getLeagueRosters(leagueId), getLeagueUsers(leagueId)])
       .then(([rosters, users]) => {
         if (cancelled) return
-        const nameByUserId = {}
-        for (const u of users ?? []) nameByUserId[u.user_id] = u.display_name || u.username
-
-        const joined = (rosters ?? [])
-          .filter((r) => r.owner_id)
-          .map((r) => ({
-            id: r.owner_id,
-            name: nameByUserId[r.owner_id] ?? `Team ${r.roster_id}`,
-            playerIds: r.players ?? [],
-            starterIds: r.starters ?? [],
-            rosterId: r.roster_id,
-            // Sleeper already returns season record and points here; this
-            // response was being read for rosters only and the rest thrown
-            // away, leaving the app with no standings anywhere.
-            record: {
-              wins: r.settings?.wins ?? 0,
-              losses: r.settings?.losses ?? 0,
-              ties: r.settings?.ties ?? 0,
-            },
-            pointsFor: (r.settings?.fpts ?? 0) + (r.settings?.fpts_decimal ?? 0) / 100,
-            pointsAgainst: (r.settings?.fpts_against ?? 0) + (r.settings?.fpts_against_decimal ?? 0) / 100,
-          }))
+        const joined = joinLeagueTeams(rosters, users)
         setTeams(joined)
         setLoading(false)
       })

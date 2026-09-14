@@ -3,6 +3,7 @@
 
 import { sleeperApi } from '../utils/sleeperApi.js'
 import { cacheGet, cacheGetEntry, cacheSet, TTL } from '../utils/cache.js'
+import { distinctFantasyPositions } from '../utils/slotEligibility.js'
 
 const KEYS = {
   PLAYERS: 'sleeper-players-v1',
@@ -114,7 +115,8 @@ export function getDraft(draftId) {
 // team, injury tag, active — keyed by player id, and concurrent callers share
 // one in-flight request instead of starting a download each.
 
-const PLAYER_INDEX_KEY = 'sleeper-player-index-v2'
+// v3 adds fantasyPositions; v2 entries lack it and are rebuilt.
+const PLAYER_INDEX_KEY = 'sleeper-player-index-v3'
 let playerIndexPromise = null
 
 /** Reduces Sleeper's raw player map to what identity lookups need. */
@@ -123,9 +125,13 @@ export function trimPlayerIndex(raw) {
   for (const [id, p] of Object.entries(raw ?? {})) {
     if (!p) continue
     const name = p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || null
+    const fantasyPositions = distinctFantasyPositions(p.position, p.fantasy_positions)
     out[id] = {
       name,
       position: p.position ?? null,
+      // Slot eligibility, only when the position doesn't already imply it
+      // (see utils/slotEligibility.js) — the key is absent for most players.
+      ...(fantasyPositions ? { fantasyPositions } : {}),
       team: p.team ?? null,
       injuryStatus: p.injury_status ?? null,
       active: p.active === true,
@@ -139,7 +145,7 @@ export function trimPlayerIndex(raw) {
  * @param {boolean} [opts.force]
  * @param {number} [opts.maxAgeMs] refetch when the cached index is older than
  *   this, even inside its TTL — see playersMaxAge in utils/gameClock.js.
- * @returns {Promise<Record<string, {name, position, team, injuryStatus, active}>>}
+ * @returns {Promise<Record<string, {name, position, fantasyPositions, team, injuryStatus, active}>>}
  */
 export function getPlayerIndex({ force = false, maxAgeMs = TTL.PLAYERS } = {}) {
   if (!force) {
@@ -167,7 +173,7 @@ export function getAllPlayers(force = false) {
 export async function getPlayerMeta(playerId) {
   const p = (await getPlayerIndex())?.[playerId]
   if (!p) return null
-  return { player_id: playerId, full_name: p.name, position: p.position, team: p.team, injury_status: p.injuryStatus, active: p.active }
+  return { player_id: playerId, full_name: p.name, position: p.position, fantasy_positions: p.fantasyPositions, team: p.team, injury_status: p.injuryStatus, active: p.active }
 }
 
 // ── Trending ──────────────────────────────────────────────────────────────────

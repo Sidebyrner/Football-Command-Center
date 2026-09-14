@@ -53,3 +53,16 @@ test('with no schedule, alerts still work without lock awareness', () => {
   assert.equal(r.injured.length, 1)
   assert.equal(r.nextLock, null)
 })
+
+test('a suspended starter is a problem, not a game-time decision', () => {
+  const r = buildLineupAlerts({
+    starterIds: ['sus', 'na'],
+    playersById: {
+      sus: { name: 'Suspended', team: 'PHI', position: 'RB', injuryStatus: 'Sus' },
+      na: { name: 'Unavailable', team: 'MIN', position: 'WR', injuryStatus: 'NA' },
+    },
+    byeTeams, kickoffs, week: 7, now: new Date('2025-10-15T12:00:00Z'),
+  })
+  assert.deepEqual(r.injured.map((p) => [p.id, p.severity]), [['sus', 'sit'], ['na', 'caution']])
+  assert.deepEqual([r.readiness.problems, r.readiness.caution], [1, 1])
+})

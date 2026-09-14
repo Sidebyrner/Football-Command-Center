@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { sleeperApi } from '../utils/sleeperApi'
 import { cacheGet, cacheGetEntry, cacheSet, cacheClear, TTL } from '../utils/cache'
+import { distinctFantasyPositions } from '../utils/slotEligibility'
 import { useGameDay } from './useGameDay'
 import {
   loadMarketData, buildAdpNameIndex, buildDstTeamIndex, lookupMarket, gsisIdFor,
@@ -9,7 +10,9 @@ import {
 // v2: we now cache the TRIMMED player list, not Sleeper's raw ~5 MB /players/nfl
 // blob. The raw payload does not reliably fit in localStorage (~5 MB cap), so the
 // old cache silently failed its write and refetched megabytes on every load.
-const PLAYER_CACHE = 'fcc-draft-players-v2'
+// v3 adds fantasyPositions (slot eligibility).
+const PLAYER_CACHE = 'fcc-draft-players-v3'
+const PREVIOUS_PLAYER_CACHE = 'fcc-draft-players-v2'
 const TRENDING_CACHE = 'sleeper-draft-trending-v1'
 const LEGACY_PLAYER_CACHE = 'sleeper-players-v1'
 
@@ -47,6 +50,7 @@ export function useDraftPlayers({ maxAgeMs: requestedMaxAge } = {}) {
     // One-time eviction of the oversized legacy blob, which otherwise squats on
     // most of the origin's storage budget and starves every other cache write.
     cacheClear(LEGACY_PLAYER_CACHE)
+    cacheClear(PREVIOUS_PLAYER_CACHE)
 
     try {
       const cached = !force ? cacheGetEntry(PLAYER_CACHE) : null
@@ -88,6 +92,7 @@ export function useDraftPlayers({ maxAgeMs: requestedMaxAge } = {}) {
             id: p.player_id,
             name: normalizeName(p),
             position: p.position,
+            fantasyPositions: distinctFantasyPositions(p.position, p.fantasy_positions),
             team: p.team || 'FA',
             searchRank: typeof p.search_rank === 'number' ? p.search_rank : null,
             injuryStatus: p.injury_status ?? null,

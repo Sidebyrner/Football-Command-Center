@@ -5,6 +5,8 @@
 // position — unlike the `bye` field on player objects, which arrives through a
 // FantasyPros ADP match and reaches no IDP player at all.
 
+import { slotPositions, fitsSlot } from './slotEligibility.js'
+
 /**
  * @param {object} scheduleFile - public/data/schedule-{season}.json
  * @returns {{ byTeam: Record<string, number>, byWeek: Record<number, string[]>, teams: string[] }}
@@ -47,8 +49,9 @@ export function byeWeeksFromSchedule(scheduleFile) {
  *
  * Reported per position rather than as one feasible/infeasible verdict,
  * because "RB: 1 available for 2 slots" is the thing you act on and a boolean
- * isn't. Dedicated slots are counted first; whatever is left over at a
- * position becomes supply for the flex slots that accept it.
+ * isn't. Dedicated slots are seated first; whatever is left over becomes
+ * supply for the flex slots that accept it. Eligibility is Sleeper's
+ * fantasy_positions (see slotEligibility.js), so a CB fills a DB slot.
  *
  * Each flex slot is matched only against positions it actually accepts. This
  * used to pool every flex slot against the union of their eligibility sets —
@@ -62,7 +65,7 @@ export function byeWeeksFromSchedule(scheduleFile) {
  *
  * @param {string[]} playerIds
  * @param {object} args
- * @param {Record<string, {position?, team?}>} args.playersById
+ * @param {Record<string, {position?, fantasyPositions?, team?}>} args.playersById
  * @param {Set<string>} args.byeTeams - teams on bye that week, in the SAME
  *   dialect as playersById[].team after normalisation by the caller
  * @param {{starters: Array<{type, pos, eligible?}>}} args.template
@@ -84,42 +87,47 @@ export function crunchForWeek(playerIds, { playersById, byeTeams, template, norm
     else required[s.pos] = (required[s.pos] ?? 0) + 1
   }
 
-  const availableByPos = {}
+  const available = []
   const onBye = []
   for (const id of playerIds ?? []) {
     if (!id || id === '0') continue
     const p = playersById[id]
-    const pos = p?.position
-    if (!pos) continue
+    const positions = slotPositions(p)
+    if (!positions.length) continue
     const team = p.team ? normalizeTeam(p.team) : null
     if (team && byeTeams?.has(team)) {
-      onBye.push({ id, position: pos, team })
+      onBye.push({ id, position: p.position, team })
       continue
     }
-    availableByPos[pos] = (availableByPos[pos] ?? 0) + 1
+    available.push(positions)
   }
+
+  // Players, not position counts, are matched to slots: a linebacker Sleeper
+  // lists as ["DL", "LB"] can fill either slot but not both. Dedicated slots
+  // are seated first, so a shortfall lands on the position that's actually
+  // missing rather than on a flex slot it happened to be borrowed from.
+  const order = [...slots.keys()].sort((a, b) => (slots[a].type === 'flex') - (slots[b].type === 'flex') || a - b)
+  const filled = seatPlayers(slots, order, available)
 
   const byPosition = {}
-  const surplus = {}
   let totalShortfall = 0
-  for (const pos of new Set([...Object.keys(required), ...Object.keys(availableByPos)])) {
-    const req = required[pos] ?? 0
-    const avail = availableByPos[pos] ?? 0
-    if (req > 0) {
-      const shortfall = Math.max(0, req - avail)
-      byPosition[pos] = { required: req, available: avail, shortfall }
-      totalShortfall += shortfall
+  for (const pos of Object.keys(required)) {
+    const seated = slots.filter((s, i) => s.type !== 'flex' && s.pos === pos && filled[i]).length
+    const shortfall = required[pos] - seated
+    byPosition[pos] = {
+      required: required[pos],
+      available: available.filter((positions) => positions.includes(pos)).length,
+      shortfall,
     }
-    const spare = Math.max(0, avail - req)
-    if (spare > 0) surplus[pos] = spare
+    totalShortfall += shortfall
   }
 
-  const matching = matchFlexSlots(flexSlots, surplus)
-  const flexFilled = matching.filter(Boolean).length
-  const flexShortfall = flexSlots.length - flexFilled
+  const flexFilled = slots.flatMap((s, i) => (s.type === 'flex' ? [filled[i]] : []))
+  const flexAvailable = flexFilled.filter(Boolean).length
+  const flexShortfall = flexSlots.length - flexAvailable
   totalShortfall += flexShortfall
 
-  const flexGroups = groupFlex(flexSlots, matching)
+  const flexGroups = groupFlex(flexSlots, flexFilled)
   const neededPositions = new Set(
     Object.entries(byPosition).filter(([, v]) => v.shortfall > 0).map(([pos]) => pos)
   )
@@ -129,7 +137,7 @@ export function crunchForWeek(playerIds, { playersById, byeTeams, template, norm
 
   return {
     byPosition,
-    flex: { required: flexSlots.length, available: flexFilled, shortfall: flexShortfall },
+    flex: { required: flexSlots.length, available: flexAvailable, shortfall: flexShortfall },
     flexGroups,
     neededPositions: [...neededPositions].sort(),
     totalShortfall,
@@ -138,46 +146,36 @@ export function crunchForWeek(playerIds, { playersById, byeTeams, template, norm
 }
 
 /**
- * Assigns flex slots to spare players, maximising how many slots are filled
- * (Kuhn's algorithm). Returns the position used by each slot, aligned to
- * `flexSlots`, with null for a slot nothing can fill.
+ * Maximum matching of players to slots (Kuhn's algorithm), trying slots in
+ * `order`. An augmenting path never empties a slot it already filled, so every
+ * slot earlier in the order stays filled when a later one can only be reached
+ * by moving players around.
+ * @returns {boolean[]} whether each slot is filled, aligned to `slots`
  */
-export function matchFlexSlots(flexSlots, surplus) {
-  if (!flexSlots.length) return []
-  // One unit per spare player, capped at the number of slots.
-  const units = []
-  for (const pos of Object.keys(surplus).sort()) {
-    const count = Math.min(surplus[pos] ?? 0, flexSlots.length)
-    for (let i = 0; i < count; i++) units.push(pos)
-  }
-  if (!units.length) return flexSlots.map(() => null)
-
-  const slotForUnit = new Array(units.length).fill(null)
+function seatPlayers(slots, order, players) {
+  const slotOfPlayer = new Array(players.length).fill(null)
   let visited
 
   const augment = (slotIndex) => {
-    for (let u = 0; u < units.length; u++) {
-      if (visited[u]) continue
-      if (!(flexSlots[slotIndex].eligible ?? []).includes(units[u])) continue
+    for (let u = 0; u < players.length; u++) {
+      if (visited[u] || !fitsSlot(slots[slotIndex], players[u])) continue
       visited[u] = true
-      if (slotForUnit[u] === null || augment(slotForUnit[u])) {
-        slotForUnit[u] = slotIndex
+      if (slotOfPlayer[u] === null || augment(slotOfPlayer[u])) {
+        slotOfPlayer[u] = slotIndex
         return true
       }
     }
     return false
   }
 
-  for (let i = 0; i < flexSlots.length; i++) {
-    visited = new Array(units.length).fill(false)
+  for (const i of order) {
+    visited = new Array(players.length).fill(false)
     augment(i)
   }
 
-  const assigned = flexSlots.map(() => null)
-  slotForUnit.forEach((slotIndex, u) => {
-    if (slotIndex !== null) assigned[slotIndex] = units[u]
-  })
-  return assigned
+  const filled = slots.map(() => false)
+  for (const i of slotOfPlayer) if (i !== null) filled[i] = true
+  return filled
 }
 
 function groupFlex(flexSlots, matching) {

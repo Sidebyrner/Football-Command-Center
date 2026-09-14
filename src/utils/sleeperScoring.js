@@ -9,7 +9,7 @@
 //     YARDS PER POINT (passingYardsPerPoint: 25). They are reciprocals.
 //   * Sleeper omits keys worth zero, so "absent" means 0, not "unknown".
 
-import { DEFAULT_PROFILE } from './scoringProfile'
+import { DEFAULT_PROFILE } from './scoringProfile.js'
 
 // Sleeper event key -> profile field, for straight 1:1 point values.
 const DIRECT = {

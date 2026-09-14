@@ -100,3 +100,43 @@ test('bye matching normalises the team code (LAR is LA in the schedule)', () => 
   const r = crunch(roster, new Set(byeWeeksFromSchedule(schedule2025).byWeek[8]))
   assert.ok(r.onBye.some((p) => p.id === 'rb1'), 'a Rams player is on bye in week 8')
 })
+
+// ── Real Sleeper positions ─────────────────────────────────────────────────
+// Sleeper lists defenders by football position (CB, DE, S) and puts the slot
+// they fill in fantasy_positions. Matching on `position` used to leave every
+// one of them unable to fill a DB/DL slot.
+
+const idpTemplate = parseRosterPositions(['DL', 'LB', 'DB', 'BN'])
+
+test('a CB and a DE fill DB and DL slots through fantasy_positions', () => {
+  const r = crunch({
+    cb: { position: 'CB', fantasyPositions: ['DB'], team: 'SEA' },
+    de: { position: 'DE', fantasyPositions: ['DL'], team: 'DAL' },
+    lb: { position: 'LB', fantasyPositions: ['LB'], team: 'CHI' },
+  }, new Set(), idpTemplate)
+  assert.equal(r.totalShortfall, 0)
+  assert.equal(r.byPosition.DB.available, 1)
+})
+
+test('without fantasy_positions a raw defensive position still maps to its slot', () => {
+  const r = crunch({
+    s: { position: 'S', team: 'SEA' }, dt: { position: 'DT', team: 'DAL' }, ilb: { position: 'ILB', team: 'CHI' },
+  }, new Set(), idpTemplate)
+  assert.equal(r.totalShortfall, 0)
+})
+
+test('a player eligible at two positions fills one slot, not both', () => {
+  const r = crunch({ hybrid: { position: 'LB', fantasyPositions: ['DL', 'LB'], team: 'CHI' } }, new Set(), idpTemplate)
+  assert.equal(r.byPosition.DL.available, 1)
+  assert.equal(r.byPosition.LB.available, 1)
+  assert.equal(r.totalShortfall, 2, 'DL or LB is covered, never both, and DB is empty')
+})
+
+test('a dual-eligible player moves to wherever he is the only cover', () => {
+  const r = crunch({
+    hybrid: { position: 'LB', fantasyPositions: ['DL', 'LB'], team: 'CHI' },
+    lb: { position: 'LB', fantasyPositions: ['LB'], team: 'GB' },
+    cb: { position: 'CB', fantasyPositions: ['DB'], team: 'SEA' },
+  }, new Set(), idpTemplate)
+  assert.equal(r.totalShortfall, 0)
+})

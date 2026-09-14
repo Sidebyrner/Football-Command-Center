@@ -59,7 +59,7 @@ test('the index is cached after one download', async () => {
   await getPlayerIndex()
   await getPlayerIndex()
   assert.equal(downloads, 1)
-  assert.ok(store.has('sleeper-player-index-v2'), 'the write succeeded')
+  assert.ok(store.has('sleeper-player-index-v3'), 'the write succeeded')
 })
 
 test('concurrent callers share one download', async () => {
@@ -78,9 +78,9 @@ test('getPlayerMeta returns Sleeper field names for existing callers', async () 
 test('a max age younger than the cached copy forces a refetch', async () => {
   await getPlayerIndex()
   // Backdate the cache entry by four hours.
-  const entry = JSON.parse(store.get('sleeper-player-index-v2'))
+  const entry = JSON.parse(store.get('sleeper-player-index-v3'))
   entry.storedAt -= 4 * 60 * 60 * 1000
-  store.set('sleeper-player-index-v2', JSON.stringify(entry))
+  store.set('sleeper-player-index-v3', JSON.stringify(entry))
 
   await getPlayerIndex() // ordinary day: 24h allowed
   assert.equal(downloads, 1)

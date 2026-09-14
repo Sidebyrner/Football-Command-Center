@@ -10,6 +10,7 @@ import { usePlayerScores } from '../hooks/usePlayerScores'
 import { useLeagueTeamRosters } from '../hooks/useLeagueTeamRosters'
 import { useOdds } from '../hooks/useOdds'
 import useAppStore from '../store/useAppStore'
+import { findMyTeam } from '../utils/leagueTeams'
 
 const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']
 
@@ -41,7 +42,7 @@ export default function SitStart() {
     return map
   }, [players])
 
-  const myTeam = teams.find((t) => t.id === sleeperUserId)
+  const myTeam = findMyTeam(teams, sleeperUserId)
 
   const byPosition = useMemo(() => {
     if (!myTeam) return {}

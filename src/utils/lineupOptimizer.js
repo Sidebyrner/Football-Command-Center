@@ -6,11 +6,7 @@
 // basis produced it. Two bases disagreeing is information, not a problem to be
 // smoothed away — see the disagreement banner in MatchupPlanner.jsx.
 
-function eligibleFor(slot, position) {
-  if (!position) return false
-  if (slot.type === 'starter') return slot.pos === position
-  return (slot.eligible ?? []).includes(position)
-}
+import { slotPositions, fitsSlot } from './slotEligibility.js'
 
 /**
  * How much a challenger must beat the incumbent by before the lineup moves.
@@ -56,10 +52,10 @@ export function optimizeLineup({ currentStarterIds = [], playerIds = [], templat
   for (const id of playerIds) {
     if (!id || id === '0' || seen.has(id)) continue
     seen.add(id)
-    const position = playersById[id]?.position
+    const positions = slotPositions(playersById[id])
     const v = valueOf(id)
     if (v == null || !isFinite(v)) { unranked.push(id); continue }
-    candidates.push({ id, position, value: v, rank: v + (incumbents.has(id) ? INCUMBENCY_MARGIN : 0) })
+    candidates.push({ id, positions, value: v, rank: v + (incumbents.has(id) ? INCUMBENCY_MARGIN : 0) })
   }
   if (!candidates.length) return { ...empty, unranked }
 
@@ -74,15 +70,15 @@ export function optimizeLineup({ currentStarterIds = [], playerIds = [], templat
 
   // Put a kept player back in the slot he already occupies whenever that is
   // legal, so interchangeable players don't come back swapped for zero gain.
-  const positionOf = new Map(candidates.map((c) => [c.id, c.position]))
+  const positionsOf = new Map(candidates.map((c) => [c.id, c.positions]))
   for (let i = 0; i < slots.length; i++) {
     const currentId = currentStarterIds[i]
     if (!currentId || currentId === '0') continue
     const at = filled.indexOf(currentId)
     if (at === -1 || at === i) continue
-    if (!eligibleFor(slots[i], positionOf.get(currentId))) continue
+    if (!fitsSlot(slots[i], positionsOf.get(currentId))) continue
     const displaced = filled[i]
-    if (displaced && !eligibleFor(slots[at], positionOf.get(displaced))) continue
+    if (displaced && !fitsSlot(slots[at], positionsOf.get(displaced))) continue
     filled[at] = displaced
     filled[i] = currentId
   }
@@ -110,7 +106,7 @@ function assignMaximisingValue(candidates, slots) {
   const augment = (ci) => {
     for (const si of slotOrder) {
       if (visited[si]) continue
-      if (!eligibleFor(slots[si], candidates[ci].position)) continue
+      if (!fitsSlot(slots[si], candidates[ci].positions)) continue
       visited[si] = true
       const occ = occupant(si)
       if (occ === null || augment(occ)) {

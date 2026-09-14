@@ -14,6 +14,7 @@ import { loadWeeklySeason, decodeRow } from '../services/weeklyStatsService'
 import { loadMarketData } from '../services/marketService'
 import { scoreWeeks, distribution } from '../utils/weeklyScoring'
 import { toNflverseTeam } from '../utils/nflTeams'
+import { isMyTeam } from '../utils/leagueTeams'
 import useScoringProfileStore from '../store/useScoringProfileStore'
 import { FORM_WEEKS, seasonPaceBaselines, signalsFor } from '../utils/acquisitionSignals'
 
@@ -59,7 +60,7 @@ export function useAcquisitionBoard({ statsSeason, rosters, sleeperUserId, slotT
         byPlayer[id] = {
           ownerId: t.id,
           ownerName: t.name,
-          isMine: !!sleeperUserId && t.id === sleeperUserId,
+          isMine: isMyTeam(t, sleeperUserId),
           isStarter: starters.has(id),
         }
       }
