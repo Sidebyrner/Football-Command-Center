@@ -20,7 +20,7 @@ final class ContextSharingTests: XCTestCase {
         let harness = Harness.make(transport: transport)
         cacheDirectory = harness.cacheDirectory
         return (
-            LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData, reuseFor: reuseFor),
+            LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData, now: TestClock.beforeKickoffs, reuseFor: reuseFor),
             transport
         )
     }
@@ -124,7 +124,7 @@ final class ContextSharingTests: XCTestCase {
         await transport.fail("/league/L1")
         let harness = Harness.make(transport: transport)
         cacheDirectory = harness.cacheDirectory
-        let loader = LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData)
+        let loader = LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData, now: TestClock.beforeKickoffs)
 
         do {
             _ = try await loader.load(leagueID: "L1", userRosterID: 1, season: 2025)

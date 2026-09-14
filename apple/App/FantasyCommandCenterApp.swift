@@ -15,7 +15,8 @@ struct FantasyCommandCenterApp: App {
                 sleeper: composition.sleeper,
                 staticData: composition.staticData,
                 settingsStore: composition.settingsStore,
-                initialScreen: Composition.initialScreen
+                initialScreen: Composition.initialScreen,
+                now: Composition.clock
             )
         }
         #if os(macOS)
@@ -48,6 +49,23 @@ final class Composition: ObservableObject {
         }
         #endif
         return .dashboard
+    }
+
+    /// The app's clock. Debug-only `-FCCNow <ISO8601>` fixes it; the demo league
+    /// defaults to week 7's Sunday afternoon, so some games are locked.
+    static var clock: @Sendable () -> Date {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if let flag = arguments.firstIndex(of: "-FCCNow"), arguments.indices.contains(flag + 1),
+           let fixed = ISO8601DateFormatter().date(from: arguments[flag + 1]) {
+            return { fixed }
+        }
+        if DemoMode.isActive {
+            let sundayAfternoon = ISO8601DateFormatter().date(from: "2025-10-19T18:30:00Z")!
+            return { sundayAfternoon }
+        }
+        #endif
+        return { Date() }
     }
 
     init() {

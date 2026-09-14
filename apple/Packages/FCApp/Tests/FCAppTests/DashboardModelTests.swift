@@ -22,7 +22,7 @@ final class DashboardModelTests: XCTestCase {
         let harness = Harness.make(transport: transport)
         cacheDirectory = harness.cacheDirectory
         return DashboardModel(
-            loader: LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData),
+            loader: LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData, now: TestClock.beforeKickoffs),
             sleeper: harness.sleeper,
             relay: relay
         )

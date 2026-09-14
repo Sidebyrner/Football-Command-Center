@@ -37,6 +37,8 @@ public struct MatchupRow: Hashable, Sendable, Identifiable {
     public let defense: DefenseCell?
     /// This player's NFL team's implied total, from recorded lines.
     public let impliedTotal: Double?
+    /// His game has kicked off, so his slot can no longer change.
+    public var isLocked: Bool = false
 
     public var id: Int { index }
     public var isEmptySlot: Bool { playerID == nil }
@@ -370,7 +372,8 @@ public final class MatchupModel: ObservableObject {
                     livePoints: matchup?.playersPoints?[rawID],
                     season: season,
                     defense: table.cell(defense: line?.opponent, position: position),
-                    impliedTotal: line?.impliedTotal
+                    impliedTotal: line?.impliedTotal,
+                    isLocked: context.isLocked(rawID)
                 )
             }
 

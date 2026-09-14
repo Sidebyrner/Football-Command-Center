@@ -294,3 +294,18 @@ enum Harness {
         return transport
     }
 }
+
+/// Fixed clocks for tests that depend on lineup locks.
+enum TestClock {
+    /// 2025-09-01, before any 2025 game: nothing is locked. The default for
+    /// fixtures written before locks existed, so their meaning is unchanged.
+    static let beforeKickoffs: @Sendable () -> Date = {
+        ISO8601DateFormatter().date(from: "2025-09-01T12:00:00Z")!
+    }
+
+    /// Week 7 of 2025, Sunday 2:30pm ET: the Thursday, London and 1pm games have
+    /// kicked off; the 4pm and night games haven't.
+    static let week7MidSunday: @Sendable () -> Date = {
+        ISO8601DateFormatter().date(from: "2025-10-19T18:30:00Z")!
+    }
+}

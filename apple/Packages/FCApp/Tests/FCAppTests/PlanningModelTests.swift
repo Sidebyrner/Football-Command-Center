@@ -23,7 +23,7 @@ final class PlanningModelTests: XCTestCase {
         cacheDirectory = harness.cacheDirectory
 
         let model = PlanningModel(
-            loader: LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData)
+            loader: LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData, now: TestClock.beforeKickoffs)
         )
         await model.load(leagueID: "L1", userRosterID: 1, season: 2025)
         if let error = model.errorMessage { throw XCTSkip("load failed: \(error)") }
@@ -228,7 +228,7 @@ final class PlanningModelTests: XCTestCase {
         cacheDirectory = harness.cacheDirectory
 
         let model = PlanningModel(
-            loader: LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData)
+            loader: LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData, now: TestClock.beforeKickoffs)
         )
         await model.load(leagueID: "L1", userRosterID: 1, season: 2025)
 

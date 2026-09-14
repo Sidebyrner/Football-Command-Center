@@ -121,6 +121,8 @@ public final class DashboardModel: ObservableObject {
 
     /// You against your opponent this week. `nil` before Sleeper has matchups.
     @Published public private(set) var thisWeek: ThisWeekSummary?
+    /// When your next starters lock, for the alerts card. `nil` once all have.
+    @Published public private(set) var nextLock: Date?
     @Published public private(set) var waiverTargets: [WaiverTarget] = []
     @Published public private(set) var waiverTargetsUnavailable = false
 
@@ -187,6 +189,13 @@ public final class DashboardModel: ObservableObject {
             // Alerts and standings need nothing beyond the context, so they
             // are built first and are on screen even if history fails.
             alerts = Self.buildAlerts(context: context)
+            nextLock = context.userTeam.flatMap { team in
+                context.kickoffs.nextLock(
+                    week: context.currentWeek,
+                    teams: team.starterIDs.map { context.nflTeam(of: $0) },
+                    now: context.now()
+                )
+            }
             standings = Self.buildStandings(context: context)
 
             // Same cache entry the Matchup screen reads, so no second request.
@@ -230,8 +239,12 @@ public final class DashboardModel: ObservableObject {
             team.roster.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }
         )
 
+        // A starter whose game has kicked off can no longer be moved, so an alert
+        // about him is noise: there is nothing left to do about it.
+        let actionable = team.starterIDs.filter { !context.isLocked($0) }
+
         // A starter on bye scores nothing at all — more urgent than any tag.
-        for id in team.starterIDs {
+        for id in actionable {
             guard let entry = positions[id] else { continue }
             if context.byeCalendar.isOnBye(team: entry.team, week: context.currentWeek) {
                 alerts.append(
@@ -260,7 +273,7 @@ public final class DashboardModel: ObservableObject {
             )
         }
 
-        for id in team.starterIDs {
+        for id in actionable {
             guard let status = context.injuryStatus(id), !status.isEmpty else { continue }
             alerts.append(
                 LineupAlert(

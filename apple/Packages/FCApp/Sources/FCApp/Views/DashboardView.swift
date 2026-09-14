@@ -80,6 +80,13 @@ public struct DashboardView: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                 }
+                if let next = model.nextLock, let context = model.context {
+                    TimelineView(.periodic(from: .now, by: 30)) { _ in
+                        Label("Next lineup lock in \(LockCountdown.format(next.timeIntervalSince(context.now()))) (\(LockCountdown.kickoffLabel(next)))", systemImage: "lock.open")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 ForEach(Array(model.alerts.enumerated()), id: \.element.id) { offset, alert in
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: icon(for: alert.kind))
@@ -96,6 +103,12 @@ public struct DashboardView: View {
                         }
                     }
                     .appear(index: offset)
+                }
+                if let url = model.context.flatMap({ SleeperLinks.team(leagueID: $0.league.leagueID) }) {
+                    Link(destination: url) {
+                        Label("Open in Sleeper", systemImage: "arrow.up.forward.app")
+                            .font(.caption.weight(.semibold))
+                    }
                 }
             }
             .card(fill: Palette.caution.opacity(0.10))

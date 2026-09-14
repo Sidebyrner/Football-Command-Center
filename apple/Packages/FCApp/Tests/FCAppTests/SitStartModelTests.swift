@@ -56,7 +56,7 @@ final class SitStartModelTests: XCTestCase {
         cacheDirectory = harness.cacheDirectory
 
         let model = SitStartModel(
-            loader: LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData)
+            loader: LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData, now: TestClock.beforeKickoffs)
         )
         await model.load(leagueID: "L1", userRosterID: 1, season: 2025)
         if let error = model.errorMessage { throw XCTSkip("load failed: \(error)") }
@@ -257,7 +257,7 @@ final class SitStartModelTests: XCTestCase {
         let harness = Harness.make(transport: transport)
         cacheDirectory = harness.cacheDirectory
         let model = SitStartModel(
-            loader: LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData)
+            loader: LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData, now: TestClock.beforeKickoffs)
         )
 
         await model.load(leagueID: "L1", userRosterID: 1, season: 2025)

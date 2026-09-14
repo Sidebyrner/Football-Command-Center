@@ -105,8 +105,17 @@ public struct ProposedSlot: Hashable, Sendable, Identifiable {
     /// on a production basis is the usual case.
     public let keptBecauseUnvalued: Bool
     public let changed: Bool
+    /// His game has kicked off, so Sleeper won't let this slot change.
+    public let isLocked: Bool
 
     public var id: Int { index }
+}
+
+/// The next moment some of your starters lock.
+public struct NextLock: Hashable, Sendable {
+    public let date: Date
+    /// How many of your current starters kick off at that moment.
+    public let starters: Int
 }
 
 /// Sit/Start — "who do I actually play" (§7.3).
@@ -136,6 +145,15 @@ public final class SitStartModel: ObservableObject {
     @Published public private(set) var starts: [LineupChange] = []
     @Published public private(set) var sits: [LineupChange] = []
     @Published public private(set) var moves: [SlotMove] = []
+
+    /// Bench players whose game has already kicked off — they can't be started
+    /// this week, so they are left out of every proposal.
+    @Published public private(set) var lockedBench: [String] = []
+    /// How many of your current starters are already locked in.
+    @Published public private(set) var lockedStarters = 0
+    /// When the next group of your starters locks. `nil` once everyone has
+    /// kicked off, or when nobody plays again this week.
+    @Published public private(set) var nextLock: NextLock?
 
     /// Other bases that reach a *different* lineup. The honest signal: when the
     /// measures disagree, this is a judgement call, not a calculation.
@@ -230,7 +248,8 @@ public final class SitStartModel: ObservableObject {
             playerIDs: team.roster.map(\.id),
             template: context.template,
             positions: { context.position($0) },
-            valueOf: { self.value(of: $0, basis: basis, context: context) }
+            valueOf: { self.value(of: $0, basis: basis, context: context) },
+            locked: Set(team.roster.map(\.id).filter { context.isLocked($0) })
         )
     }
 
@@ -269,7 +288,8 @@ public final class SitStartModel: ObservableObject {
                 name: name(shown),
                 value: shown.flatMap { value(of: $0, basis: basis, context: context) },
                 keptBecauseUnvalued: proposed == nil && incumbentID != nil,
-                changed: proposed != nil && proposed != incumbentID
+                changed: proposed != nil && proposed != incumbentID,
+                isLocked: shown.map { context.isLocked($0) } ?? false
             )
         }
 
@@ -283,6 +303,7 @@ public final class SitStartModel: ObservableObject {
         }
 
         buildChanges(current: current, context: context)
+        buildLocks(current: current, team: team, context: context)
 
         unranked = breakdown(active.unranked, context: context)
 
@@ -290,6 +311,28 @@ public final class SitStartModel: ObservableObject {
         disagreeingBases = LineupBasis.allCases
             .filter { $0 != basis }
             .filter { effectiveLineup(optimize($0, context: context), context: context) != mine }
+    }
+
+    private func buildLocks(current: [String], team: LeagueTeam, context: LeagueContext) {
+        let starters = current.filter { $0 != SleeperRoster.emptyStarterSlot }
+        let startingSet = Set(starters)
+        lockedStarters = starters.filter { context.isLocked($0) }.count
+        lockedBench = team.roster.map(\.id)
+            .filter { !startingSet.contains($0) && context.isLocked($0) }
+            .map { context.playerName($0) ?? $0 }
+            .sorted()
+
+        let now = context.now()
+        let upcoming = starters.compactMap { id -> Date? in
+            guard let kickoff = context.kickoffs.kickoff(team: context.nflTeam(of: id), week: context.currentWeek),
+                  kickoff > now else { return nil }
+            return kickoff
+        }
+        if let next = upcoming.min() {
+            nextLock = NextLock(date: next, starters: upcoming.filter { $0 == next }.count)
+        } else {
+            nextLock = nil
+        }
     }
 
     /// Compares the lineup as it stands with the lineup that would take the field.

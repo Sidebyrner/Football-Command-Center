@@ -73,6 +73,11 @@ public struct LeagueContext: Sendable {
     public let teams: [LeagueTeam]
     public let userRosterID: Int
     public let byeCalendar: ByeCalendar
+    /// When each team kicks off each week; Sleeper locks a slot at kickoff.
+    public let kickoffs: KickoffCalendar
+    /// The app's clock. Read it fresh each time — a context is reused for up to
+    /// a minute, and locks change at kickoff, not at load.
+    public let now: @Sendable () -> Date
     /// The schedule-season file itself, for opponents and recorded lines.
     public let schedule: ScheduleFile
     /// The stats-season weekly file, for anything computed across the whole
@@ -132,6 +137,22 @@ public struct LeagueContext: Sendable {
     /// the planning grid covers, because past byes are not a plan.
     public var remainingWeeks: [Int] {
         seasonWeeks.filter { $0 >= currentWeek }
+    }
+
+    /// A player's NFL team in nflverse spelling; a team defense's id is its team.
+    public func nflTeam(of id: String) -> String? {
+        let player = players[id]
+        return player?.nflverseTeam ?? player?.team ?? (player?.position == .def ? id : nil)
+    }
+
+    /// Whether this player's game has kicked off this week, locking his slot.
+    public func isLocked(_ id: String) -> Bool {
+        kickoffs.isLocked(team: nflTeam(of: id), week: currentWeek, now: now())
+    }
+
+    /// Whether this player's game may be in progress right now.
+    public func isLive(_ id: String) -> Bool {
+        kickoffs.isLive(team: nflTeam(of: id), week: currentWeek, now: now())
     }
 
     public func availability(ofSleeperID id: String) -> Availability {

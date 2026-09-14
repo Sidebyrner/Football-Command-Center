@@ -20,11 +20,21 @@ public struct LeagueContextLoader: Sendable {
     ///   the whole season three times in a row. The underlying reads are still
     ///   cached and TTL'd individually in FCData; this only stops the *assembly*
     ///   being repeated.
-    public init(sleeper: SleeperService, staticData: StaticDataStore, reuseFor: TimeInterval = 60) {
+    /// - Parameter now: the clock. Injected so tests and the demo league can fix
+    ///   the time — lineup locks depend on it.
+    public init(
+        sleeper: SleeperService,
+        staticData: StaticDataStore,
+        now: @escaping @Sendable () -> Date = { Date() },
+        reuseFor: TimeInterval = 60
+    ) {
         self.sleeper = sleeper
         self.staticData = staticData
+        self.now = now
         self.memo = ContextMemo(maxAge: reuseFor)
     }
+
+    private let now: @Sendable () -> Date
 
     /// - Parameters:
     ///   - season: overrides the schedule season. Normally `nil`, which means
@@ -105,6 +115,8 @@ public struct LeagueContextLoader: Sendable {
             teams: teams,
             userRosterID: userRosterID,
             byeCalendar: byeCalendar,
+            kickoffs: KickoffCalendar(schedule: schedule.value),
+            now: now,
             schedule: schedule.value,
             weekly: weekly.value,
             currentWeek: currentWeek,

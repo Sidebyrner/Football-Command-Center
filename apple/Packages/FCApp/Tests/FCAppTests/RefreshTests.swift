@@ -19,7 +19,7 @@ final class RefreshTests: XCTestCase {
         let harness = Harness.make(transport: transport)
         cacheDirectory = harness.cacheDirectory
         let model = DashboardModel(
-            loader: LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData),
+            loader: LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData, now: TestClock.beforeKickoffs),
             sleeper: harness.sleeper
         )
         return (model, transport)

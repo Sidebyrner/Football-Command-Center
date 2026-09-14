@@ -34,14 +34,15 @@ public struct RootView: View {
         sleeper: SleeperService,
         staticData: StaticDataStore,
         settingsStore: AppSettingsStore,
-        initialScreen: Screen = .dashboard
+        initialScreen: Screen = .dashboard,
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.settingsStore = settingsStore
         _selection = State(initialValue: initialScreen)
         _settingsModel = StateObject(
             wrappedValue: SettingsModel(sleeper: sleeper, store: settingsStore)
         )
-        let loader = LeagueContextLoader(sleeper: sleeper, staticData: staticData)
+        let loader = LeagueContextLoader(sleeper: sleeper, staticData: staticData, now: now)
         _planningModel = State(initialValue: PlanningModel(loader: loader, sleeper: sleeper))
         // The relay is optional and every call through it fails soft, so a
         // missing base URL simply means the news section never appears (§0).

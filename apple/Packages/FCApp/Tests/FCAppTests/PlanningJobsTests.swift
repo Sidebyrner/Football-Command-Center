@@ -75,7 +75,7 @@ final class PlanningJobsTests: XCTestCase {
         cacheDirectory = harness.cacheDirectory
 
         let model = PlanningModel(
-            loader: LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData),
+            loader: LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData, now: TestClock.beforeKickoffs),
             sleeper: withSleeper ? harness.sleeper : nil
         )
         await model.load(leagueID: "L1", userRosterID: 1, season: 2025)

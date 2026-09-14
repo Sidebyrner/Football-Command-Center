@@ -299,10 +299,17 @@ struct PairedSlotRow: View {
                         .minimumScaleFactor(0.8)
                     if alignment == .leading { valueText(value, leading: leading) }
                 }
-                Text(subtitle(row))
-                    .font(.caption2)
-                    .foregroundStyle(row.onBye ? Palette.sit : Color.secondary)
-                    .lineLimit(1)
+                HStack(spacing: 3) {
+                    if row.isLocked {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 8))
+                            .accessibilityLabel("Locked")
+                    }
+                    Text(subtitle(row))
+                        .lineLimit(1)
+                }
+                .font(.caption2)
+                .foregroundStyle(row.onBye ? Palette.sit : Color.secondary)
             } else {
                 Text("Empty")
                     .font(.subheadline)
@@ -432,6 +439,12 @@ struct PlayerDetail: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                 PositionChip(position: row.position)
+                if row.isLocked {
+                    Label("Locked", systemImage: "lock.fill")
+                        .labelStyle(.iconOnly)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
             Text(gameLine)
                 .font(.caption)

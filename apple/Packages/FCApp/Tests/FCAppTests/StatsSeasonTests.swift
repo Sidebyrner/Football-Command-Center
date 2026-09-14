@@ -27,7 +27,7 @@ final class StatsSeasonTests: XCTestCase {
     private func loader(_ transport: StubTransport) -> LeagueContextLoader {
         let harness = Harness.make(transport: transport)
         cacheDirectory = harness.cacheDirectory
-        return LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData)
+        return LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData, now: TestClock.beforeKickoffs)
     }
 
     func testACurrentSeasonLeagueLoadsWithoutItsOwnWeeklyFile() async throws {

@@ -31,6 +31,9 @@ public struct SitStartView: View {
                     }
                 } else if let context = model.context {
                     basisPicker
+                    if let next = model.nextLock {
+                        lockLine(next, context: context)
+                    }
                     recommendation
                     if !model.disagreeingBases.isEmpty {
                         disagreement
@@ -54,6 +57,21 @@ public struct SitStartView: View {
         .sensoryFeedback(.success, trigger: model.refreshCount)
         .sensoryFeedback(.selection, trigger: model.basis)
         .navigationTitle("Sit/Start")
+    }
+
+    // MARK: - Locks
+
+    private func lockLine(_ next: NextLock, context: LeagueContext) -> some View {
+        TimelineView(.periodic(from: .now, by: 30)) { _ in
+            let remaining = next.date.timeIntervalSince(context.now())
+            Label {
+                Text("Next lock in **\(LockCountdown.format(remaining))** · \(next.starters) starter\(next.starters == 1 ? "" : "s") at \(LockCountdown.kickoffLabel(next.date))")
+            } icon: {
+                Image(systemName: "lock.open")
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+        }
     }
 
     // MARK: - Basis
@@ -131,6 +149,13 @@ public struct SitStartView: View {
                 if !model.sits.isEmpty {
                     changeList(title: "Sit", systemImage: "arrow.down.circle.fill", tint: Palette.sit, changes: model.sits)
                 }
+                if let url = model.context.flatMap({ SleeperLinks.team(leagueID: $0.league.leagueID) }) {
+                    Link(destination: url) {
+                        Label("Make these changes in Sleeper", systemImage: "arrow.up.forward.app")
+                            .font(.footnote.weight(.semibold))
+                    }
+                    .padding(.top, 2)
+                }
                 if !model.moves.isEmpty {
                     VStack(alignment: .leading, spacing: 2) {
                         ForEach(model.moves) { move in
@@ -191,8 +216,13 @@ public struct SitStartView: View {
 
     private var lineupSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            SectionHeader(title: "Proposed lineup")
-                .padding(.bottom, 4)
+            SectionHeader(
+                title: "Proposed lineup",
+                subtitle: model.lockedStarters > 0
+                    ? "\(model.lockedStarters) starter\(model.lockedStarters == 1 ? " has" : "s have") kicked off and can't be moved."
+                    : nil
+            )
+            .padding(.bottom, 4)
             ForEach(model.lineup) { slot in
                 HStack(spacing: 8) {
                     Text(slot.slot)
@@ -209,7 +239,12 @@ public struct SitStartView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
                     Spacer(minLength: 4)
-                    if slot.keptBecauseUnvalued {
+                    if slot.isLocked {
+                        Image(systemName: "lock.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("Locked — game started")
+                    } else if slot.keptBecauseUnvalued {
                         Text("kept")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
@@ -227,6 +262,13 @@ public struct SitStartView: View {
                         .fill(slot.changed ? Color.accentColor.opacity(0.14) : Color.clear)
                 )
                 .motion(Motion.smooth, value: slot.changed)
+            }
+            if !model.lockedBench.isEmpty {
+                Text("Already played from your bench, so they can't start: \(model.lockedBench.joined(separator: ", "))")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 4)
             }
             if model.lineup.contains(where: \.keptBecauseUnvalued) {
                 Text("\"Kept\" slots have no value on this basis, so your current starter stays.")

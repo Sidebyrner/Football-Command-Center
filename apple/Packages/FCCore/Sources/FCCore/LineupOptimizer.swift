@@ -56,6 +56,87 @@ public enum LineupOptimizer {
     ///   - positions: the position of a player id, or `nil` if unknown.
     ///   - valueOf: THE BASIS. Return `nil` for a player this basis cannot
     ///     value — they land in `unranked`, never scored as zero.
+    ///   - locked: players whose game has kicked off. A locked starter stays in
+    ///     his slot and a locked bench player cannot be started — Sleeper
+    ///     rejects both moves, so proposing them is not advice. Locked players
+    ///     are neither swapped nor reported as unranked.
+    public static func optimize(
+        currentStarterIDs: [String],
+        playerIDs: [String],
+        template: SlotTemplate,
+        positions: (String) -> Position?,
+        valueOf: (String) -> Double?,
+        locked: Set<String>
+    ) -> LineupProposal {
+        guard !locked.isEmpty else {
+            return optimize(
+                currentStarterIDs: currentStarterIDs, playerIDs: playerIDs,
+                template: template, positions: positions, valueOf: valueOf
+            )
+        }
+
+        let slots = template.starters
+        guard !slots.isEmpty else { return .empty }
+
+        // Slots held by a locked starter are pinned; everything else is solved
+        // as a smaller lineup and mapped back to the original slot indices.
+        let pinned = Set(slots.indices.filter { index in
+            index < currentStarterIDs.count && locked.contains(currentStarterIDs[index])
+        })
+        let free = slots.indices.filter { !pinned.contains($0) }
+
+        let sub = optimize(
+            currentStarterIDs: free.map { $0 < currentStarterIDs.count ? currentStarterIDs[$0] : "0" },
+            playerIDs: playerIDs.filter { !locked.contains($0) },
+            template: SlotTemplate(
+                starters: free.map { slots[$0] },
+                benchCount: template.benchCount,
+                unrecognized: template.unrecognized
+            ),
+            positions: positions,
+            valueOf: valueOf
+        )
+
+        var proposed = [String?](repeating: nil, count: slots.count)
+        for index in pinned { proposed[index] = currentStarterIDs[index] }
+        for (position, index) in free.enumerated() where position < sub.proposedIDs.count {
+            proposed[index] = sub.proposedIDs[position]
+        }
+
+        let swaps = sub.swaps.map { swap in
+            LineupSwap(
+                slotIndex: free[swap.slotIndex], slot: swap.slot,
+                outID: swap.outID, inID: swap.inID, delta: swap.delta
+            )
+        }
+
+        // Totals over the whole lineup, locked starters included, at full
+        // precision and rounded once — the same rule as the unlocked path.
+        func rawSum(_ ids: [String?]) -> (Double, Bool) {
+            var total: Double = 0
+            var any = false
+            for id in ids {
+                guard let id, !id.isEmpty, id != "0", let value = valueOf(id), value.isFinite else { continue }
+                total += value
+                any = true
+            }
+            return (total, any)
+        }
+        let current = rawSum(currentStarterIDs.prefix(slots.count).map { Optional($0) })
+        let proposedSum = rawSum(proposed)
+        let pinnedValued = pinned.filter { valueOf(currentStarterIDs[$0])?.isFinite == true }.count
+
+        return LineupProposal(
+            proposedIDs: proposed,
+            swaps: swaps,
+            currentTotal: current.1 ? roundHalfUp(current.0, places: 1) : nil,
+            proposedTotal: proposedSum.1 ? roundHalfUp(proposedSum.0, places: 1) : nil,
+            gain: current.1 && proposedSum.1 ? roundHalfUp(proposedSum.0 - current.0, places: 1) : nil,
+            unranked: sub.unranked,
+            valuedCount: sub.valuedCount + pinnedValued
+        )
+    }
+
     public static func optimize(
         currentStarterIDs: [String],
         playerIDs: [String],
