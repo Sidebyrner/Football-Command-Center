@@ -22,9 +22,13 @@ export default function Sidebar() {
       {/* Logo / App Name */}
       <div className="px-3 py-4 border-b border-[var(--color-border)]">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded bg-[var(--color-accent)] flex items-center justify-center flex-shrink-0">
-            <span className="text-black font-display font-bold text-sm">FC</span>
-          </div>
+          <img
+            src="/icon-192.png"
+            alt="Football Command Center"
+            width={32}
+            height={32}
+            className="w-8 h-8 rounded flex-shrink-0"
+          />
           <span className="hidden lg:block font-display font-bold text-sm text-[var(--color-text)] leading-tight">
             Command<br />Center
           </span>
