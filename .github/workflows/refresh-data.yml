@@ -1,0 +1,83 @@
+name: Refresh nflverse data
+
+# Rebuilds public/data from nflverse and publishes it to the `data` branch. The
+# iOS app downloads from that branch through raw.githubusercontent.com with ETags,
+# so new weeks of stats reach phones without an app update (brief §9).
+#
+# Runs daily through the season and on demand. The data branch is a single
+# commit, replaced on each publish, so it never accumulates history.
+#
+# GitHub only runs scheduled workflows from the default branch, so this file must
+# live on main. The preprocess script it runs is taken from the branch named in
+# the DATA_SCRIPT_REF repository variable, falling back to the branch the workflow
+# runs from — which lets the schedule run before the weekly-data script is merged.
+
+on:
+  schedule:
+    - cron: "30 10 * 1,2,8,9,10,11,12 *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Publish even if the data hasn't changed
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the preprocess script
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ vars.DATA_SCRIPT_REF || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # The script uses only Node built-ins and the repo's own scoring module,
+      # so there is nothing to install. It self-checks its scoring against
+      # nflverse's own numbers and exits non-zero if they disagree.
+      - name: Build data from nflverse
+        run: node scripts/preprocess-nflverse.mjs
+
+      - name: Fetch what is currently published
+        run: |
+          mkdir -p "$RUNNER_TEMP/published"
+          if git fetch --depth 1 origin data 2>/dev/null; then
+            git archive FETCH_HEAD | tar -x -C "$RUNNER_TEMP/published"
+          else
+            echo "No data branch yet — first publish."
+          fi
+
+      - name: Compare, ignoring generation timestamps
+        id: compare
+        run: node scripts/compare-published-data.mjs public/data "$RUNNER_TEMP/published" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to the data branch
+        if: steps.compare.outputs.changed == 'true' || inputs.force
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd public/data
+          git init -q
+          git checkout -q -b data
+          git add -A
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Data refresh $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" data
+          echo "Published $(git ls-files | wc -l) files."
+
+      - name: Nothing changed
+        if: steps.compare.outputs.changed != 'true' && !inputs.force
+        run: echo "Data unchanged since the last publish — skipped."
