@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { sleeperApi } from '../utils/sleeperApi'
-import { cacheGet, cacheSet, cacheClear, TTL } from '../utils/cache'
+import { cacheGet, cacheGetEntry, cacheSet, cacheClear, TTL } from '../utils/cache'
+import { useGameDay } from './useGameDay'
 import {
   loadMarketData, buildAdpNameIndex, buildDstTeamIndex, lookupMarket, gsisIdFor,
 } from '../services/marketService'
@@ -22,7 +23,16 @@ function normalizeName(p) {
   return parts.length ? parts.join(' ') : p.player_id
 }
 
-export function useDraftPlayers() {
+/**
+ * @param {object} [opts]
+ * @param {number} [opts.maxAgeMs] refetch when the cached pool is older than
+ *   this. Defaults to the game-day rule: injury tags live in this pool, so
+ *   within six hours before and four after a kickoff the pool may be at most
+ *   three hours old, and a day otherwise (see utils/gameClock.js).
+ */
+export function useDraftPlayers({ maxAgeMs: requestedMaxAge } = {}) {
+  const { playersMaxAgeMs } = useGameDay()
+  const maxAgeMs = requestedMaxAge ?? playersMaxAgeMs
   const [players, setPlayers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -39,10 +49,10 @@ export function useDraftPlayers() {
     cacheClear(LEGACY_PLAYER_CACHE)
 
     try {
-      const cached = !force ? cacheGet(PLAYER_CACHE) : null
-      if (cached) {
-        setPlayers(cached)
-        setLastUpdated(Date.now())
+      const cached = !force ? cacheGetEntry(PLAYER_CACHE) : null
+      if (cached && cached.ageMs < maxAgeMs) {
+        setPlayers(cached.data)
+        setLastUpdated(Date.now() - cached.ageMs)
         setLoading(false)
         return
       }
@@ -109,7 +119,7 @@ export function useDraftPlayers() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [maxAgeMs])
 
   useEffect(() => { load() }, [load])
 

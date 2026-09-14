@@ -10,6 +10,7 @@ import { useMissingPlayerMeta } from '../hooks/useMissingPlayerMeta'
 import { useWeeklySeasons } from '../hooks/usePlayerWeekly'
 import { useNflState } from '../hooks/useNflState'
 import useAppStore from '../store/useAppStore'
+import { pickStatsSeason, statsSeasonNote } from '../utils/statsSeason'
 
 /**
  * Getting ahead of the schedule.
@@ -38,7 +39,9 @@ export default function Planning() {
   // nflverse publishes a season at a time; the newest available file is the
   // one every other production view in the app scores against.
   const weeklySeasons = useWeeklySeasons()
-  const statsSeason = weeklySeasons[0]?.season ?? null
+  // Newest season with at least three weeks of games — see utils/statsSeason.js.
+  const { statsSeason, currentSeasonWeeks } = pickStatsSeason(weeklySeasons, season)
+  const seasonNote = statsSeasonNote({ statsSeason, scheduleSeason: season, currentSeasonWeeks })
 
   const {
     players, baselines, profileName,
@@ -156,11 +159,8 @@ export default function Planning() {
             />
           )}
 
-          {statsSeason && season && Number(statsSeason) !== Number(season) && (
-            <p className="text-[10px] text-[var(--color-caution)] mt-2">
-              Production above is from {statsSeason}, not {season} — nflverse hasn't published the
-              current season's weekly file yet.
-            </p>
+          {seasonNote && (
+            <p className="text-[10px] text-[var(--color-caution)] mt-2">{seasonNote}</p>
           )}
         </section>
       </main>

@@ -1,8 +1,8 @@
 // Sleeper service — primary fantasy context layer.
 // All league-native data comes from here. Do not replace with third-party sources.
 
-import { sleeperApi } from '../utils/sleeperApi'
-import { cacheGet, cacheSet, TTL } from '../utils/cache'
+import { sleeperApi } from '../utils/sleeperApi.js'
+import { cacheGet, cacheGetEntry, cacheSet, TTL } from '../utils/cache.js'
 
 const KEYS = {
   PLAYERS: 'sleeper-players-v1',
@@ -106,22 +106,68 @@ export function getDraft(draftId) {
 
 // ── Player metadata (master player index) ────────────────────────────────────
 // Sleeper /players/nfl is the source of truth for all player identity fields.
+//
+// The raw payload is ~5 MB and localStorage caps at ~5 MB per origin, so the
+// raw blob can't be cached: the write fails silently and every call downloads
+// it again. (It was also stored under the very key useDraftPlayers evicts on
+// every load.) What's cached is a trimmed identity index — name, position,
+// team, injury tag, active — keyed by player id, and concurrent callers share
+// one in-flight request instead of starting a download each.
 
-export function getAllPlayers(force = false) {
-  const key = KEYS.PLAYERS
-  if (!force) {
-    const hit = cacheGet(key)
-    if (hit) return Promise.resolve(hit)
+const PLAYER_INDEX_KEY = 'sleeper-player-index-v2'
+let playerIndexPromise = null
+
+/** Reduces Sleeper's raw player map to what identity lookups need. */
+export function trimPlayerIndex(raw) {
+  const out = {}
+  for (const [id, p] of Object.entries(raw ?? {})) {
+    if (!p) continue
+    const name = p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || null
+    out[id] = {
+      name,
+      position: p.position ?? null,
+      team: p.team ?? null,
+      injuryStatus: p.injury_status ?? null,
+      active: p.active === true,
+    }
   }
-  return sleeperApi.getPlayers().then((data) => {
-    cacheSet(key, data, TTL.PLAYERS)
-    return data
-  })
+  return out
 }
 
+/**
+ * @param {object} [opts]
+ * @param {boolean} [opts.force]
+ * @param {number} [opts.maxAgeMs] refetch when the cached index is older than
+ *   this, even inside its TTL — see playersMaxAge in utils/gameClock.js.
+ * @returns {Promise<Record<string, {name, position, team, injuryStatus, active}>>}
+ */
+export function getPlayerIndex({ force = false, maxAgeMs = TTL.PLAYERS } = {}) {
+  if (!force) {
+    const hit = cacheGetEntry(PLAYER_INDEX_KEY)
+    if (hit && hit.ageMs < maxAgeMs) return Promise.resolve(hit.data)
+  }
+  if (!playerIndexPromise) {
+    playerIndexPromise = sleeperApi.getPlayers()
+      .then((raw) => {
+        const index = trimPlayerIndex(raw)
+        cacheSet(PLAYER_INDEX_KEY, index, TTL.PLAYERS)
+        return index
+      })
+      .finally(() => { playerIndexPromise = null })
+  }
+  return playerIndexPromise
+}
+
+/** @deprecated kept for existing callers; returns the trimmed index. */
+export function getAllPlayers(force = false) {
+  return getPlayerIndex({ force })
+}
+
+/** A single player's identity, in Sleeper's field names for existing callers. */
 export async function getPlayerMeta(playerId) {
-  const all = await getAllPlayers()
-  return all?.[playerId] ?? null
+  const p = (await getPlayerIndex())?.[playerId]
+  if (!p) return null
+  return { player_id: playerId, full_name: p.name, position: p.position, team: p.team, injury_status: p.injuryStatus, active: p.active }
 }
 
 // ── Trending ──────────────────────────────────────────────────────────────────

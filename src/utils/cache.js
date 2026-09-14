@@ -10,7 +10,7 @@
  * @returns {boolean} true if the value was persisted.
  */
 export function cacheSet(key, data, ttlMs) {
-  const entry = { data, expiresAt: Date.now() + ttlMs }
+  const entry = { data, storedAt: Date.now(), expiresAt: Date.now() + ttlMs }
   try {
     localStorage.setItem(key, JSON.stringify(entry))
     return true
@@ -36,6 +36,29 @@ export function cacheGet(key) {
       return null
     }
     return entry.data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Like cacheGet, but also says how old the entry is, so a caller can demand a
+ * fresher copy than the TTL allows (injury tags on a game day). Entries written
+ * before `storedAt` existed report an unknown age — Infinity — so they count as
+ * too old rather than falsely fresh.
+ * @returns {{ data: any, ageMs: number } | null}
+ */
+export function cacheGetEntry(key) {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return null
+    const entry = JSON.parse(raw)
+    if (Date.now() > entry.expiresAt) {
+      localStorage.removeItem(key)
+      return null
+    }
+    const ageMs = typeof entry.storedAt === 'number' ? Date.now() - entry.storedAt : Infinity
+    return { data: entry.data, ageMs }
   } catch {
     return null
   }

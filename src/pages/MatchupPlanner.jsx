@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Loader2, ArrowRight, AlertTriangle, Swords } from 'lucide-react'
+import { Loader2, ArrowRight, AlertTriangle, Swords, Lock } from 'lucide-react'
 import Header from '../components/layout/Header'
 import { useTeamPowerRankings } from '../hooks/useTeamPowerRankings'
 import { useLeagueMatchups } from '../hooks/useLeagueMatchups'
@@ -13,6 +13,11 @@ import { getPositionColor, getStatusColor } from '../utils/playerHelpers'
 import { GRADE_COLOR_HEX, TEXT_FAINT_HEX, heatColor } from '../utils/chartColors'
 import { toNflverseTeam } from '../utils/nflTeams'
 import useAppStore from '../store/useAppStore'
+import { pickStatsSeason, statsSeasonNote } from '../utils/statsSeason'
+import { kickoffCalendar } from '../utils/gameClock'
+import { byeWeeksFromSchedule } from '../utils/byeWeeks'
+import { useNow } from '../hooks/useNow'
+import { useNflState } from '../hooks/useNflState'
 
 // Every basis is a DIFFERENT QUESTION, not a better answer to the same one.
 // The optimizer takes exactly one at a time and the UI always names which.
@@ -134,7 +139,11 @@ function PlayerRow({ id, slot, player, score, weekly, game, dvpCell, dvpAvg, ali
 export default function MatchupPlanner() {
   const leagueId = useAppStore((s) => s.leagueId)
   const sleeperUserId = useAppStore((s) => s.sleeperUserId)
-  const currentWeek = useAppStore((s) => s.currentWeek)
+  // Sleeper's live week; the Settings value is only the fallback. Locks and
+  // opponents are wrong against a stale hand-typed week.
+  const settingsWeek = useAppStore((s) => s.currentWeek)
+  const { week: liveWeek } = useNflState(settingsWeek)
+  const currentWeek = liveWeek ?? settingsWeek
   const season = useAppStore((s) => s.season)
 
   const [basis, setBasis] = useState('actual')
@@ -155,7 +164,9 @@ export default function MatchupPlanner() {
   // disk, which in September is last season — stated in the footnote rather
   // than passed off as this week's form.
   const weeklySeasons = useWeeklySeasons()
-  const statsSeason = weeklySeasons[0]?.season ?? null
+  // Newest season with at least three weeks of games — see utils/statsSeason.js.
+  const { statsSeason, currentSeasonWeeks } = pickStatsSeason(weeklySeasons, season)
+  const seasonNote = statsSeasonNote({ statsSeason, scheduleSeason: season, currentSeasonWeeks })
 
   const allIds = useMemo(
     () => [...(myTeam?.playerIds ?? []), ...(opponent?.playerIds ?? [])],
@@ -164,11 +175,36 @@ export default function MatchupPlanner() {
   const { byPlayer: seasonWeekly, profileName } = useRosterWeekly(allIds, playersById, statsSeason)
   const { byPlayer: formWeekly } = useRosterWeekly(allIds, playersById, statsSeason, { lastN: 4 })
 
-  const { byTeam: schedule, hasSchedule } = useSchedule(season, currentWeek)
+  const { byTeam: schedule, file: scheduleFile, hasSchedule } = useSchedule(season, currentWeek)
+
+  // Sleeper locks a slot at its game's kickoff, and a player on bye scores
+  // exactly zero. Neither may be recommended — see utils/gameClock.js.
+  const now = useNow(30_000)
+  const kickoffs = useMemo(() => (scheduleFile ? kickoffCalendar(scheduleFile) : null), [scheduleFile])
+  const byeTeams = useMemo(
+    () => new Set(scheduleFile ? byeWeeksFromSchedule(scheduleFile).byWeek[currentWeek] ?? [] : []),
+    [scheduleFile, currentWeek]
+  )
+  const isOnBye = (id) => {
+    const team = playersById[id]?.team
+    return team ? byeTeams.has(toNflverseTeam(team)) : false
+  }
+  const lockedIds = useMemo(() => {
+    if (!kickoffs || !myTeam) return []
+    return myTeam.playerIds.filter((id) => kickoffs.isLocked(playersById[id]?.team, currentWeek, now))
+  }, [kickoffs, myTeam, playersById, currentWeek, now])
+  const lockedStarters = (myTeam?.starterIds ?? []).filter((id) => lockedIds.includes(id))
+  const lockedBench = lockedIds.filter((id) => !(myTeam?.starterIds ?? []).includes(id))
+  const nextLock = useMemo(() => {
+    if (!kickoffs || !myTeam) return null
+    return kickoffs.nextLock(currentWeek, myTeam.starterIds.map((id) => playersById[id]?.team), now)
+  }, [kickoffs, myTeam, playersById, currentWeek, now])
   const { dvp } = useDefenseVsPosition(statsSeason)
 
   const valueOf = useMemo(() => {
     const pick = (id) => {
+      // On bye: a certain zero on every basis, so never a start.
+      if (isOnBye(id)) return null
       const s = seasonWeekly[id]
       const f = formWeekly[id]
       switch (basis) {
@@ -187,7 +223,8 @@ export default function MatchupPlanner() {
       }
     }
     return pick
-  }, [basis, seasonWeekly, formWeekly, scores, schedule, playersById])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [basis, seasonWeekly, formWeekly, scores, schedule, playersById, byeTeams])
 
   const optimized = useMemo(() => {
     if (!myTeam || !slotTemplate) return null
@@ -197,8 +234,9 @@ export default function MatchupPlanner() {
       template: slotTemplate,
       playersById,
       valueOf,
+      locked: lockedIds,
     })
-  }, [myTeam, slotTemplate, playersById, valueOf])
+  }, [myTeam, slotTemplate, playersById, valueOf, lockedIds])
 
   // The check that makes the recommendation honest: does a DIFFERENT basis
   // reach a different lineup? If so, say so instead of hiding behind one.
@@ -206,6 +244,7 @@ export default function MatchupPlanner() {
   const contrast = useMemo(() => {
     if (!myTeam || !slotTemplate) return null
     const pick = (id) => {
+      if (isOnBye(id)) return null
       if (contrastBasis === 'model') return scores?.[id]?.available ? scores[id].score : null
       return seasonWeekly[id]?.perGame ?? null
     }
@@ -215,8 +254,10 @@ export default function MatchupPlanner() {
       template: slotTemplate,
       playersById,
       valueOf: pick,
+      locked: lockedIds,
     })
-  }, [myTeam, slotTemplate, playersById, contrastBasis, scores, seasonWeekly])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myTeam, slotTemplate, playersById, contrastBasis, scores, seasonWeekly, lockedIds, byeTeams])
 
   // Split "we can't value him" into its two very different causes, because the
   // fix differs: one is a data limitation you can't do anything about, the
@@ -224,6 +265,7 @@ export default function MatchupPlanner() {
   const unrankedReason = useMemo(() => {
     let dataset = 0
     let noGames = 0
+    let onBye = 0
     // The weekly file keeps QB/RB/WR/TE/K only. Everything else — team
     // defenses and every IDP position, which Sleeper spells DE/DT/LB/CB/S
     // rather than the tidy DL/DB the flex slots use — is absent by
@@ -231,10 +273,12 @@ export default function MatchupPlanner() {
     const IN_DATASET = new Set(['QB', 'RB', 'WR', 'TE', 'K'])
     for (const id of optimized?.unranked ?? []) {
       const pos = playersById[id]?.position
-      if (!IN_DATASET.has(pos)) dataset++
+      if (isOnBye(id)) onBye++
+      else if (!IN_DATASET.has(pos)) dataset++
       else noGames++
     }
-    return { dataset, noGames }
+    return { dataset, noGames, onBye }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [optimized, playersById])
 
   const disagrees = useMemo(() => {
@@ -422,6 +466,25 @@ export default function MatchupPlanner() {
                   </>
                 )}
 
+                {(lockedStarters.length > 0 || lockedBench.length > 0 || nextLock) && (
+                  <p className="text-[10px] text-[var(--color-text-muted)] mt-2 flex items-start gap-1">
+                    <Lock size={10} className="flex-shrink-0 mt-0.5" />
+                    <span>
+                      {lockedStarters.length > 0 && (
+                        <>{lockedStarters.length} of your starters {lockedStarters.length === 1 ? 'has' : 'have'} kicked
+                        off and stay put. </>
+                      )}
+                      {lockedBench.length > 0 && (
+                        <>{lockedBench.map((id) => playersById[id]?.name ?? id).join(', ')} already played
+                        from your bench and can't start. </>
+                      )}
+                      {nextLock && (
+                        <>Next lineup lock: {nextLock.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}.</>
+                      )}
+                    </span>
+                  </p>
+                )}
+
                 {disagrees && (
                   <p className="text-[10px] text-[var(--color-caution)] mt-2 flex items-start gap-1">
                     <AlertTriangle size={10} className="flex-shrink-0 mt-0.5" />
@@ -446,6 +509,10 @@ export default function MatchupPlanner() {
                     {unrankedReason.noGames > 0 && (
                       <> {unrankedReason.noGames} didn't record a {statsSeason} game
                       (rookies, or players who missed the year).</>
+                    )}
+                    {unrankedReason.onBye > 0 && (
+                      <> {unrankedReason.onBye} {unrankedReason.onBye === 1 ? 'is' : 'are'} on bye
+                      this week, so starting them scores exactly zero.</>
                     )}
                   </p>
                 )}
@@ -512,12 +579,10 @@ export default function MatchupPlanner() {
                     No schedule file for {season} — run npm run preprocess-nflverse to show opponents.
                   </p>
                 )}
-                {statsSeason && season && Number(statsSeason) !== Number(season) && (
+                {seasonNote && (
                   <p className="text-[var(--color-caution)] flex items-start gap-1">
                     <AlertTriangle size={10} className="flex-shrink-0 mt-0.5" />
-                    Production above is from {statsSeason}, not {season} — nflverse hasn't
-                    published {season} weekly stats yet. Early in a season that is the best
-                    available evidence, but it is last year's evidence.
+                    {seasonNote}
                   </p>
                 )}
               </div>

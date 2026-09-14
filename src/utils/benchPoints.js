@@ -6,7 +6,7 @@
 // reads the result. That optimizer handles overlapping flex eligibility and
 // suppresses cosmetic slot shuffles, which a plain greedy fill does not.
 
-import { optimizeLineup } from './lineupOptimizer'
+import { optimizeLineup } from './lineupOptimizer.js'
 
 /**
  * Best lineup the roster could have fielded that week, against what it did.

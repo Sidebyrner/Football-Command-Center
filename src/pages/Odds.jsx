@@ -14,6 +14,7 @@ import MyTeamOdds from '../components/odds/MyTeamOdds'
 import { useMissingPlayerMeta } from '../hooks/useMissingPlayerMeta'
 import { makeImpliedResolver } from '../utils/oddsHelpers'
 import useAppStore from '../store/useAppStore'
+import { kickoffIso } from '../utils/gameClock'
 
 function formatSpread(spread) {
   if (spread == null) return '—'
@@ -101,7 +102,9 @@ export default function Odds() {
           id: `sched-${g.away}-${g.home}`,
           home_team: teamNameFromAbbr(g.home) ?? g.home,
           away_team: teamNameFromAbbr(g.away) ?? g.away,
-          commence_time: g.time ? `${g.kickoff}T${g.time}` : g.kickoff,
+          // Schedule times are US Eastern; a bare `${date}T${time}` would be read
+          // as the browser's own time zone.
+          commence_time: kickoffIso(g) ?? g.kickoff,
           homeAbbr: g.home,
           awayAbbr: g.away,
           mine: myNflverseAbbrs.has(g.home) || myNflverseAbbrs.has(g.away),
