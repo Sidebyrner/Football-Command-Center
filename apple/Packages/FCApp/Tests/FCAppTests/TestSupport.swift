@@ -277,6 +277,11 @@ enum Harness {
         await transport.on("/draft/D1/picks", json: TestLeague.draftPicksJSON)
         await transport.on("/matchups/1", json: TestLeague.week1MatchupsJSON)
         await transport.on("/matchups/2", json: TestLeague.week2MatchupsJSON)
+        // Future weeks My Team looks ahead to. Real Sleeper returns pairings here;
+        // without these the catch-all league route answered, failed to decode,
+        // and — never being cached — was re-requested on every load.
+        await transport.on("/matchups/8", json: "[]")
+        await transport.on("/matchups/9", json: "[]")
         await transport.on("/transactions/7", json: TestLeague.transactionsJSON)
         await transport.on("/players/nfl", json: TestLeague.dashboardPlayersJSON())
         await transport.on("/league/L1", json: TestLeague.leagueJSON())

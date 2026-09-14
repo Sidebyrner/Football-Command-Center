@@ -59,13 +59,15 @@ public struct RootView: View {
         /// Parses a launch-argument value like `matchup` or `sitstart`.
         public init?(argument: String) {
             let wanted = argument.lowercased().filter(\.isLetter)
+            // "dashboard" still opens the hub it became.
+            if wanted == "dashboard" { self = .dashboard; return }
             guard let match = Screen.allCases.first(where: {
                 $0.rawValue.lowercased().filter(\.isLetter) == wanted
             }) else { return nil }
             self = match
         }
 
-        case dashboard = "Dashboard"
+        case dashboard = "My Team"
         case planning = "Planning"
         case matchup = "Matchup"
         case sitStart = "Sit/Start"
@@ -76,7 +78,7 @@ public struct RootView: View {
         var systemImage: String {
             switch self {
             case .planning: return "calendar.badge.exclamationmark"
-            case .dashboard: return "square.grid.2x2"
+            case .dashboard: return "person.crop.square"
             case .matchup: return "person.2"
             case .sitStart: return "arrow.left.arrow.right"
             case .settings: return "gearshape"

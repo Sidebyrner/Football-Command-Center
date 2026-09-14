@@ -32,24 +32,48 @@ public struct DashboardView: View {
                         Text(error).font(.footnote).foregroundStyle(.secondary)
                     }
                 } else if let context = model.context {
-                    alertsSection
-                    thisWeekCard
-                    waiverTargetsSection
-                    standingsSection
-                    benchSection
-                    trendSection
-                    draftSection
-                    newsSection
-                    transactionsSection
+                    TeamHeroHeader(model: model, context: context)
+                        .appear()
+                    SlidingPicker(options: MyTeamZoom.allCases, selection: $model.zoom) { $0.rawValue }
+                    Group {
+                        switch model.zoom {
+                        case .thisWeek:
+                            if let readiness = model.readiness {
+                                ReadinessCard(readiness: readiness) { openScreen(.sitStart) }
+                            }
+                            alertsSection
+                            thisWeekCard
+                            waiverTargetsSection
+                            newsSection
+                        case .season:
+                            standingsSection
+                            if !model.results.isEmpty {
+                                ResultsStrip(results: model.results)
+                            }
+                            if !model.upcoming.isEmpty {
+                                UpcomingOpponentsCard(upcoming: model.upcoming)
+                            }
+                            if !model.byeStrip.isEmpty {
+                                ByeStripCard(weeks: model.byeStrip) { openScreen(.planning) }
+                            }
+                            trendSection
+                            benchSection
+                            draftSection
+                            transactionsSection
+                        }
+                    }
+                    .id(model.zoom)
+                    .transition(.opacity.combined(with: .move(edge: model.zoom == .season ? .trailing : .leading)))
                     FreshnessBanner(provenance: context.provenance)
                 }
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
+            .motion(Motion.snappy, value: model.zoom)
         }
         .refreshable { await model.refresh() }
         .sensoryFeedback(.success, trigger: model.refreshCount)
-        .navigationTitle("Dashboard")
+        .navigationTitle("My Team")
     }
 
     // MARK: - Alerts

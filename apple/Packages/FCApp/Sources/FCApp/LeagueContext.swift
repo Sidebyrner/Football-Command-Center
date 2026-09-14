@@ -104,6 +104,12 @@ public struct LeagueContext: Sendable {
     public let players: PlayerIndex
     /// The weakest provenance of everything that went into this.
     public let provenance: Provenance
+    /// The weakest of the Sleeper reads alone — league, rosters, managers,
+    /// players, the current week.
+    public let sleeperProvenance: Provenance
+    /// The weakest of the static nflverse files — schedule and recorded lines,
+    /// weekly stats, crosswalk.
+    public let staticProvenance: Provenance
 
     /// A player's display name, or `nil` when the pool has never heard of them.
     public func playerName(_ id: String) -> String? {

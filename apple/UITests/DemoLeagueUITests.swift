@@ -75,7 +75,7 @@ final class DemoLeagueUITests: XCTestCase {
     }
 
     func testEveryScreenRendersFromTheDemoLeague() throws {
-        for (tab, marker) in [("dashboard", "Standings"), ("planning", "Planning"),
+        for (tab, marker) in [("myteam", "myteam.hero"), ("planning", "Planning"),
                               ("matchup", "matchup.row.0"), ("sitstart", "Proposed lineup")] {
             let app = launch(tab: tab)
             let element = app.descendants(matching: .any)[marker].firstMatch

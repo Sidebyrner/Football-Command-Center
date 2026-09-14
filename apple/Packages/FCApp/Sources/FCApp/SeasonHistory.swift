@@ -6,6 +6,8 @@ import FCData
 public struct RosterWeek: Hashable, Sendable {
     public let week: Int
     public let rosterID: Int
+    /// Rosters sharing a matchup id played each other that week.
+    public let matchupID: Int?
     public let points: Double?
     /// Positionally aligned to the starting slots, `"0"` for unset.
     public let starters: [String]
@@ -94,6 +96,7 @@ public struct SeasonHistory: Sendable {
                 let entry = RosterWeek(
                     week: week,
                     rosterID: matchup.rosterID,
+                    matchupID: matchup.matchupID,
                     points: matchup.points,
                     starters: matchup.starters ?? [],
                     players: matchup.players ?? [],

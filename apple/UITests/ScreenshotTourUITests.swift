@@ -62,11 +62,17 @@ final class ScreenshotTourUITests: XCTestCase {
         shoot("matchup-2-you")
         app.terminate()
 
-        app = launch(tab: "dashboard")
-        XCTAssertTrue(app.staticTexts["Standings"].waitForExistence(timeout: 30))
-        shoot("dashboard-1")
+        app = launch(tab: "myteam")
+        XCTAssertTrue(app.descendants(matching: .any)["myteam.hero"].firstMatch.waitForExistence(timeout: 30))
+        shoot("myteam-1-this-week")
         app.swipeUp()
-        shoot("dashboard-2")
+        shoot("myteam-2-this-week-scrolled")
+        app.swipeDown()
+        app.swipeDown()
+        if app.buttons["Season"].waitForExistence(timeout: 5) { app.buttons["Season"].tap() }
+        shoot("myteam-3-season")
+        app.swipeUp()
+        shoot("myteam-4-season-scrolled")
         app.terminate()
 
         app = launch(tab: "sitstart")

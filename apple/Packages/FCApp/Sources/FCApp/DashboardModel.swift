@@ -124,6 +124,17 @@ public final class DashboardModel: ObservableObject {
 
     /// You against your opponent this week. `nil` before Sleeper has matchups.
     @Published public private(set) var thisWeek: ThisWeekSummary?
+
+    // MARK: My Team hub
+
+    /// Which altitude the hub is showing.
+    @Published public var zoom: MyTeamZoom = .thisWeek
+    @Published public private(set) var readiness: LineupReadiness?
+    @Published public private(set) var results: [WeekResult] = []
+    @Published public private(set) var streak: String?
+    @Published public private(set) var place: (rank: Int, of: Int)?
+    @Published public private(set) var upcoming: [UpcomingOpponent] = []
+    @Published public private(set) var byeStrip: [ByeStripWeek] = []
     /// When your next starters lock, for the alerts card. `nil` once all have.
     @Published public private(set) var nextLock: Date?
     @Published public private(set) var waiverTargets: [WaiverTarget] = []
@@ -142,6 +153,9 @@ public final class DashboardModel: ObservableObject {
         self.sleeper = sleeper
         self.relay = relay
     }
+
+    /// Whether a relay is configured — the News pillar says so either way.
+    public var hasRelay: Bool { relay != nil }
 
     /// Points the news panel at a relay, or removes it. Takes effect on the
     /// next load, so a URL entered in Settings works without a relaunch.
@@ -200,6 +214,9 @@ public final class DashboardModel: ObservableObject {
                 )
             }
             standings = Self.buildStandings(context: context)
+            readiness = LineupReadiness.build(context: context)
+            place = Self.place(standings: standings)
+            byeStrip = Self.buildByeStrip(context: context)
 
             // Same cache entry the Matchup screen reads, so no second request.
             if let matchups = try? await sleeper.matchups(
@@ -223,6 +240,18 @@ public final class DashboardModel: ObservableObject {
             )
             benchWeeks = Self.buildBenchWeeks(context: context, history: history)
             trend = Self.buildTrend(context: context, history: history)
+            results = Self.buildResults(context: context, history: history)
+            streak = Self.streak(results)
+
+            // Sleeper publishes future pairings; they don't change, so the long TTL.
+            var future: [Int: [SleeperMatchup]] = [:]
+            let lastWeek = context.seasonWeeks.max() ?? context.currentWeek
+            for week in (context.currentWeek + 1)...max(context.currentWeek + 1, min(context.currentWeek + 3, lastWeek)) {
+                if let matchups = try? await sleeper.completedMatchups(leagueID: leagueID, week: week) {
+                    future[week] = matchups.value
+                }
+            }
+            upcoming = Self.buildUpcoming(context: context, matchupsByWeek: future)
 
             await loadDraftResults(context: context, history: history)
             await loadTransactions(context: context, force: force)

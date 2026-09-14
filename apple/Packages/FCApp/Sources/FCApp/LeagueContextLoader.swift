@@ -137,6 +137,12 @@ public struct LeagueContextLoader: Sendable {
             provenance: Provenance.weakest([
                 state.provenance, league.provenance, rosters.provenance, members.provenance,
                 players.provenance, schedule.provenance, weekly.provenance, crosswalk.provenance,
+            ]),
+            sleeperProvenance: Provenance.weakest([
+                state.provenance, league.provenance, rosters.provenance, members.provenance, players.provenance,
+            ]),
+            staticProvenance: Provenance.weakest([
+                schedule.provenance, weekly.provenance, crosswalk.provenance,
             ])
         )
     }
