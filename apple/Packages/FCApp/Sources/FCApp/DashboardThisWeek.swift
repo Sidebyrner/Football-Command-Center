@@ -12,6 +12,9 @@ public struct ThisWeekSummary: Hashable, Sendable {
     public let opponentManager: String?
     public let opponentPoints: Double?
     public let opponentAverageTeamTotal: Double?
+    /// Starters yet to kick off, per side — a fact, not a projection.
+    public var myLeftToPlay: Int = 0
+    public var opponentLeftToPlay: Int? = nil
 
     /// Plain-words state of the game, for the card's subtitle.
     public var status: String {
@@ -62,6 +65,15 @@ extension DashboardModel {
             return total / Double(counted)
         }
 
+        // Yet to kick off: not an empty slot, not on bye, not already locked.
+        func leftToPlay(_ starters: [String]?) -> Int {
+            (starters ?? []).filter { id in
+                guard id != SleeperRoster.emptyStarterSlot else { return false }
+                let team = context.nflTeam(of: id)
+                return !context.byeCalendar.isOnBye(team: team, week: context.currentWeek) && !context.isLocked(id)
+            }.count
+        }
+
         let opponent = mine.matchupID.flatMap { id in
             matchups.first { $0.matchupID == id && $0.rosterID != userTeam.rosterID }
         }
@@ -74,7 +86,9 @@ extension DashboardModel {
             myAverageTeamTotal: averageTeamTotal(mine.starters),
             opponentManager: opponentTeam?.manager,
             opponentPoints: opponent?.points,
-            opponentAverageTeamTotal: opponent.flatMap { averageTeamTotal($0.starters) }
+            opponentAverageTeamTotal: opponent.flatMap { averageTeamTotal($0.starters) },
+            myLeftToPlay: leftToPlay(mine.starters),
+            opponentLeftToPlay: opponent.map { leftToPlay($0.starters) }
         )
     }
 

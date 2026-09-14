@@ -39,6 +39,10 @@ public struct MatchupRow: Hashable, Sendable, Identifiable {
     public let impliedTotal: Double?
     /// His game has kicked off, so his slot can no longer change.
     public var isLocked: Bool = false
+    /// His game may be in progress right now.
+    public var isLive: Bool = false
+    /// His game's kickoff this week; `nil` on bye.
+    public var kickoff: Date? = nil
 
     public var id: Int { index }
     public var isEmptySlot: Bool { playerID == nil }
@@ -136,6 +140,15 @@ public struct MatchupSide: Hashable, Sendable {
 
     public var emptySlots: Int { rows.filter(\.isEmptySlot).count }
     public var startersOnBye: Int { rows.filter(\.onBye).count }
+
+    /// Starters whose game hasn't kicked off yet — a fact, not a projection.
+    /// Empty slots and bye weeks don't count: neither will ever play.
+    public var leftToPlay: Int {
+        rows.filter { !$0.isEmptySlot && !$0.onBye && !$0.isLocked }.count
+    }
+
+    /// Whether any of this side's starters may be playing right now.
+    public var hasLiveGame: Bool { rows.contains(where: \.isLive) }
 }
 
 /// Matchup — "this week, both sides" (§7.2).
@@ -231,19 +244,66 @@ public final class MatchupModel: ObservableObject {
             // Defense-vs-position scores every row of the season, so it runs off
             // the main thread rather than stalling the screen while it does.
             let rows = matchups.value
-            let built = await Task.detached(priority: .userInitiated) {
-                Self.build(context: context, matchups: rows)
+            let table = await Task.detached(priority: .userInitiated) {
+                DefenseVsPosition.compute(file: context.weekly, profile: context.scoring.profile)
             }.value
-            mySide = built.mine
-            opponentSide = built.opponent
-            noOpponentReason = built.noOpponentReason
-            let paired = Self.pair(mine: built.mine, theirs: built.opponent)
-            comparisonBasis = paired.basis
-            pairedSlots = paired.slots
-            if opponentSide == nil, mode == .opponent { mode = .mine }
+            defenseTable = table
+            defenseTableBuilds += 1
+            apply(Self.build(context: context, matchups: rows, table: table))
+            lastLiveUpdate = nil
         } catch {
             errorMessage = String(describing: error)
         }
+    }
+
+    // MARK: - Live updates
+
+    /// The defense table for the loaded context. Scoring every row of the season
+    /// is the expensive part of a build, and it can't change during a game, so
+    /// live refreshes reuse it.
+    private var defenseTable: DefenseVsPositionTable?
+    /// How many times the table has been computed — for tests.
+    private(set) var defenseTableBuilds = 0
+
+    /// When live scores were last refreshed, for "updated 40s ago".
+    @Published public private(set) var lastLiveUpdate: Date?
+
+    private func apply(_ built: (mine: MatchupSide?, opponent: MatchupSide?, noOpponentReason: String?)) {
+        mySide = built.mine
+        opponentSide = built.opponent
+        noOpponentReason = built.noOpponentReason
+        let paired = Self.pair(mine: built.mine, theirs: built.opponent)
+        comparisonBasis = paired.basis
+        pairedSlots = paired.slots
+        if opponentSide == nil, mode == .opponent { mode = .mine }
+    }
+
+    /// Whether any starter on either side may be playing right now, judged on
+    /// the clock at this moment rather than when the rows were built.
+    public var anyGameLive: Bool {
+        guard let context else { return false }
+        let ids = ((mySide?.rows ?? []) + (opponentSide?.rows ?? [])).compactMap(\.playerID)
+        return ids.contains { context.isLive($0) }
+    }
+
+    /// One live refresh: re-reads this week's matchups and rebuilds both sides,
+    /// but only while a game involving either lineup may be in progress.
+    /// Returns whether it polled. The screen calls this on a timer while it is
+    /// visible, so outside game windows it costs nothing.
+    @discardableResult
+    public func liveTick() async -> Bool {
+        guard let context, let request = lastRequest, anyGameLive else { return false }
+        guard let matchups = try? await sleeper.matchups(
+            leagueID: request.leagueID, week: context.currentWeek, force: true
+        ) else { return false }
+        let table = defenseTable
+        let rows = matchups.value
+        let built = await Task.detached(priority: .utility) {
+            Self.build(context: context, matchups: rows, table: table)
+        }.value
+        apply(built)
+        lastLiveUpdate = context.now()
+        return true
     }
 
     // MARK: - Pairing
@@ -314,10 +374,11 @@ public final class MatchupModel: ObservableObject {
 
     nonisolated static func build(
         context: LeagueContext,
-        matchups: [SleeperMatchup]
+        matchups: [SleeperMatchup],
+        table: DefenseVsPositionTable? = nil
     ) -> (mine: MatchupSide?, opponent: MatchupSide?, noOpponentReason: String?) {
         let lines = GameLines.week(context.schedule, week: context.currentWeek)
-        let table = DefenseVsPosition.compute(file: context.weekly, profile: context.scoring.profile)
+        let table = table ?? DefenseVsPosition.compute(file: context.weekly, profile: context.scoring.profile)
         let profilesByGSIS = Dictionary(
             context.seasonProfiles.map { ($0.gsisID, $0) }, uniquingKeysWith: { first, _ in first }
         )
@@ -373,7 +434,9 @@ public final class MatchupModel: ObservableObject {
                     season: season,
                     defense: table.cell(defense: line?.opponent, position: position),
                     impliedTotal: line?.impliedTotal,
-                    isLocked: context.isLocked(rawID)
+                    isLocked: context.isLocked(rawID),
+                    isLive: context.isLive(rawID),
+                    kickoff: context.kickoffs.kickoff(team: nflTeam, week: context.currentWeek)
                 )
             }
 

@@ -194,3 +194,85 @@ final class SleeperServiceTests: XCTestCase {
         XCTAssertEqual(count, 1)
     }
 }
+
+/// Game-day freshness for the player index, where injury tags live.
+final class PlayerIndexMaxAgeTests: XCTestCase {
+    private var directory: URL!
+
+    override func tearDown() {
+        if let directory { try? FileManager.default.removeItem(at: directory) }
+        super.tearDown()
+    }
+
+    private let payload = #"{"4034":{"full_name":"Christian McCaffrey","position":"RB","team":"SF","active":true,"injury_status":"Questionable"}}"#
+
+    private func service() async -> (SleeperService, StubTransport, DiskCache) {
+        let transport = StubTransport()
+        await transport.on("/players/nfl", json: payload)
+        let made = makeTemporaryCache()
+        directory = made.directory
+        let service = SleeperService(
+            client: SleeperClient(baseURL: URL(string: "https://api.example.test/v1")!, transport: transport, retries: 0),
+            cache: made.cache
+        )
+        return (service, transport, made.cache)
+    }
+
+    /// Backdates the cached index so its age can be controlled.
+    private func age(_ cache: DiskCache, by seconds: TimeInterval) async throws {
+        let loaded = await cache.load(PlayerIndex.self, key: "sleeper-players-v1", allowingStale: true)
+        let hit = try XCTUnwrap(loaded)
+        try await cache.store(hit.value, key: "sleeper-players-v1", ttl: CacheTTL.players, now: Date().addingTimeInterval(-seconds))
+    }
+
+    func testAYoungCopyIsReusedOnAGameDay() async throws {
+        let (service, transport, cache) = await service()
+        _ = try await service.playerIndex()
+        try await age(cache, by: 60 * 60)
+
+        _ = try await service.playerIndex(maxAge: 3 * 60 * 60)
+        let count = await transport.requestCount
+        XCTAssertEqual(count, 1, "an hour-old copy is fine inside a three-hour window")
+    }
+
+    func testAnOlderCopyIsRefetchedOnAGameDay() async throws {
+        let (service, transport, cache) = await service()
+        _ = try await service.playerIndex()
+        try await age(cache, by: 4 * 60 * 60)
+
+        let fetched = try await service.playerIndex(maxAge: 3 * 60 * 60)
+        XCTAssertEqual(fetched.provenance, .live)
+        let count = await transport.requestCount
+        XCTAssertEqual(count, 2)
+    }
+
+    /// Outside a game day the same four-hour-old copy is well within Sleeper's
+    /// once-a-day request and is kept.
+    func testTheSameCopyIsKeptOnAnOrdinaryDay() async throws {
+        let (service, transport, cache) = await service()
+        _ = try await service.playerIndex()
+        try await age(cache, by: 4 * 60 * 60)
+
+        _ = try await service.playerIndex()
+        let count = await transport.requestCount
+        XCTAssertEqual(count, 1)
+    }
+
+    /// If the early re-download fails, the older copy is still served, labelled.
+    func testAFailedGameDayRefetchFallsBackToTheCachedCopy() async throws {
+        let (service, _, cache) = await service()
+        _ = try await service.playerIndex()
+        try await age(cache, by: 4 * 60 * 60)
+
+        // Same cache, but the network is now down.
+        let failing = StubTransport()
+        await failing.on("/players/nfl", failWith: StubTransport.StubError.offline)
+        let offline = SleeperService(
+            client: SleeperClient(baseURL: URL(string: "https://api.example.test/v1")!, transport: failing, retries: 0),
+            cache: cache
+        )
+        let fetched = try await offline.playerIndex(maxAge: 3 * 60 * 60)
+        XCTAssertEqual(fetched.value.count, 1)
+        XCTAssertNotEqual(fetched.provenance, .live)
+    }
+}

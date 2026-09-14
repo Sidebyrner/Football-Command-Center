@@ -186,8 +186,21 @@ public actor SleeperService {
 
     /// The trimmed player index. 24-hour TTL because Sleeper asks that the
     /// 5 MB source be fetched at most once daily (§3.1).
-    public func playerIndex(force: Bool = false) async throws -> Fetched<PlayerIndex> {
-        try await through(key: Key.players, ttl: CacheTTL.players, force: force) {
+    ///
+    /// - Parameter maxAge: re-download once the cached copy is older than this,
+    ///   even inside its TTL. Injury tags live in this file, so on game days the
+    ///   caller asks for a younger copy. FCData knows nothing about schedules —
+    ///   the decision of when is the caller's.
+    public func playerIndex(force: Bool = false, maxAge: TimeInterval = CacheTTL.players) async throws -> Fetched<PlayerIndex> {
+        let tooOld: Bool
+        if force {
+            tooOld = true
+        } else if let hit = await cache.load(PlayerIndex.self, key: Key.players) {
+            tooOld = hit.age >= maxAge
+        } else {
+            tooOld = false
+        }
+        return try await through(key: Key.players, ttl: CacheTTL.players, force: tooOld) {
             try await client.playerIndex()
         }
     }

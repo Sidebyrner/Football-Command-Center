@@ -71,8 +71,14 @@ public struct LeagueContextLoader: Sendable {
         let league = try await sleeper.league(id: leagueID, force: force)
         let rosters = try await sleeper.rosters(leagueID: leagueID, force: force)
         let members = try await sleeper.members(leagueID: leagueID, force: force)
-        let players = try await sleeper.playerIndex()
+        // The schedule first: it decides how fresh the player index — where the
+        // injury tags live — has to be.
         let schedule = try await staticData.schedule(season: scheduleSeason)
+        let players = try await sleeper.playerIndex(
+            maxAge: GameDayWindow.playerIndexMaxAge(
+                kickoffs: KickoffCalendar(schedule: schedule.value), week: currentWeek, now: now()
+            )
+        )
         let (statsSeason, weekly, currentSeasonWeeks) = try await loadStatsSeason(notAfter: scheduleSeason)
         let crosswalk = try await staticData.playerCrosswalk()
 

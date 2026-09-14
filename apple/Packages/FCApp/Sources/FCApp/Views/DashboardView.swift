@@ -100,6 +100,11 @@ public struct DashboardView: View {
                                 .font(.caption)
                                 .foregroundStyle(colour(for: alert.kind))
                                 .fixedSize(horizontal: false, vertical: true)
+                            if let asOf = alert.asOf {
+                                Text("as of \(asOf.formatted(.dateTime.weekday(.abbreviated).hour().minute()))")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                     .appear(index: offset)
@@ -158,9 +163,16 @@ public struct DashboardView: View {
                             score(opponent, week.opponentPoints, week.opponentAverageTeamTotal, alignment: .trailing)
                         }
                     }
-                    Text(week.status)
-                        .font(.footnote.weight(.medium))
-                        .foregroundStyle(.secondary)
+                    HStack {
+                        Text(week.status)
+                            .font(.footnote.weight(.medium))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(week.opponentLeftToPlay.map { "\(week.myLeftToPlay) vs \($0) left to play" }
+                             ?? "\(week.myLeftToPlay) left to play")
+                            .font(.caption.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)

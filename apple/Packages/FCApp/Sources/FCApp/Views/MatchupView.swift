@@ -10,6 +10,7 @@ import FCData
 public struct MatchupView: View {
     @ObservedObject var model: MatchupModel
     @State private var selectedPair: PairedSlot?
+    @Environment(\.scenePhase) private var scenePhase
 
     public init(model: MatchupModel) {
         self.model = model
@@ -17,7 +18,11 @@ public struct MatchupView: View {
 
     public var body: some View {
         Group {
-            if let context = model.context {
+            // The lineups are built after the league context arrives, and that
+            // build scores the whole season for defense ranks. Until it lands, show
+            // the placeholder — drawing the loaded layout with no lineups looked
+            // like a broken page ("no games yet", no Opponent tab).
+            if let context = model.context, model.mySide != nil || !model.isLoading {
                 loaded(context)
             } else {
                 ScrollView {
@@ -39,6 +44,17 @@ public struct MatchupView: View {
             }
         }
         .sensoryFeedback(.success, trigger: model.refreshCount)
+        // Live scores: poll once a minute while the screen is visible and the app
+        // active. liveTick() does nothing outside game windows, and the task is
+        // cancelled when the screen goes away or the app leaves the foreground.
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                guard !Task.isCancelled else { break }
+                await model.liveTick()
+            }
+        }
         .navigationTitle("Matchup")
         #if os(iOS)
         // The pinned scoreboard is the headline here; a large title above it
@@ -123,11 +139,16 @@ public struct MatchupView: View {
     private var scoreboard: some View {
         if let mine = model.mySide {
             VStack(spacing: 10) {
-                if let week = model.week {
-                    Text("WEEK \(week)")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .kerning(1.2)
+                HStack(spacing: 8) {
+                    if let week = model.week {
+                        Text("WEEK \(week)")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .kerning(1.2)
+                    }
+                    if model.anyGameLive {
+                        LiveBadge()
+                    }
                 }
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     teamScore(mine, alignment: .leading)
@@ -164,6 +185,11 @@ public struct MatchupView: View {
                 .contentTransition(.numericText())
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
+            Text("\(side.leftToPlay) left to play")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(side.leftToPlay > 0 ? Color.primary : Color.secondary)
+                .contentTransition(.numericText())
+                .lineLimit(1)
             if let average = side.environment.averageTeamTotal {
                 Text(String(format: "teams avg %.1f pts", average))
                     .font(.caption2)
@@ -179,9 +205,18 @@ public struct MatchupView: View {
     private var headToHead: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(model.comparisonBasis.label)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(model.comparisonBasis.label)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let updated = model.lastLiveUpdate, let context = model.context {
+                        TimelineView(.periodic(from: .now, by: 15)) { _ in
+                            Text("Updated \(Freshness.relative(context.now().timeIntervalSince(updated)))")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
                 Spacer()
                 if model.opponentSide != nil {
                     Text(slotTally)
@@ -292,15 +327,17 @@ struct PairedSlotRow: View {
         return VStack(alignment: alignment, spacing: 2) {
             if let row, !row.isEmptySlot {
                 HStack(spacing: 4) {
-                    if alignment == .trailing { valueText(value, leading: leading) }
+                    if alignment == .trailing { valueText(value, leading: leading, row: row) }
                     Text(row.name ?? "Unknown")
                         .font(.subheadline.weight(leading ? .semibold : .regular))
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
-                    if alignment == .leading { valueText(value, leading: leading) }
+                    if alignment == .leading { valueText(value, leading: leading, row: row) }
                 }
                 HStack(spacing: 3) {
-                    if row.isLocked {
+                    if row.isLive {
+                        LiveDot(size: 5)
+                    } else if row.isLocked {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 8))
                             .accessibilityLabel("Locked")
@@ -322,12 +359,27 @@ struct PairedSlotRow: View {
         .frame(maxWidth: .infinity, alignment: frameAlignment)
     }
 
-    private func valueText(_ value: Double?, leading: Bool) -> some View {
-        Text(value.map { String(format: "%.1f", $0) } ?? "–")
-            .font(.subheadline.weight(.semibold).monospacedDigit())
-            .foregroundStyle(leading ? Color.accentColor : Color.secondary)
-            .contentTransition(.numericText())
-            .fixedSize()
+    @ViewBuilder
+    private func valueText(_ value: Double?, leading: Bool, row: MatchupRow? = nil) -> some View {
+        if let value {
+            Text(String(format: "%.1f", value))
+                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .foregroundStyle(leading ? Color.accentColor : Color.secondary)
+                .contentTransition(.numericText())
+                .fixedSize()
+        } else if let row, let kickoff = row.kickoff, !row.isLocked {
+            // Not played yet: say when, rather than a dash that reads as missing.
+            Label(KickoffText.time(kickoff), systemImage: "clock")
+                .labelStyle(.titleAndIcon)
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .fixedSize()
+        } else {
+            Text("–")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .fixedSize()
+        }
     }
 
     private func subtitle(_ row: MatchupRow) -> String {
@@ -439,7 +491,9 @@ struct PlayerDetail: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                 PositionChip(position: row.position)
-                if row.isLocked {
+                if row.isLive {
+                    LiveDot()
+                } else if row.isLocked {
                     Label("Locked", systemImage: "lock.fill")
                         .labelStyle(.iconOnly)
                         .font(.caption2)

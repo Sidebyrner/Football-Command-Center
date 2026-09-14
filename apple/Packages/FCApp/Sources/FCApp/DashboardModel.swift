@@ -18,6 +18,9 @@ public struct LineupAlert: Hashable, Sendable, Identifiable {
     public let playerID: String?
     public let playerName: String?
     public let detail: String
+    /// For injury alerts: when Sleeper's player file — the source of the tag —
+    /// was downloaded. A tag is only as current as that.
+    public var asOf: Date? = nil
 
     public var id: String { "\(kind.rawValue)-\(playerID ?? detail)" }
 }
@@ -280,7 +283,8 @@ public final class DashboardModel: ObservableObject {
                     kind: .injured,
                     playerID: id,
                     playerName: context.playerName(id) ?? id,
-                    detail: status
+                    detail: status,
+                    asOf: context.players.builtAt
                 )
             )
         }
