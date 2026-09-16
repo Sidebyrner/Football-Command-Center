@@ -179,6 +179,33 @@ final class GameLinesTests: XCTestCase {
         XCTAssertEqual(environment.missing, ["LA"], "LAR is LA, and LA was on bye in week 8")
     }
 
+    /// Every 2026 week 1 line sits on that week's real matchup, both sides of it
+    /// — pairings checked against ESPN's week 1 scoreboard on 2026-09-13.
+    func testWeekOne2026LinesSitOnTheScheduledMatchups() throws {
+        let lines = GameLines.week(try Fixtures.schedule2026(), week: 1)
+        let matchups = [
+            ("NE", "SEA"), ("SF", "LA"), ("CHI", "CAR"), ("TB", "CIN"), ("NO", "DET"),
+            ("BUF", "HOU"), ("BAL", "IND"), ("CLE", "JAX"), ("ATL", "PIT"), ("NYJ", "TEN"),
+            ("ARI", "LAC"), ("MIA", "LV"), ("GB", "MIN"), ("WAS", "PHI"), ("DAL", "NYG"),
+            ("DEN", "KC"),
+        ]
+        XCTAssertEqual(lines.count, 32)
+        for (away, home) in matchups {
+            let a = try XCTUnwrap(lines[away], away)
+            let h = try XCTUnwrap(lines[home], home)
+            XCTAssertEqual(a.opponent, home)
+            XCTAssertEqual(h.opponent, away)
+            XCTAssertTrue(h.isHome)
+            XCTAssertEqual(a.total, h.total, "\(away)@\(home) share one total")
+            XCTAssertEqual(a.spread.map { -$0 }, h.spread, "\(away)@\(home) spreads mirror")
+        }
+
+        // The closing line: PIT −6.5, total 40.5 (the Sept 9 file still had −3.5).
+        XCTAssertEqual(lines["PIT"]?.spread, -6.5)
+        XCTAssertEqual(lines["PIT"]?.total, 40.5)
+        XCTAssertEqual(try XCTUnwrap(lines["PIT"]?.impliedTotal), 23.5, accuracy: 0.001)
+    }
+
     func testNoLinesAtAllIsNilNotZero() throws {
         let environment = GameLines.lineupEnvironment(teams: ["SEA"], lines: [:])
         XCTAssertNil(environment.total)

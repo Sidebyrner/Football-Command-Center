@@ -29,14 +29,14 @@ export function useImpliedTotals(week) {
   const oddsApiKey = useAppStore((s) => s.oddsApiKey)
   const season = useAppStore((s) => s.season)
 
-  const { odds, loading: oddsLoading, fetchOdds } = useOdds(oddsApiKey)
+  const { odds, hasFetched, loading: oddsLoading, fetchOdds } = useOdds(oddsApiKey, season, week)
   const { byTeam, loading: scheduleLoading } = useSchedule(season, week)
 
   // useOdds is manual-trigger by design (it's a quota'd call). Deciding that
   // "page load counts as asking" used to be copy-pasted into every page that
   // wanted odds; it lives here now.
   useEffect(() => {
-    if (oddsApiKey && odds.length === 0) fetchOdds()
+    if (oddsApiKey && !hasFetched) fetchOdds()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [oddsApiKey])
 

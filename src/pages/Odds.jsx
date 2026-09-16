@@ -12,7 +12,7 @@ import ImpliedTotalsChart from '../components/odds/ImpliedTotalsChart'
 import GameEnvironmentScatter from '../components/odds/GameEnvironmentScatter'
 import MyTeamOdds from '../components/odds/MyTeamOdds'
 import { useMissingPlayerMeta } from '../hooks/useMissingPlayerMeta'
-import { makeImpliedResolver } from '../utils/oddsHelpers'
+import { makeImpliedResolver, withLiveLines } from '../utils/oddsHelpers'
 import useAppStore from '../store/useAppStore'
 import { kickoffIso } from '../utils/gameClock'
 import { findMyTeam } from '../utils/leagueTeams'
@@ -34,7 +34,7 @@ export default function Odds() {
   const sleeperUserId = useAppStore((s) => s.sleeperUserId)
   const season = useAppStore((s) => s.season)
   const currentWeek = useAppStore((s) => s.currentWeek)
-  const { odds, quota, loading, error, fetchOdds } = useOdds(oddsApiKey)
+  const { odds, hasFetched, quota, loading, error, fetchOdds } = useOdds(oddsApiKey, season, currentWeek)
   const { players } = useDraftPlayers()
   const { teams } = useLeagueTeamRosters(leagueId)
   const myTeam = findMyTeam(teams, sleeperUserId)
@@ -42,7 +42,11 @@ export default function Odds() {
   // schedule, so the page has something real to draw before anyone pays for a
   // key. These are NOT live odds — they're whatever nfldata last recorded — and
   // every surface built on them says so.
-  const { games: scheduleGames, byTeam: scheduleByTeam } = useSchedule(season, currentWeek)
+  const { games: scheduleGames, byTeam: recordedByTeam } = useSchedule(season, currentWeek)
+  // `odds` is already this week's games only (useOdds). Laying them over the
+  // schedule keeps each roster row's opponent, spread, total and implied
+  // total on one game and one source.
+  const scheduleByTeam = useMemo(() => withLiveLines(recordedByTeam, odds), [recordedByTeam, odds])
 
   // Whole-roster view needs names for IDP too, which useDraftPlayers filters
   // out of the board entirely — same fallback the other roster surfaces use.
@@ -65,7 +69,7 @@ export default function Odds() {
   // useOdds itself only fetches when asked, by design (it's a paid/quota'd
   // call), so this is the one place that decides "on page load" counts.
   useEffect(() => {
-    if (oddsApiKey && odds.length === 0) fetchOdds()
+    if (oddsApiKey && !hasFetched) fetchOdds()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [oddsApiKey])
 
