@@ -25,7 +25,7 @@ public struct NewsFeed: Decodable, Hashable, Sendable {
 /// render without it, not to handle an error. The one exception is
 /// `probe()`, whose entire purpose is to report reachability.
 public struct RelayClient: Sendable {
-    private let baseURL: URL
+    public let baseURL: URL
     private let transport: HTTPTransport
 
     public init(baseURL: URL, transport: HTTPTransport = URLSessionTransport(timeout: 5)) {
@@ -86,12 +86,55 @@ public struct RelayClient: Sendable {
         return try? JSONDecoder().decode(type, from: response.body)
     }
 
-    private func send(_ path: String, query: [URLQueryItem] = []) async throws -> HTTPResponse {
+    private func send(
+        _ path: String,
+        query: [URLQueryItem] = [],
+        method: String = "GET",
+        body: Data? = nil,
+        token: String? = nil
+    ) async throws -> HTTPResponse {
         var components = URLComponents(
             url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false
         )
         if !query.isEmpty { components?.queryItems = query }
         guard let url = components?.url else { throw DataLayerError.badURL(path) }
-        return try await transport.send(URLRequest(url: url))
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        if let body {
+            request.httpBody = body
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+        if let token, !token.isEmpty {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        return try await transport.send(request)
+    }
+
+    // MARK: - AI
+
+    public struct TradePitchRequest: Encodable, Sendable {
+        /// The deal's facts, one per line. The model may only rephrase these.
+        public let facts: [String]
+        /// The template pitch, so the model polishes rather than starts over.
+        public let draft: String
+
+        public init(facts: [String], draft: String) {
+            self.facts = facts
+            self.draft = draft
+        }
+    }
+
+    private struct TradePitchResponse: Decodable { let pitch: String }
+
+    /// Rewrites a trade pitch on the relay's local model. `nil` on any failure —
+    /// the template pitch is always there to fall back on.
+    public func polishTradePitch(_ request: TradePitchRequest, token: String?) async -> String? {
+        guard let body = try? JSONEncoder().encode(request),
+              let response = try? await send("api/ai/trade-pitch", method: "POST", body: body, token: token),
+              response.isOK,
+              let decoded = try? JSONDecoder().decode(TradePitchResponse.self, from: response.body)
+        else { return nil }
+        let trimmed = decoded.pitch.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

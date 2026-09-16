@@ -73,6 +73,10 @@ public final class PlanningModel: ObservableObject {
     /// sections can say why they are empty.
     @Published public private(set) var trendingUnavailable = false
 
+    /// The relay the trade wizard polishes pitches through. Optional, like
+    /// every relay feature.
+    public var relayBaseURL: URL?
+
     /// League-wide trending adds, the only data covering DEF and IDP.
     private(set) var trending: [TrendingPlayer] = []
 

@@ -43,10 +43,13 @@ public struct RootView: View {
             wrappedValue: SettingsModel(sleeper: sleeper, store: settingsStore)
         )
         let loader = LeagueContextLoader(sleeper: sleeper, staticData: staticData, now: now)
-        _planningModel = State(initialValue: PlanningModel(loader: loader, sleeper: sleeper))
         // The relay is optional and every call through it fails soft, so a
         // missing base URL simply means the news section never appears (§0).
-        let relay = settingsStore.load().relayBaseURL.map { RelayClient(baseURL: $0) }
+        let relayBaseURL = settingsStore.load().relayBaseURL
+        let planning = PlanningModel(loader: loader, sleeper: sleeper)
+        planning.relayBaseURL = relayBaseURL
+        _planningModel = State(initialValue: planning)
+        let relay = relayBaseURL.map { RelayClient(baseURL: $0) }
         _dashboardModel = State(
             initialValue: DashboardModel(loader: loader, sleeper: sleeper, relay: relay)
         )
@@ -106,6 +109,7 @@ public struct RootView: View {
         .task { await loadIfConfigured() }
         .onChange(of: settingsModel.settings.relayBaseURL) { _, url in
             dashboardModel.setRelay(baseURL: url)
+            planningModel.relayBaseURL = url
             guard let leagueID = settingsModel.settings.leagueID,
                   let rosterID = settingsModel.settings.rosterID else { return }
             Task { await dashboardModel.load(leagueID: leagueID, userRosterID: rosterID) }

@@ -91,6 +91,13 @@ public struct SettingsView: View {
     // MARK: - Relay
 
     @State private var relayText = ""
+    @State private var relayToken = ""
+
+    private func saveToken() {
+        guard !relayToken.isEmpty else { return }
+        model.setRelayToken(relayToken)
+        relayToken = ""
+    }
 
     private var relaySection: some View {
         Section {
@@ -105,10 +112,24 @@ public struct SettingsView: View {
             if let error = model.relayError {
                 Text(error).font(.footnote).foregroundStyle(Palette.sit)
             }
+            HStack {
+                SecureField(model.hasRelayToken ? "Token saved — enter a new one to replace it" : "Relay token", text: $relayToken)
+                    .textContentType(.password)
+                    .autocorrectionDisabled()
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    #endif
+                    .onSubmit(saveToken)
+                if !relayToken.isEmpty {
+                    Button("Save", action: saveToken)
+                } else if model.hasRelayToken {
+                    Button("Remove", role: .destructive) { model.setRelayToken("") }
+                }
+            }
         } header: {
             Text("Relay (optional)")
         } footer: {
-            Text("Your own relay server adds news about your players. Everything else works without it.")
+            Text("Your own relay server adds news about your players and polishes trade pitches on your own AI. The token is the RELAY_TOKEN set on the server, kept in your Keychain. Everything else works without it.")
         }
     }
 

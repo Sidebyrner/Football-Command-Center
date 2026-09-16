@@ -25,12 +25,19 @@ public final class SettingsModel: ObservableObject {
     @Published public private(set) var relayError: String?
     @Published public private(set) var settings: AppSettings
 
+    /// Whether a relay token is saved. The token itself never leaves the
+    /// Keychain except in a request header to the relay.
+    @Published public private(set) var hasRelayToken = false
+
     private let sleeper: SleeperService
     private let store: AppSettingsStore
+    private let secrets: SecretStore
 
-    public init(sleeper: SleeperService, store: AppSettingsStore) {
+    public init(sleeper: SleeperService, store: AppSettingsStore, secrets: SecretStore = KeychainSecretStore()) {
         self.sleeper = sleeper
         self.store = store
+        self.secrets = secrets
+        self.hasRelayToken = secrets.load() != nil
         let loaded = store.load()
         self.settings = loaded
         self.username = loaded.sleeperUsername ?? ""
@@ -128,6 +135,13 @@ public final class SettingsModel: ObservableObject {
         leagues = []
         teams = []
         stage = .needsUsername
+    }
+
+    /// Saves the relay token to the Keychain; an empty value removes it.
+    public func setRelayToken(_ token: String) {
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        secrets.save(trimmed.isEmpty ? nil : trimmed)
+        hasRelayToken = secrets.load() != nil
     }
 
     public func setRelayURL(_ url: URL?) {

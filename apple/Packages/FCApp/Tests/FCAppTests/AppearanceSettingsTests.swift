@@ -12,7 +12,7 @@ final class AppearanceSettingsTests: XCTestCase {
             cache: DiskCache(directory: FileManager.default.temporaryDirectory
                 .appendingPathComponent("fcapp-appearance-\(UUID().uuidString)"))
         )
-        return (SettingsModel(sleeper: sleeper, store: store), store)
+        return (SettingsModel(sleeper: sleeper, store: store, secrets: InMemorySecretStore()), store)
     }
 
     // MARK: - Accent theme

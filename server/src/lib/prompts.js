@@ -101,3 +101,36 @@ export function buildStrategyBriefPrompt(players) {
     },
   ]
 }
+
+/**
+ * Rewrites a trade pitch the app already wrote from the deal's own facts.
+ *
+ * The model may only rephrase: every fact is supplied, it must not add stats,
+ * injuries, projections or promises, and it must not pressure the other manager.
+ * The app always keeps the template pitch, so a bad rewrite costs nothing.
+ *
+ * @param {string[]} facts one fact per entry, e.g. "You're short at WR in week 9"
+ * @param {string} draft the template pitch
+ * @returns {{ role: string, content: string }[]}
+ */
+export function buildTradePitchPrompt(facts, draft) {
+  const listed = facts.map((f, i) => `${i + 1}. ${f}`).join('\n')
+  return [
+    {
+      role: 'system',
+      content:
+        'You help a fantasy football manager write a short, friendly trade message ' +
+        'to another manager in their league. ' + GROUNDING_RULE +
+        ' Do not invent statistics, injuries, projections or promises. Do not ' +
+        'pressure or flatter. Keep it under 80 words, plain text, no emoji, no ' +
+        'greeting line longer than a few words.',
+    },
+    {
+      role: 'user',
+      content:
+        `Facts about this trade:\n${listed}\n\n` +
+        `Draft message:\n${draft}\n\n` +
+        'Rewrite the draft so it reads naturally, using only the facts above.',
+    },
+  ]
+}

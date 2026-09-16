@@ -25,18 +25,6 @@ public enum PlanningMode: String, CaseIterable, Hashable, Sendable {
     }
 }
 
-public extension CrunchReport {
-    /// Positions that would fix this week: dedicated positions that are short,
-    /// plus every position eligible for a flex group that is short.
-    var neededPositions: Set<Position> {
-        var needed = Set(byPosition.filter { $0.value.shortfall > 0 }.keys)
-        for group in flexGroups where group.shortfall > 0 {
-            needed.formUnion(group.eligible)
-        }
-        return needed
-    }
-}
-
 /// One player the planner is suggesting, whichever job suggested him.
 public struct PlanningPlayer: Hashable, Sendable, Identifiable {
     public let id: String

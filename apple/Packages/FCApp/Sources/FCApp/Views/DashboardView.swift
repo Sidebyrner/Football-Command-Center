@@ -12,6 +12,7 @@ public struct DashboardView: View {
     @Environment(\.openScreen) private var openScreen
     @State private var showAllStandings = false
     @State private var showAllMoves = false
+    @State private var tradeLaunch: TradeWizardLaunch?
 
     public init(model: DashboardModel) {
         self.model = model
@@ -55,6 +56,9 @@ public struct DashboardView: View {
                             }
                             if !model.byeStrip.isEmpty {
                                 ByeStripCard(weeks: model.byeStrip) { openScreen(.planning) }
+                                if model.byeStrip.contains(where: { $0.yourShortfall > 0 }) {
+                                    StartTradeCard { tradeLaunch = TradeWizardLaunch() }
+                                }
                             }
                             trendSection
                             benchSection
@@ -73,6 +77,11 @@ public struct DashboardView: View {
         }
         .refreshable { await model.refresh() }
         .sensoryFeedback(.success, trigger: model.refreshCount)
+        .sheet(item: $tradeLaunch) { launch in
+            if let context = model.context {
+                TradeWizardSheet(context: context, relayBaseURL: model.relayBaseURL, prefill: launch.prefill)
+            }
+        }
         .navigationTitle("My Team")
     }
 

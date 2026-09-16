@@ -289,11 +289,15 @@ struct LeagueGrid: View {
 
 struct TradesSection: View {
     @ObservedObject var model: PlanningModel
+    @State private var launch: TradeWizardLaunch?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            StartTradeCard { launch = TradeWizardLaunch() }
+                .disabled(model.context == nil)
+
             if model.userShortWeeks().isEmpty {
-                Label("No short weeks, so nothing to trade for.", systemImage: "checkmark.seal.fill")
+                Label("No short weeks — the wizard can still find an upgrade.", systemImage: "checkmark.seal.fill")
                     .font(.subheadline)
                     .foregroundStyle(Palette.start)
                     .card(fill: Palette.start.opacity(0.10))
@@ -308,16 +312,61 @@ struct TradesSection: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 ForEach(Array(model.tradeTargets.enumerated()), id: \.element.id) { offset, target in
-                    TradeTargetCard(target: target)
-                        .appear(index: offset)
+                    TradeTargetCard(target: target) {
+                        launch = TradeWizardLaunch(prefill: TradeWizardPrefill(
+                            positions: Set(target.candidates.map(\.position)),
+                            weeks: target.weeksCovered,
+                            rivalRosterID: target.rival.rosterID,
+                            theirPlayerID: target.candidates.first?.id
+                        ))
+                    }
+                    .appear(index: offset)
                 }
+            }
+        }
+        .sheet(item: $launch) { launch in
+            if let context = model.context {
+                TradeWizardSheet(context: context, relayBaseURL: model.relayBaseURL, prefill: launch.prefill)
             }
         }
     }
 }
 
+/// The wizard's front door: one clear action above the evidence.
+struct StartTradeCard: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: "wand.and.stars")
+                    .font(.title2)
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 40, height: 40)
+                    .background(Circle().fill(Color.accentColor.opacity(0.15)))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Start a trade")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text("Pick a need, find who can fill it, build the deal, write the pitch.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(PressableCardStyle())
+        .accessibilityIdentifier("start-trade")
+    }
+}
+
 struct TradeTargetCard: View {
     let target: TradeTarget
+    var onStart: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -332,6 +381,15 @@ struct TradeTargetCard: View {
             }
             WeekChips(weeks: target.weeksCovered)
             ForEach(target.candidates.prefix(4)) { PlanningPlayerRow(player: $0, showWeeks: true, showAvailability: false) }
+            if let onStart {
+                Button(action: onStart) {
+                    Label("Build a trade with \(target.rival.manager)", systemImage: "arrow.left.arrow.right")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .padding(.top, 2)
+            }
         }
         .card()
     }

@@ -76,3 +76,55 @@ final class RelayClientTests: XCTestCase {
         XCTAssertFalse(url.contains("a b"))
     }
 }
+
+/// League timing settings and the authenticated AI pitch call.
+final class TradeSupportTests: XCTestCase {
+    func testLeagueSettingsDecodeTheTradeDeadline() throws {
+        let league = try JSONDecoder().decode(SleeperLeague.self, from: Data("""
+        {"league_id":"L1","settings":{"trade_deadline":11,"waiver_day_of_week":3,"playoff_week_start":15,"unrelated":7}}
+        """.utf8))
+        XCTAssertEqual(league.settings?.effectiveTradeDeadline, 11)
+        XCTAssertEqual(league.settings?.waiverDayOfWeek, 3)
+        XCTAssertEqual(league.settings?.playoffWeekStart, 15)
+    }
+
+    /// Sleeper uses 0 for a league without a deadline.
+    func testAZeroDeadlineMeansNone() throws {
+        let league = try JSONDecoder().decode(SleeperLeague.self, from: Data(#"{"league_id":"L1","settings":{"trade_deadline":0}}"#.utf8))
+        XCTAssertNil(league.settings?.effectiveTradeDeadline)
+    }
+
+    func testPitchPolishSendsTheTokenAndFacts() async throws {
+        let transport = StubTransport()
+        await transport.on("api/ai/trade-pitch", json: #"{"pitch":"  Polished pitch.  "}"#)
+        let client = RelayClient(baseURL: URL(string: "https://relay.example.test")!, transport: transport)
+
+        let pitch = await client.polishTradePitch(.init(facts: ["You're short at WR in week 9"], draft: "Draft"), token: "s3cret")
+
+        XCTAssertEqual(pitch, "Polished pitch.")
+        let auth = await transport.header("Authorization", onRequestAt: 0)
+        XCTAssertEqual(auth, "Bearer s3cret")
+        let requests = await transport.requests
+        let body = try XCTUnwrap(requests.first?.httpBody)
+        let json = try XCTUnwrap(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+        XCTAssertEqual(json["facts"] as? [String], ["You're short at WR in week 9"])
+        XCTAssertEqual(requests.first?.httpMethod, "POST")
+    }
+
+    /// An unauthorised or unreachable relay falls back to the template silently.
+    func testPitchPolishFailsSoft() async {
+        let transport = StubTransport()
+        await transport.on("api/ai/trade-pitch", json: #"{"error":"unauthorized"}"#, status: 401)
+        let client = RelayClient(baseURL: URL(string: "https://relay.example.test")!, transport: transport)
+        let pitch = await client.polishTradePitch(.init(facts: [], draft: "Draft"), token: nil)
+        XCTAssertNil(pitch)
+    }
+
+    func testInMemorySecretStoreRoundTrips() {
+        let store = InMemorySecretStore()
+        store.save("abc")
+        XCTAssertEqual(store.load(), "abc")
+        store.save(nil)
+        XCTAssertNil(store.load())
+    }
+}

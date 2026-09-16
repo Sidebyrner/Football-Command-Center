@@ -152,7 +152,12 @@ public final class DashboardModel: ObservableObject {
         self.loader = loader
         self.sleeper = sleeper
         self.relay = relay
+        self.relayBaseURL = relay?.baseURL
     }
+
+    /// Where the relay lives, for screens that make their own client — the trade
+    /// wizard needs a far longer timeout than news does.
+    public private(set) var relayBaseURL: URL?
 
     /// Whether a relay is configured — the News pillar says so either way.
     public var hasRelay: Bool { relay != nil }
@@ -161,6 +166,7 @@ public final class DashboardModel: ObservableObject {
     /// next load, so a URL entered in Settings works without a relaunch.
     public func setRelay(baseURL: URL?) {
         relay = baseURL.map { RelayClient(baseURL: $0) }
+        relayBaseURL = baseURL
         if baseURL == nil { news = [] }
     }
 

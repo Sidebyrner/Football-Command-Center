@@ -22,6 +22,16 @@ actor StubTransport: HTTPTransport {
         routes.insert((pathContains, json, status), at: 0)
     }
 
+    /// Swaps the answer for a route while keeping its place in the order — for
+    /// a broad route like `/league/L1` that must stay behind the narrower ones.
+    func replace(_ pathContains: String, json: String, status: Int = 200) {
+        guard let index = routes.firstIndex(where: { $0.match == pathContains }) else {
+            routes.append((pathContains, json, status))
+            return
+        }
+        routes[index] = (pathContains, json, status)
+    }
+
     func fail(_ pathContains: String) {
         failures.insert(pathContains)
     }

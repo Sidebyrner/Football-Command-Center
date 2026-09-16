@@ -20,7 +20,7 @@ final class SettingsModelTests: XCTestCase {
         let harness = Harness.make(transport: transport)
         cacheDirectory = harness.cacheDirectory
         let store = InMemorySettingsStore(settings)
-        return (SettingsModel(sleeper: harness.sleeper, store: store), store)
+        return (SettingsModel(sleeper: harness.sleeper, store: store, secrets: InMemorySecretStore()), store)
     }
 
     private func userTransport() async -> StubTransport {
@@ -31,6 +31,22 @@ final class SettingsModelTests: XCTestCase {
             json: "[\(TestLeague.leagueJSON())]"
         )
         return transport
+    }
+
+    func testTheRelayTokenIsSavedTrimmedAndRemovable() {
+        let harness = Harness.make(transport: StubTransport())
+        cacheDirectory = harness.cacheDirectory
+        let secrets = InMemorySecretStore()
+        let model = SettingsModel(sleeper: harness.sleeper, store: InMemorySettingsStore(AppSettings()), secrets: secrets)
+        XCTAssertFalse(model.hasRelayToken)
+
+        model.setRelayToken("  abc123 \n")
+        XCTAssertTrue(model.hasRelayToken)
+        XCTAssertEqual(secrets.load(), "abc123")
+
+        model.setRelayToken("")
+        XCTAssertFalse(model.hasRelayToken)
+        XCTAssertNil(secrets.load())
     }
 
     func testStartsAtTheUsernameStep() {

@@ -103,14 +103,38 @@ public struct SleeperLeague: Codable, Hashable, Sendable {
     /// Raw Sleeper scoring keys. Translate with `ScoringProfile.translate(sleeper:)`.
     public let scoringSettings: [String: Double]?
     public let previousLeagueID: String?
+    /// League rules that time decisions: the trade deadline and waiver day.
+    public let settings: LeagueSettings?
 
     enum CodingKeys: String, CodingKey {
         case leagueID = "league_id"
-        case name, season, status
+        case name, season, status, settings
         case totalRosters = "total_rosters"
         case rosterPositions = "roster_positions"
         case scoringSettings = "scoring_settings"
         case previousLeagueID = "previous_league_id"
+    }
+
+    /// The parts of Sleeper's league `settings` the app acts on. Every field is
+    /// optional: leagues omit what they don't use.
+    public struct LeagueSettings: Codable, Hashable, Sendable {
+        /// The last week trades are allowed. Sleeper uses 0 for "no deadline".
+        public let tradeDeadline: Int?
+        /// Day waivers process, 0 = Sunday … 6 = Saturday.
+        public let waiverDayOfWeek: Int?
+        public let playoffWeekStart: Int?
+
+        enum CodingKeys: String, CodingKey {
+            case tradeDeadline = "trade_deadline"
+            case waiverDayOfWeek = "waiver_day_of_week"
+            case playoffWeekStart = "playoff_week_start"
+        }
+
+        /// `nil` when the league has no deadline.
+        public var effectiveTradeDeadline: Int? {
+            guard let tradeDeadline, tradeDeadline > 0 else { return nil }
+            return tradeDeadline
+        }
     }
 
     /// The slot template this league actually plays, parsed by FCCore.
