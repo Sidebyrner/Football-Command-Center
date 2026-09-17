@@ -1,0 +1,19 @@
+{
+  "slug": "finance-dashboard",
+  "name": "finance dashboard",
+  "repo": "Sidebyrner/finance_dashboard",
+  "url": "https://github.com/Sidebyrner/finance_dashboard",
+  "visibility": "private",
+  "status": "paused",
+  "health": "unknown",
+  "why": null,
+  "stack": [],
+  "tags": [],
+  "needs_triage": true,
+  "next_action": null,
+  "backlog": [],
+  "blocked_by": null,
+  "created": "2026-09-17",
+  "last_touched": "2026-02-26",
+  "log": []
+}

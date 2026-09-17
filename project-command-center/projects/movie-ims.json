@@ -1,0 +1,19 @@
+{
+  "slug": "movie-ims",
+  "name": "movie ims",
+  "repo": "Sidebyrner/movie_ims",
+  "url": "https://github.com/Sidebyrner/movie_ims",
+  "visibility": "public",
+  "status": "archived",
+  "health": "unknown",
+  "why": null,
+  "stack": [],
+  "tags": [],
+  "needs_triage": true,
+  "next_action": null,
+  "backlog": [],
+  "blocked_by": null,
+  "created": "2026-09-17",
+  "last_touched": "2024-11-23",
+  "log": []
+}

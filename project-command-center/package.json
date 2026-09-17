@@ -1,0 +1,15 @@
+{
+  "name": "project-command-center",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "One ledger across every coding project, ranked by the energy and time you actually have.",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "board": "node scripts/portfolio.mjs board",
+    "pick": "node scripts/portfolio.mjs pick",
+    "validate": "node scripts/portfolio.mjs validate",
+    "inbox": "node scripts/portfolio.mjs inbox",
+    "install-skill": "node scripts/install.mjs"
+  }
+}

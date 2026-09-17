@@ -1,0 +1,71 @@
+{
+  "slug": "football-command-center",
+  "name": "Football Command Center",
+  "repo": "Sidebyrner/Football-Command-Center",
+  "url": "https://github.com/Sidebyrner/Football-Command-Center",
+  "visibility": "public",
+  "status": "active",
+  "health": "on-track",
+  "why": "Personal fantasy football research hub for Sleeper leagues — browser-only, no backend.",
+  "stack": [
+    "react",
+    "vite",
+    "tailwind",
+    "zustand",
+    "recharts"
+  ],
+  "tags": [
+    "fantasy-football",
+    "personal",
+    "web"
+  ],
+  "needs_triage": false,
+  "next_action": {
+    "what": "Build src/components/research/MoneybballWidget.jsx and render it from src/pages/Research.jsx",
+    "energy": "deep",
+    "minutes": 120,
+    "why": "Full spec already written in To-Dos/moneyball-widget-claude-code.md; no component exists yet."
+  },
+  "backlog": [
+    {
+      "what": "Move the league scoring upload from its current page into Settings",
+      "energy": "medium",
+      "minutes": 45
+    },
+    {
+      "what": "Auto-detect league PPR setting (0 / 0.5 / full) from Sleeper league data",
+      "energy": "medium",
+      "minutes": 45
+    },
+    {
+      "what": "Add a light mode color scheme alongside the dark-first tokens",
+      "energy": "medium",
+      "minutes": 60
+    },
+    {
+      "what": "Keep the player card open while scrolling the chart; click swaps the player in place",
+      "energy": "deep",
+      "minutes": 90
+    },
+    {
+      "what": "Make nflverse data autoload instead of requiring the preprocess script",
+      "energy": "deep",
+      "minutes": 90
+    },
+    {
+      "what": "Split the eval formula per position so each has its own strength/weakness weighting",
+      "energy": "deep",
+      "minutes": 150
+    }
+  ],
+  "blocked_by": null,
+  "created": "2026-09-17",
+  "last_touched": "2026-09-14",
+  "log": [
+    {
+      "date": "2026-09-17",
+      "kind": "note",
+      "summary": "Seeded into the portfolio ledger. Backlog lifted from To-Dos/ — the Mock Draft and Odds to-dos were dropped because those pages already exist."
+    }
+  ]
+}

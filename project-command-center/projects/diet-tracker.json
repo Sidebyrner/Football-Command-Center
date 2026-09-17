@@ -1,0 +1,19 @@
+{
+  "slug": "diet-tracker",
+  "name": "diet tracker",
+  "repo": "Sidebyrner/diet_tracker",
+  "url": "https://github.com/Sidebyrner/diet_tracker",
+  "visibility": "public",
+  "status": "paused",
+  "health": "unknown",
+  "why": null,
+  "stack": [],
+  "tags": [],
+  "needs_triage": true,
+  "next_action": null,
+  "backlog": [],
+  "blocked_by": null,
+  "created": "2026-09-17",
+  "last_touched": "2026-04-30",
+  "log": []
+}
