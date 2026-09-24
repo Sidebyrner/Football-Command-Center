@@ -48,6 +48,32 @@ cp "$src/player-ids.json"       "$bundleRes/player-ids.json"
 cp "$src/adp.json"              "$bundleRes/adp.json"
 cp "$src/cohorts.json"          "$bundleRes/cohorts.json"
 
+# In-season context files (docs/IN_SEASON_DATA.md), current season only. The
+# season is whatever the newest injuries-*.json says, so this needs no edit each
+# March. All four are optional: preprocess skips step 4 before any REG stats
+# exist, and a missing file must not break the sync of everything above.
+season=""
+for f in "$src"/injuries-*.json; do
+  [[ -e "$f" ]] || continue
+  s="${f##*/injuries-}"; s="${s%.json}"
+  if [[ -z "$season" || "$s" -gt "$season" ]]; then season="$s"; fi
+done
+if [[ -z "$season" ]]; then
+  echo "No injuries-*.json in $src — skipping in-season context files."
+else
+  echo "In-season context season: $season"
+  for name in injuries depth usage context; do
+    file="$name-$season.json"
+    if [[ ! -e "$src/$file" ]]; then
+      echo "  · $file missing — skipped"
+      continue
+    fi
+    cp "$src/$file" "$core/$file"
+    cp "$src/$file" "$app/$file"
+    cp "$src/$file" "$bundleRes/$file"
+  done
+fi
+
 echo "Synced fixtures into:"
 echo "  $core"
 echo "  $data"

@@ -13,12 +13,23 @@
 //   cohorts.json           { _meta, cohorts: { [position]: { [metric]: number[] } } }
 //   player-ids.json        { _meta, players: { [sleeper_id]: { gsisId, fantasyprosId, ... } } }
 //   adp.json               { _meta, players: { [fantasypros_id]: { ecr, sd, bye, ... } } }
+//   injuries-{season}.json  { _meta, fields, byWeek }        current season only
+//   depth-{season}.json     { _meta, teams: { [team]: { [group]: [gsis] } } }
+//   usage-{season}.json     { _meta, fields, meta, players }
+//   context-{season}.json   { _meta, fields, teams: { [team]: [tuple,...] } }
+//   (the four in-season files are specified in docs/IN_SEASON_DATA.md)
 //
 // Sources:
 //   Weekly stats  https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_{year}.csv
 //   Schedules     https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv
 //   ID crosswalk  https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv
 //   ECR / ADP     https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_fpecr_latest.csv
+//   Injuries      https://github.com/nflverse/nflverse-data/releases/download/injuries/injuries_{year}.csv
+//   Depth charts  https://github.com/nflverse/nflverse-data/releases/download/depth_charts/depth_charts_{year}.csv
+//   Snap counts   https://github.com/nflverse/nflverse-data/releases/download/snap_counts/snap_counts_{year}.csv
+//   Expected pts  https://github.com/ffverse/ffopportunity/releases/download/latest-data/ep_weekly_{year}.csv
+//   PFR advstats  https://github.com/nflverse/nflverse-data/releases/download/pfr_advstats/advstats_week_{pass,rush,rec}_{year}.csv
+//   ESPN QBR      https://github.com/nflverse/nflverse-data/releases/download/espn_data/qbr_week_level.csv
 //
 // NOTE ON SCHEMA: nflverse moved from the `player_stats` release to `stats_player`
 // and renamed several columns. `readField()` below accepts both spellings so the
@@ -29,11 +40,19 @@ import { mkdirSync, writeFileSync, createWriteStream, readFileSync, unlinkSync }
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { tmpdir } from 'os'
+import { createReadStream } from 'fs'
+import { createInterface } from 'readline'
 
 // The SAME scorer the browser uses. Importing it here (rather than
 // reimplementing the arithmetic in this script) is what makes the self-check at
 // the end of step 1 meaningful — it validates the code that actually ships.
 import { scoreWeek, validateAgainstReference, PPR_REFERENCE_PROFILE } from '../src/utils/weeklyScoring.js'
+// Step 4's transforms live in lib so they can be unit-tested on small fixtures
+// (scripts/in-season-context.test.mjs). passerRating is shared with step 1.
+import {
+  buildInjuries, buildDepthCharts, buildUsage, buildContext,
+  createLatestDtCollector, crosswalkMaps, passerRating,
+} from './lib/inSeasonContext.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
@@ -60,6 +79,14 @@ const STATS_URL = (y) =>
 const GAMES_URL = 'https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv'
 const IDS_URL = 'https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv'
 const ECR_URL = 'https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_fpecr_latest.csv'
+// In-season context (step 4), current season only.
+const NFLVERSE_RELEASE = 'https://github.com/nflverse/nflverse-data/releases/download'
+const INJURIES_URL = (y) => `${NFLVERSE_RELEASE}/injuries/injuries_${y}.csv`
+const DEPTH_URL = (y) => `${NFLVERSE_RELEASE}/depth_charts/depth_charts_${y}.csv`
+const SNAPS_URL = (y) => `${NFLVERSE_RELEASE}/snap_counts/snap_counts_${y}.csv`
+const PFR_URL = (kind, y) => `${NFLVERSE_RELEASE}/pfr_advstats/advstats_week_${kind}_${y}.csv`
+const QBR_URL = `${NFLVERSE_RELEASE}/espn_data/qbr_week_level.csv`
+const EP_URL = (y) => `https://github.com/ffverse/ffopportunity/releases/download/latest-data/ep_weekly_${y}.csv`
 
 // Positions we keep. The unified stats file also carries IDP and returners;
 // we only need fantasy-relevant offense + kickers.
@@ -195,17 +222,6 @@ const AVG_FIELDS = {
   wopr:            ['wopr'],
   racr:            ['racr'],
   pacr:            ['pacr'],
-}
-
-// ── NFL passer rating from components ────────────────────────────────────────
-function passerRating({ completions, attempts, passing_yards, passing_tds, interceptions }) {
-  if (!attempts) return null
-  const cl = (x) => Math.max(0, Math.min(2.375, x))
-  const a = cl((completions / attempts - 0.3) * 5)
-  const b = cl((passing_yards / attempts - 3) * 0.25)
-  const c = cl((passing_tds / attempts) * 20)
-  const d = cl(2.375 - (interceptions / attempts) * 25)
-  return ((a + b + c + d) / 6) * 100
 }
 
 // ── Aggregate one player's season ────────────────────────────────────────────
@@ -404,6 +420,31 @@ async function fetchCsv(url, label) {
   return rows
 }
 
+// Streams a CSV row-by-row without holding the file in memory. The depth-chart
+// file is ~52 MB / 550k rows and step 4 keeps only the newest snapshot per team,
+// so materialising every row as an object would be pure waste.
+async function streamCsv(url, label, onRow) {
+  const tmp = join(tmpdir(), `fcc-${label}-${Date.now()}.csv`)
+  console.log(`  ↓ ${url}`)
+  await download(url, tmp)
+  let headers = null
+  let n = 0
+  const rl = createInterface({ input: createReadStream(tmp, 'utf8'), crlfDelay: Infinity })
+  for await (const raw of rl) {
+    const line = raw.replace(/\r$/, '')
+    if (!line) continue
+    const vals = parseCSVLine(line)
+    if (!headers) { headers = vals; continue }
+    if (vals.length !== headers.length) continue
+    const row = {}
+    for (let j = 0; j < headers.length; j++) row[headers[j]] = vals[j]
+    onRow(row)
+    n++
+  }
+  try { unlinkSync(tmp) } catch {}
+  return n
+}
+
 function writeOut(filename, payload) {
   const path = join(OUT_DIR, filename)
   mkdirSync(dirname(path), { recursive: true })
@@ -419,10 +460,14 @@ async function main() {
   const generated = new Date().toISOString()
 
   // ── 1. Weekly stats → season aggregates ────────────────────────────────────
-  console.log(`\n[1/3] nflverse player stats — seasons ${SEASONS.join(', ')}`)
+  console.log(`\n[1/4] nflverse player stats — seasons ${SEASONS.join(', ')}`)
   const seasonIndex = {}
   const loaded = []
   const weeklyManifest = []
+  // The current season's REG rows (ALL positions) are kept for step 4: team
+  // plays need every player's attempts, and target shares need every target.
+  let currentSeason = null
+  let currentStatRows = null
 
   for (const season of SEASONS) {
     let rows
@@ -433,9 +478,12 @@ async function main() {
       continue
     }
 
-    const reg = rows.filter(
-      (r) => r.season_type === 'REG' && KEEP_POSITIONS.has(readField(r, 'position'))
-    )
+    const regAll = rows.filter((r) => r.season_type === 'REG')
+    if (currentSeason == null && regAll.length) {
+      currentSeason = season
+      currentStatRows = regAll
+    }
+    const reg = regAll.filter((r) => KEEP_POSITIONS.has(readField(r, 'position')))
     const byPlayer = {}
     for (const row of reg) {
       const pid = readField(row, 'player_id')
@@ -528,6 +576,9 @@ async function main() {
   // current season's schedule is fully published while its player stats are
   // not, and the schedule is exactly what a week-1 planner needs.
   console.log(`\n[1b] schedule — seasons ${SEASONS.join(', ')}`)
+  // The current season's 32 team codes, so step 4 can report any source whose
+  // spelling did not normalize to the schedule's.
+  const scheduleTeams = new Set()
   try {
     const gameRows = await fetchCsv(GAMES_URL, 'games')
     for (const season of SEASONS) {
@@ -535,6 +586,7 @@ async function main() {
       let games = 0
       for (const g of gameRows) {
         if (num(g.season) !== season || g.game_type !== 'REG') continue
+        if (season === currentSeason) { scheduleTeams.add(g.home_team); scheduleTeams.add(g.away_team) }
         const wk = num(g.week)
         ;(byWeek[wk] ??= []).push({
           home: str(g.home_team), away: str(g.away_team),
@@ -563,7 +615,7 @@ async function main() {
 
   // ── 2. Cohorts from the most recent loaded season ──────────────────────────
   const cohortSeason = Math.max(...loaded)
-  console.log(`\n[2/3] percentile cohorts — ${cohortSeason}`)
+  console.log(`\n[2/4] percentile cohorts — ${cohortSeason}`)
   const cohorts = buildCohorts(seasonIndex, cohortSeason)
   for (const [pos, metrics] of Object.entries(cohorts)) {
     const sizes = Object.values(metrics).map((a) => a.length)
@@ -575,7 +627,7 @@ async function main() {
   })
 
   // ── 3. ID crosswalk + ADP ──────────────────────────────────────────────────
-  console.log('\n[3/3] ID crosswalk + ADP')
+  console.log('\n[3/4] ID crosswalk + ADP')
 
   const idRows = await fetchCsv(IDS_URL, 'ids')
   const bySleeper = {}
@@ -632,7 +684,83 @@ async function main() {
     players: adp,
   })
 
+  // ── 4. In-season context (current season only) ─────────────────────────────
+  // Injuries, depth charts, usage and team context: the forward-looking files
+  // docs/IN_SEASON_DATA.md specifies. Only the first requested season whose
+  // REG stats loaded in step 1; the crosswalk from step 3 supplies the
+  // pfr→gsis and espn→gsis joins.
+  if (currentSeason == null) {
+    console.log('\n[4/4] in-season context — skipped (no season has REG stats yet)')
+  } else {
+    console.log(`\n[4/4] in-season context — ${currentSeason}`)
+    await writeInSeasonFiles({
+      season: currentSeason, generated, statRows: currentStatRows, idRows,
+      scheduleTeams: scheduleTeams.size === 32 ? scheduleTeams : null,
+    })
+  }
+
   console.log('\nDone.')
+}
+
+// Downloads the seven in-season sources, runs the pure builders, self-checks
+// the results and writes the four files. Throws (failing the run) when the data
+// is too thin to ship — a depth chart missing teams or an injuries file whose
+// latest week produced no rows would otherwise be published as truth.
+async function writeInSeasonFiles({ season, generated, statRows, idRows, scheduleTeams }) {
+  const { pfrToGsis, espnToGsis, gsisInfo } = crosswalkMaps(idRows)
+  console.log(`  crosswalk: ${pfrToGsis.size} pfr ids, ${espnToGsis.size} espn ids → gsis`)
+  const diag = { unknownTeams: new Set(), teams: scheduleTeams ?? undefined }
+  const stamp = (payload) => ({ ...payload, _meta: { generated, ...payload._meta } })
+
+  // Injuries
+  const injuryRows = await fetchCsv(INJURIES_URL(season), `injuries-${season}`)
+  const injuries = buildInjuries(injuryRows, season, diag)
+  const im = injuries._meta
+  console.log(`  ✓ injuries: ${im.rowCount} rows (${im.droppedRows} OL/P/LS dropped), weeks ${im.weeks.join(',') || '—'} ` +
+    `(latest csv week ${im.latestCsvWeek}: ${im.latestWeekRows} rows)`)
+  if (!injuryRows.length) throw new Error(`injuries_${season}.csv is empty`)
+  if (!im.latestWeekRows) throw new Error(`injuries: zero rows for the latest week (${im.latestCsvWeek}) in the CSV`)
+  writeOut(`injuries-${season}.json`, stamp(injuries))
+
+  // Depth charts — streamed; only the newest snapshot per team is kept.
+  const collector = createLatestDtCollector()
+  const depthRows = await streamCsv(DEPTH_URL(season), `depth-${season}`, (row) => collector.add(row))
+  const depth = buildDepthCharts(collector.rows(), season, diag)
+  console.log(`  ✓ depth charts: ${depth._meta.teams} teams, ${depth._meta.rowCount} slots from ${depthRows} rows, as of ${depth._meta.asOf}`)
+  if (depth._meta.teams < 28) throw new Error(`depth charts: only ${depth._meta.teams} teams (need ≥ 28)`)
+  writeOut(`depth-${season}.json`, stamp(depth))
+
+  // Usage
+  const snapRows = await fetchCsv(SNAPS_URL(season), `snaps-${season}`)
+  const epRows = await fetchCsv(EP_URL(season), `ep-${season}`)
+  const pfrRushRows = await fetchCsv(PFR_URL('rush', season), `pfr-rush-${season}`)
+  const pfrRecRows = await fetchCsv(PFR_URL('rec', season), `pfr-rec-${season}`)
+  const usage = buildUsage({ snapRows, epRows, pfrRushRows, pfrRecRows, pfrToGsis, gsisInfo }, season, diag)
+  const um = usage._meta
+  const pct = (r) => (r == null ? 'n/a' : `${(r * 100).toFixed(1)}%`)
+  console.log(`  ✓ usage: ${um.playerCount} players, weeks ${um.weeks.join(',') || '—'}`)
+  console.log(`    join rates — ep_weekly→crosswalk ${pct(um.joinRates.ep)} (${um.rowCounts.ep} rows), ` +
+    `snap_counts pfr→gsis ${pct(um.joinRates.snap)} (${um.rowCounts.snap}), ` +
+    `pfr rush ${pct(um.joinRates.pfrRush)} (${um.rowCounts.pfrRush}), pfr rec ${pct(um.joinRates.pfrRec)} (${um.rowCounts.pfrRec})`)
+  if (um.rowCounts.ep && um.joinRates.ep < 0.85) {
+    throw new Error(`usage: ep_weekly join rate ${pct(um.joinRates.ep)} is below 85% — crosswalk or id dialect changed`)
+  }
+  writeOut(`usage-${season}.json`, stamp(usage))
+
+  // Team context
+  const pfrPassRows = await fetchCsv(PFR_URL('pass', season), `pfr-pass-${season}`)
+  const qbrRows = await fetchCsv(QBR_URL, 'qbr')
+  const context = buildContext({ statRows, pfrPassRows, pfrRushRows, qbrRows, pfrToGsis, espnToGsis }, season, diag)
+  const cm = context._meta
+  console.log(`  ✓ context: ${cm.teams} teams, ${cm.teamWeeks} team-weeks, weeks ${cm.weeks.join(',') || '—'} ` +
+    `(pfr pass rows for ${cm.pfrPassTeamWeeks}, qbr for ${cm.qbrTeamWeeks})`)
+  writeOut(`context-${season}.json`, stamp(context))
+
+  if (diag.unknownTeams.size) {
+    console.warn(`  ⚠ team codes that did not normalize to the schedule's 32: ${[...diag.unknownTeams].sort().join(', ')}`)
+  } else {
+    console.log('  ✓ every team code normalized to nflverse spelling')
+  }
 }
 
 main().catch((err) => {
