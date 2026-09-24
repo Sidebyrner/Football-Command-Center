@@ -9,17 +9,26 @@ import FCCore
 /// than a failed one because at least a failure can be retried.
 public struct SleeperClient: Sendable {
     public static let defaultBaseURL = URL(string: "https://api.sleeper.app/v1")!
+    /// The undocumented projection, stats and news routes live one level up,
+    /// with no `/v1`. Same host, same no-key access, no promise of stability —
+    /// which is why every caller of these fails soft and labels the source.
+    public static let defaultInsightsBaseURL = URL(string: "https://api.sleeper.app")!
 
     private let baseURL: URL
+    private let insightsBaseURL: URL
     private let transport: HTTPTransport
     private let retries: Int
 
     public init(
         baseURL: URL = SleeperClient.defaultBaseURL,
+        insightsBaseURL: URL? = nil,
         transport: HTTPTransport = URLSessionTransport(),
         retries: Int = 1
     ) {
         self.baseURL = baseURL
+        // Tests point both at one stub host; the app leaves the default.
+        self.insightsBaseURL = insightsBaseURL
+            ?? (baseURL == SleeperClient.defaultBaseURL ? SleeperClient.defaultInsightsBaseURL : baseURL)
         self.transport = transport
         self.retries = retries
     }
@@ -85,6 +94,65 @@ public struct SleeperClient: Sendable {
         return try PlayerIndex.build(fromSleeperPayload: response.body, now: now)
     }
 
+    // MARK: - Insights (undocumented routes)
+
+    /// Every position's projected stat lines for one week. Sleeper filters by
+    /// repeated `position[]` parameters; asking for none returns nothing useful,
+    /// so the default is every position the app rosters.
+    public func projections(
+        season: Int,
+        week: Int,
+        positions: [Position] = Position.allCases
+    ) async throws -> [SleeperProjection] {
+        try await getInsights(
+            "/projections/nfl/\(season)/\(week)?season_type=regular\(positionQuery(positions))&order_by=pts_std"
+        )
+    }
+
+    /// One player's projections for a season, keyed by week.
+    public func playerProjections(playerID: String, season: Int) async throws -> [Int: SleeperProjection] {
+        let keyed: [String: SleeperProjection?] = try await getInsights(
+            "/projections/nfl/player/\(escaped(playerID))?season_type=regular&season=\(season)&grouping=week"
+        )
+        var out: [Int: SleeperProjection] = [:]
+        for (key, value) in keyed {
+            if let week = Int(key), let value { out[week] = value }
+        }
+        return out
+    }
+
+    /// Every position's actual stat lines for one week — including DEF and IDP,
+    /// which the nflverse weekly file does not carry.
+    public func weekStats(
+        season: Int,
+        week: Int,
+        positions: [Position] = Position.allCases
+    ) async throws -> [SleeperWeekStat] {
+        try await getInsights(
+            "/stats/nfl/\(season)/\(week)?season_type=regular\(positionQuery(positions))&order_by=pts_std"
+        )
+    }
+
+    /// Recent news items for one player.
+    public func playerNews(playerID: String, limit: Int = 5) async throws -> [SleeperPlayerNews] {
+        try await getInsights("/players/nfl/\(escaped(playerID))/news?limit=\(limit)")
+    }
+
+    private func positionQuery(_ positions: [Position]) -> String {
+        // Percent-encoded brackets: `URL(string:)` rejects a literal `[` on some
+        // platforms, and Sleeper reads `position%5B%5D` identically.
+        positions.map { "&position%5B%5D=\($0.rawValue)" }.joined()
+    }
+
+    private func getInsights<Value: Decodable>(_ path: String) async throws -> Value {
+        let response = try await send(path: path, base: insightsBaseURL)
+        do {
+            return try JSONDecoder().decode(Value.self, from: response.body)
+        } catch {
+            throw DataLayerError.undecodable(path: path, underlying: String(describing: error))
+        }
+    }
+
     // MARK: - Plumbing
 
     private func escaped(_ component: String) -> String {
@@ -100,8 +168,8 @@ public struct SleeperClient: Sendable {
         }
     }
 
-    private func send(path: String) async throws -> HTTPResponse {
-        guard let url = URL(string: baseURL.absoluteString + path) else {
+    private func send(path: String, base: URL? = nil) async throws -> HTTPResponse {
+        guard let url = URL(string: (base ?? baseURL).absoluteString + path) else {
             throw DataLayerError.badURL(path)
         }
         var lastError: Error = DataLayerError.badURL(path)

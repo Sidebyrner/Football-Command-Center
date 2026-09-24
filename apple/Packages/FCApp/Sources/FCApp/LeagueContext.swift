@@ -52,8 +52,17 @@ public struct LeagueTeam: Hashable, Sendable, Identifiable {
     public let rawStarters: [String]
     /// Record and points, which Sleeper returns with the roster itself.
     public let settings: SleeperRoster.Settings?
+    /// Players parked in IR slots. They are in `roster` too; this says which.
+    public var reserveIDs: [String] = []
 
     public var id: Int { rosterID }
+
+    /// Rostered, not starting, not on IR — the players a claim would drop.
+    public var benchIDs: [String] {
+        let starting = Set(starterIDs)
+        let reserve = Set(reserveIDs)
+        return roster.map(\.id).filter { !starting.contains($0) && !reserve.contains($0) }
+    }
 }
 
 /// Everything the screens read from, assembled once.
@@ -110,6 +119,47 @@ public struct LeagueContext: Sendable {
     /// The weakest of the static nflverse files — schedule and recorded lines,
     /// weekly stats, crosswalk.
     public let staticProvenance: Provenance
+
+    /// Waiver system, FAAB, deadline, playoffs — read live, never assumed.
+    public var leagueFacts: LeagueFacts = .unknown
+    /// Projections, current-season Sleeper stats, practice reports, depth
+    /// charts, usage and team context. Every part optional; see `InSeasonData`.
+    public var inSeason: InSeasonData = .empty
+
+    /// What a starting position can be valued from in this context. DEF and
+    /// IDP have no nflverse rows, but once Sleeper's own weekly lines are in
+    /// hand they are covered — by a different, labelled source (§3.2).
+    public func coverage(of position: Position) -> PositionCoverage {
+        if position.hasWeeklyProductionData { return .nflverseWeekly }
+        let anyLine = inSeason.weekStats.values.contains { lines in
+            lines.values.contains { $0.position == position }
+        }
+        return anyLine ? .sleeperStats : .none
+    }
+
+    /// The official practice report for a rostered player this week, joined
+    /// back through the crosswalk. `nil` when he is not on the report.
+    public func practiceReport(sleeperID: String) -> PracticeReport? {
+        guard let gsis = gsisIDsBySleeper[sleeperID] else { return nil }
+        return inSeason.practiceReports[gsis]
+    }
+
+    /// Reverse of `sleeperIDsByGSIS`, built lazily-once per context.
+    public var gsisIDsBySleeper: [String: String] {
+        Dictionary(sleeperIDsByGSIS.map { ($0.value, $0.key) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    /// Rotowire's projected points for a player this week under this league's
+    /// scoring; `nil` when there is no projection, never zero.
+    public func projectedPoints(_ sleeperID: String) -> Double? {
+        inSeason.projectedPoints(sleeperID: sleeperID, scoring: league.scoringSettings ?? [:])
+    }
+
+    /// Points per game this season from Sleeper's own stat lines, under this
+    /// league's scoring. The production number DEF and IDP otherwise lack.
+    public func sleeperPointsPerGame(_ sleeperID: String) -> Double? {
+        inSeason.sleeperPointsPerGame(sleeperID: sleeperID, scoring: league.scoringSettings ?? [:])
+    }
 
     /// A player's display name, or `nil` when the pool has never heard of them.
     public func playerName(_ id: String) -> String? {

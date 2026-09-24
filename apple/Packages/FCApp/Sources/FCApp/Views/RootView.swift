@@ -11,6 +11,11 @@ public struct RootView: View {
     /// The only model the shell itself reads — whether setup is complete, and the
     /// accent colour — so it is the only one the shell observes.
     @StateObject private var settingsModel: SettingsModel
+    #if os(iOS)
+    /// Feeds `ShellLayout.resolve` — an iPad in Slide Over or a narrow Split
+    /// View reports compact here, and must fall back to the phone shell.
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
 
     // The screen models are *held* here but deliberately not observed. They were
     // @StateObject, which re-rendered the whole tab view every time any screen
@@ -22,7 +27,13 @@ public struct RootView: View {
     @State private var dashboardModel: DashboardModel
     @State private var matchupModel: MatchupModel
     @State private var sitStartModel: SitStartModel
+    @State private var injuryModel: InjuryCenterModel
+    @State private var waiverModel: WaiverBoardModel
+    @State private var idpStreamModel: IDPStreamScreenModel
     @State private var selection: Screen = .dashboard
+    /// The Player Card on screen, opened from any row's context menu.
+    @State private var playerCard: PlayerCardModel?
+    private let sleeper: SleeperService
     @State private var hasLoaded = false
 
     private let settingsStore: AppSettingsStore
@@ -38,6 +49,7 @@ public struct RootView: View {
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.settingsStore = settingsStore
+        self.sleeper = sleeper
         _selection = State(initialValue: initialScreen)
         _settingsModel = StateObject(
             wrappedValue: SettingsModel(sleeper: sleeper, store: settingsStore)
@@ -55,6 +67,9 @@ public struct RootView: View {
         )
         _matchupModel = State(initialValue: MatchupModel(loader: loader, sleeper: sleeper))
         _sitStartModel = State(initialValue: SitStartModel(loader: loader))
+        _injuryModel = State(initialValue: InjuryCenterModel(loader: loader, sleeper: sleeper))
+        _waiverModel = State(initialValue: WaiverBoardModel(loader: loader, sleeper: sleeper))
+        _idpStreamModel = State(initialValue: IDPStreamScreenModel(loader: loader))
     }
 
     /// The four screens of the first release (§7), plus Settings.
@@ -71,7 +86,10 @@ public struct RootView: View {
         }
 
         case dashboard = "My Team"
+        case injuries = "Injuries"
         case planning = "Planning"
+        case waivers = "Waivers"
+        case idpStream = "IDP Stream"
         case matchup = "Matchup"
         case sitStart = "Sit/Start"
         case settings = "Settings"
@@ -82,21 +100,41 @@ public struct RootView: View {
             switch self {
             case .planning: return "calendar.badge.exclamationmark"
             case .dashboard: return "person.crop.square"
+            case .injuries: return "cross.case"
+            case .waivers: return "tray.and.arrow.down"
+            case .idpStream: return "shield.lefthalf.filled"
             case .matchup: return "person.2"
             case .sitStart: return "arrow.left.arrow.right"
             case .settings: return "gearshape"
             }
         }
 
+        /// Which sidebar group this screen sits under on desktop.
+        var section: SidebarSection {
+            switch self {
+            case .dashboard, .sitStart, .injuries: return .team
+            case .matchup: return .week
+            case .planning, .waivers, .idpStream: return .market
+            case .settings: return .settings
+            }
+        }
+
+        /// Every screen except Settings, which becomes a `Settings` scene on
+        /// macOS rather than a sidebar row — not yet built, so it stays here
+        /// for now and is filtered only where noted.
+        static var sidebarCases: [Screen] { allCases }
     }
 
     public var body: some View {
         Group {
             #if os(iOS)
-            if UIDevice.current.userInterfaceIdiom == .phone {
-                phoneLayout
-            } else {
-                splitLayout
+            let layout = ShellLayout.resolve(
+                isPhone: UIDevice.current.userInterfaceIdiom == .phone,
+                horizontalSizeClass: horizontalSizeClass == .compact ? .compact : .regular
+            )
+            switch layout {
+            case .tabs: phoneLayout
+            case .split: splitLayout
             }
             #else
             splitLayout
@@ -106,6 +144,23 @@ public struct RootView: View {
         .environment(\.openScreen, OpenScreenAction { screen in
             selection = screen
         })
+        .environment(\.openPlayerCard, OpenPlayerCardAction { id, context in
+            let store = settingsStore
+            playerCard = PlayerCardModel(
+                playerID: id,
+                context: context,
+                sleeper: sleeper,
+                weights: store.load().gradeWeights,
+                onWeightsChange: { weights in
+                    var settings = store.load()
+                    settings.gradeWeights = weights
+                    store.save(settings)
+                }
+            )
+        })
+        .sheet(item: $playerCard) { model in
+            PlayerCardSheet(model: model)
+        }
         .task { await loadIfConfigured() }
         .onChange(of: settingsModel.settings.relayBaseURL) { _, url in
             dashboardModel.setRelay(baseURL: url)
@@ -142,17 +197,35 @@ public struct RootView: View {
 
     private var splitLayout: some View {
         NavigationSplitView {
-            List(Screen.allCases, selection: sidebarSelection) { screen in
-                NavigationLink(value: screen) {
-                    Label(screen.rawValue, systemImage: screen.systemImage)
+            List(selection: sidebarSelection) {
+                ForEach(SidebarSection.allCases) { section in
+                    let screens = Screen.sidebarCases.filter { $0.section == section }
+                    if !screens.isEmpty {
+                        Section(section.rawValue) {
+                            ForEach(screens) { screen in
+                                NavigationLink(value: screen) {
+                                    Label(screen.rawValue, systemImage: screen.systemImage)
+                                }
+                            }
+                        }
+                    }
                 }
             }
             .navigationTitle("Command Center")
+            #if os(macOS)
+            .navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 260)
+            #endif
         } detail: {
             NavigationStack {
                 view(for: selection)
             }
+            #if os(macOS)
+            .frame(minWidth: 620)
+            #endif
         }
+        #if os(macOS)
+        .frame(minWidth: 900, minHeight: 600)
+        #endif
     }
 
     @ViewBuilder
@@ -190,6 +263,24 @@ public struct RootView: View {
             } else {
                 needsSetup
             }
+        case .injuries:
+            if settingsModel.settings.isConfigured {
+                InjuryCenterView(model: injuryModel)
+            } else {
+                needsSetup
+            }
+        case .waivers:
+            if settingsModel.settings.isConfigured {
+                WaiverBoardView(model: waiverModel)
+            } else {
+                needsSetup
+            }
+        case .idpStream:
+            if settingsModel.settings.isConfigured {
+                IDPStreamView(model: idpStreamModel)
+            } else {
+                needsSetup
+            }
         }
     }
 
@@ -215,6 +306,9 @@ public struct RootView: View {
         async let matchup: Void = matchupModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let sitStart: Void = sitStartModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let planning: Void = planningModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
-        _ = await (dashboard, matchup, sitStart, planning)
+        async let injuries: Void = injuryModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
+        async let waivers: Void = waiverModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
+        async let idpStream: Void = idpStreamModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
+        _ = await (dashboard, matchup, sitStart, planning, injuries, waivers, idpStream)
     }
 }

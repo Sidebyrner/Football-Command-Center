@@ -18,6 +18,16 @@ public struct IndexedPlayer: Codable, Hashable, Sendable {
     /// Sleeper's own active flag. Filtering on it is not optional — forgetting
     /// it silently fills the pool with retired players (§3.1).
     public let active: Bool
+    /// "Knee", "Hamstring" — Sleeper's body-part tag, when it has one.
+    public let injuryBodyPart: String?
+    public let injuryNotes: String?
+    /// One-based depth at his position on Sleeper's chart; `nil` when unlisted.
+    public let depthChartOrder: Int?
+    /// When Sleeper last attached news to this player.
+    public let newsUpdated: Date?
+    /// Sleeper's depth-chart alignment — `SS`, `FS`, `NB`, `LDE`, `NT`,
+    /// `WLB`. Finer than `positionCode`, which is often just `DB` or `DL`.
+    public let depthChartPosition: String?
 
     public init(
         id: String,
@@ -25,7 +35,12 @@ public struct IndexedPlayer: Codable, Hashable, Sendable {
         positionCode: String?,
         team: String?,
         injuryStatus: String?,
-        active: Bool
+        active: Bool,
+        injuryBodyPart: String? = nil,
+        injuryNotes: String? = nil,
+        depthChartOrder: Int? = nil,
+        newsUpdated: Date? = nil,
+        depthChartPosition: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -33,6 +48,27 @@ public struct IndexedPlayer: Codable, Hashable, Sendable {
         self.team = team
         self.injuryStatus = injuryStatus
         self.active = active
+        self.injuryBodyPart = injuryBodyPart
+        self.injuryNotes = injuryNotes
+        self.depthChartOrder = depthChartOrder
+        self.newsUpdated = newsUpdated
+        self.depthChartPosition = depthChartPosition
+    }
+
+    /// An index cached before these fields existed decodes with them absent.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        positionCode = try container.decodeIfPresent(String.self, forKey: .positionCode)
+        team = try container.decodeIfPresent(String.self, forKey: .team)
+        injuryStatus = try container.decodeIfPresent(String.self, forKey: .injuryStatus)
+        active = try container.decode(Bool.self, forKey: .active)
+        injuryBodyPart = try container.decodeIfPresent(String.self, forKey: .injuryBodyPart)
+        injuryNotes = try container.decodeIfPresent(String.self, forKey: .injuryNotes)
+        depthChartOrder = try container.decodeIfPresent(Int.self, forKey: .depthChartOrder)
+        newsUpdated = try container.decodeIfPresent(Date.self, forKey: .newsUpdated)
+        depthChartPosition = try container.decodeIfPresent(String.self, forKey: .depthChartPosition)
     }
 
     public var position: Position? { Position(sleeper: positionCode) }
@@ -118,7 +154,12 @@ public struct PlayerIndex: Codable, Hashable, Sendable {
                 injuryStatus: player.injuryStatus,
                 // Sleeper omits `active` on some records; absent is treated as
                 // inactive so an unknown player never silently joins the pool.
-                active: player.active ?? false
+                active: player.active ?? false,
+                injuryBodyPart: player.injuryBodyPart,
+                injuryNotes: player.injuryNotes,
+                depthChartOrder: player.depthChartOrder,
+                newsUpdated: player.newsUpdated.map { Date(timeIntervalSince1970: $0 / 1_000) },
+                depthChartPosition: player.depthChartPosition
             )
         }
         return PlayerIndex(players: trimmed, builtAt: now)
@@ -134,6 +175,11 @@ struct RawSleeperPlayer: Decodable {
     let team: String?
     let injuryStatus: String?
     let active: Bool?
+    let injuryBodyPart: String?
+    let injuryNotes: String?
+    let depthChartOrder: Int?
+    let newsUpdated: Double?
+    let depthChartPosition: String?
 
     enum CodingKeys: String, CodingKey {
         case fullName = "full_name"
@@ -141,6 +187,11 @@ struct RawSleeperPlayer: Decodable {
         case lastName = "last_name"
         case position, team, active
         case injuryStatus = "injury_status"
+        case injuryBodyPart = "injury_body_part"
+        case injuryNotes = "injury_notes"
+        case depthChartOrder = "depth_chart_order"
+        case newsUpdated = "news_updated"
+        case depthChartPosition = "depth_chart_position"
     }
 
     /// Team defenses have no `full_name` and often no first/last name either —

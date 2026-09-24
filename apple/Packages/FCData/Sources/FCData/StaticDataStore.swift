@@ -59,6 +59,37 @@ public struct StaticResource: Hashable, Sendable {
     public static let cohorts = StaticResource(
         bundledName: "cohorts", remotePath: "cohorts.json", identifier: "cohorts"
     )
+
+    // The in-season files (docs/IN_SEASON_DATA.md). All change during the
+    // week, so they share the in-season TTL.
+
+    public static func injuries(season: Int) -> StaticResource {
+        StaticResource(
+            bundledName: "injuries-\(season)", remotePath: "injuries-\(season).json",
+            identifier: "injuries-\(season)", ttl: inSeasonTTL
+        )
+    }
+
+    public static func depthCharts(season: Int) -> StaticResource {
+        StaticResource(
+            bundledName: "depth-\(season)", remotePath: "depth-\(season).json",
+            identifier: "depth-\(season)", ttl: inSeasonTTL
+        )
+    }
+
+    public static func usage(season: Int) -> StaticResource {
+        StaticResource(
+            bundledName: "usage-\(season)", remotePath: "usage-\(season).json",
+            identifier: "usage-\(season)", ttl: inSeasonTTL
+        )
+    }
+
+    public static func teamContext(season: Int) -> StaticResource {
+        StaticResource(
+            bundledName: "context-\(season)", remotePath: "context-\(season).json",
+            identifier: "context-\(season)", ttl: inSeasonTTL
+        )
+    }
 }
 
 /// Loads the static nflverse files: bundled copy at build time, refreshed over
@@ -234,6 +265,24 @@ public actor StaticDataStore {
     /// stats season, which early in a year is usually *last* year's.
     public func weeklyManifest(force: Bool = false) async throws -> Fetched<WeeklyManifest> {
         try await load(WeeklyManifest.self, resource: .weeklyIndex, force: force)
+    }
+
+    // MARK: In-season files
+
+    public func injuries(season: Int, force: Bool = false) async throws -> Fetched<InjuryReportFile> {
+        try await load(InjuryReportFile.self, resource: .injuries(season: season), force: force)
+    }
+
+    public func depthCharts(season: Int, force: Bool = false) async throws -> Fetched<DepthChartFile> {
+        try await load(DepthChartFile.self, resource: .depthCharts(season: season), force: force)
+    }
+
+    public func usage(season: Int, force: Bool = false) async throws -> Fetched<UsageFile> {
+        try await load(UsageFile.self, resource: .usage(season: season), force: force)
+    }
+
+    public func teamContext(season: Int, force: Bool = false) async throws -> Fetched<TeamContextFile> {
+        try await load(TeamContextFile.self, resource: .teamContext(season: season), force: force)
     }
 
     public func playerCrosswalk(force: Bool = false) async throws -> Fetched<PlayerIDCrosswalk> {

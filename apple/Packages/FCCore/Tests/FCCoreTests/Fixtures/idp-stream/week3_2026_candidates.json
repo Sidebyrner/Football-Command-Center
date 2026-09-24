@@ -1,0 +1,361 @@
+{
+  "meta": {
+    "title": "Week 3 (Sept 24–28, 2026) IDP Stream Report — Connor's 8-team Sleeper league",
+    "as_of": "2026-09-24 12:30 ET (Wednesday practice reports; Covers lines updated 9/23 13:27 ET)",
+    "week": 3,
+    "season": 2026,
+    "notes": [
+      "All stats are through Week 2 (two games played). 'stat_snaps' = snaps over which the listed stats were recorded; partial when a game's split was not reported.",
+      "spread_def is from the DEFENDER's team perspective (+ = his team is the underdog).",
+      "dvp_pct = FFToday position matchup grid unless noted (season basis unstated → heavily shrunk, capped ±12%).",
+      "roster_pct = Yahoo % from FantasyPros (9/15 or 9/22). Sleeper % not found — verify in-league.",
+      "Team plays faced computed from NFL.com defense tables (rush att + pass att + sacks), 2 games."
+    ]
+  },
+  "scoring": { "solo": 2, "ast": 1, "sack": 5, "tfl": 2, "pd": 0, "int": 0, "ff": 0, "fr": 0, "td": 0 },
+  "candidates": [
+    {
+      "name": "Cedric Gray", "team": "TEN", "pos": "LB", "opp": "@NYG", "home": false,
+      "spread_def": 2.5, "total": 40.5, "team_def_plays": 135, "team_games": 2,
+      "snap_share_last1": 0.44, "snap_share_last3": 0.44, "role_conf": 0.4,
+      "stat_snaps": 30, "comb": 4, "sacks": 0, "tfl": 0,
+      "dvp_pct": -26.7, "dvp_games": 2, "practice": "none", "roster_pct": null, "available": false,
+      "notes": "INCUMBENT. Returned Wk2 from concussion (UTV rollover); 30 of ~68 snaps behind Anthony Hill Jr. (100%, MIKE) and Cody Barton (59). Not on Wed injury report. Role is the open question — 2025 he had 164 tackles.",
+      "sources": ["https://sports.yahoo.com/articles/blessed-still-alive-cedric-gray-191322951.html", "https://www.cbssports.com/nfl/players/3162391/cedric-gray/", "https://www.tennesseetitans.com/news/week-3-injury-report-titans-at-giants"],
+      "data_flags": ["solo/assist split not reported"]
+    },
+
+    {
+      "name": "Anthony Hill Jr.", "team": "TEN", "pos": "LB", "opp": "@NYG", "home": false,
+      "spread_def": 2.5, "total": 40.5, "team_def_plays": 135, "team_games": 2,
+      "snap_share_last1": 1.0, "snap_share_last3": 1.0, "role_conf": 0.9,
+      "stat_snaps": 143, "solo": 16, "ast": 10, "sacks": 0, "tfl": 0, "pd": 2,
+      "dvp_pct": -26.7, "dvp_games": 2, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "Rookie MIKE, green dot, 100% snaps. NFL tackle leader (26). Saleh confirmed he's the starter. Likely already rostered even in an 8-teamer — check.",
+      "sources": ["https://www.cbssports.com/nfl/stats/", "https://mikewoellert.substack.com/p/2026-week-2-green-dot-and-full-time-linebackers", "https://sports.yahoo.com/articles/titans-plans-anthony-hill-jr-120042027.html"],
+      "data_flags": ["solo/ast split inferred from reported 1.5 solo:ast ratio", "TFL not reported"]
+    },
+    {
+      "name": "Akeem Davis-Gaither", "team": "IND", "pos": "LB", "opp": "vs HOU", "home": true,
+      "spread_def": 2.5, "total": 42.5, "team_def_plays": 142, "team_games": 2,
+      "snap_share_last1": 0.94, "snap_share_last3": 0.94, "role_conf": 0.85,
+      "stat_snaps": 133, "solo": 12, "ast": 10, "sacks": 0, "tfl": 1,
+      "dvp_pct": 0, "dvp_games": 0, "practice": "none", "roster_pct": 0.03, "available": null,
+      "notes": "Green dot, 94% snaps, 4th in NFL tackles. Colts defense faces 71 plays/gm (2nd-most) and is bad (worst EPA/play) → long fields, lots of tackles. Slight underdog at home.",
+      "sources": ["https://ftnfantasy.com/nfl/idp-waiver-wire-claims-to-make-for-fantasy-football-week-3", "https://www.fantasypros.com/2026/09/fantasy-football-idp-waiver-wire-pickups-week-3-2026/"],
+      "data_flags": []
+    },
+    {
+      "name": "Christian Elliss", "team": "NE", "pos": "LB", "opp": "@JAX", "home": false,
+      "spread_def": 2.5, "total": 44.5, "team_def_plays": 115, "team_games": 2,
+      "snap_share_last1": 0.99, "snap_share_last3": 0.99, "role_conf": 0.85,
+      "stat_snaps": 114, "solo": 10, "ast": 6, "sacks": 1, "tfl": 1, "ff": 1,
+      "dvp_pct": -28.2, "dvp_games": 2, "practice": "none", "roster_pct": 0.01, "available": null,
+      "notes": "Every-down next to Spillane; Wk2 7 solo/5 ast + sack + TFL + FF. Patriots defense faces only 57.5 plays/gm (good defense, fewer chances). Tough LB matchup per grid.",
+      "sources": ["https://www.fantasypros.com/2026/09/fantasy-football-idp-waiver-wire-pickups-week-3-2026/", "https://mikewoellert.substack.com/p/week-3-2026-idp-waiver-wire-targets"],
+      "data_flags": ["Wk1 4 tackles split not reported (assumed 3/1)"]
+    },
+    {
+      "name": "Jacob Rodriguez", "team": "MIA", "pos": "LB", "opp": "vs KC", "home": true,
+      "spread_def": 10.5, "total": 46.5, "team_def_plays": 116, "team_games": 2,
+      "snap_share_last1": 1.0, "snap_share_last3": 0.95, "role_conf": 0.8,
+      "stat_snaps": 110, "solo": 11, "ast": 11, "sacks": 0, "tfl": 0,
+      "dvp_pct": 25, "dvp_games": 2, "practice": "none", "roster_pct": 0.06, "available": null,
+      "notes": "Rookie green-dot LB, 22 tackles in 2 games, outsnapping Jordyn Brooks. 10.5-pt home dog vs KC = max defensive volume; KC offense allows 2nd-most tackles to LBs (F6P).",
+      "sources": ["https://fantasysixpack.net/2026-idp-football-start-sit-week-3/", "https://www.fantasypros.com/2026/09/fantasy-football-idp-waiver-wire-pickups-week-2-2026/"],
+      "data_flags": ["Wk2 solo/ast split not reported (8 comb)", "dvp from article ('2nd-most to LBs'), not grid"]
+    },
+    {
+      "name": "Payton Wilson", "team": "PIT", "pos": "LB", "opp": "vs CIN", "home": true,
+      "spread_def": 3.5, "total": 42.5, "team_def_plays": 110, "team_games": 2,
+      "snap_share_last1": 0.87, "snap_share_last3": 0.87, "role_conf": 0.85,
+      "stat_snaps": 96, "solo": 8, "ast": 11, "sacks": 0, "tfl": 3,
+      "dvp_pct": 23.6, "dvp_games": 2, "practice": "none", "roster_pct": 0.07, "available": null,
+      "notes": "87% snaps, 3 TFL already (TFL = 2 pts here). Cole Holcomb DNP Wed (personal) → could push Wilson toward 100%. Good LB matchup per grid. Low solo share hurts in 2/1 scoring.",
+      "sources": ["https://ftnfantasy.com/nfl/idp-waiver-wire-claims-to-make-for-fantasy-football-week-3", "https://www.sharpfootballanalysis.com/betting/nfl-injury-report-this-week-all-32-teams/"],
+      "data_flags": []
+    },
+    {
+      "name": "Derrick Barnes", "team": "DET", "pos": "LB", "opp": "vs NYJ", "home": true,
+      "spread_def": -6.5, "total": 47.5, "team_def_plays": 155, "team_games": 2,
+      "snap_share_last1": 1.0, "snap_share_last3": 0.93, "role_conf": 0.85,
+      "stat_snaps": 144, "solo": 7, "ast": 4, "sacks": 2, "tfl": 2, "int": 1, "pd": 2,
+      "dvp_pct": 0, "dvp_games": 0, "practice": "none", "roster_pct": 0.03, "available": null,
+      "notes": "Hybrid LB/edge (38 edge snaps Wk2). Sack in each game — at 5 pts/sack he's a different asset in this league than in tackle-only formats. DET defense faces 77.5 plays/gm (most in NFL). Jets offense funnels tackles to edges.",
+      "sources": ["https://sports.yahoo.com/articles/lions-week-2-snap-counts-141400657.html", "https://mikewoellert.substack.com/p/week-2-idp-review-looking-back-at-key-data"],
+      "data_flags": []
+    },
+    {
+      "name": "Pete Werner", "team": "NO", "pos": "LB", "opp": "vs LV", "home": true,
+      "spread_def": -3.5, "total": 43.5, "team_def_plays": 129, "team_games": 2,
+      "snap_share_last1": 0.93, "snap_share_last3": 0.80, "role_conf": 0.65,
+      "stat_snaps": 54, "solo": 8, "ast": 3, "sacks": 1, "tfl": 1,
+      "dvp_pct": -18.1, "dvp_games": 2, "practice": "none", "roster_pct": 0.01, "available": null,
+      "notes": "Moved to full-time Wk2 (54/58) with 8 solo + sack + TFL. Rotation with rookie Danny Stutsman is the risk. Source conflict on Wk2 snaps (FP 53% vs Saints beat/Woellert 93%) — resolved to 93%.",
+      "sources": ["https://sports.yahoo.com/articles/snap-counts-saints-week-2-062007275.html", "https://ftnfantasy.com/nfl/idp-waiver-wire-claims-to-make-for-fantasy-football-week-3"],
+      "data_flags": ["Wk2 stats only (Wk1 split not reported)", "snap source conflict"]
+    },
+    {
+      "name": "Dee Winters", "team": "DAL", "pos": "LB", "opp": "vs BAL (Rio)", "home": null,
+      "spread_def": 3.5, "total": 52.5, "team_def_plays": 135, "team_games": 2,
+      "snap_share_last1": 0.75, "snap_share_last3": 0.75, "role_conf": 0.6,
+      "stat_snaps": 53, "solo": 7, "ast": 2, "sacks": 0, "tfl": 1,
+      "dvp_pct": -19.5, "dvp_games": 2, "practice": "none", "roster_pct": 0.04, "available": null,
+      "notes": "75% Wk2 with Overshown (hamstring, DNP Wed) out; rookie Jaishawn Barham has the green dot. Highest total of the week (52.5). Brief shoulder issue Wk2.",
+      "sources": ["https://sports.yahoo.com/articles/snap-counts-cowboys-rookie-maxes-022847610.html", "https://www.fantasypros.com/2026/09/fantasy-football-idp-waiver-wire-pickups-week-3-2026/"],
+      "data_flags": ["Wk2 stats only"]
+    },
+    {
+      "name": "Jaishawn Barham", "team": "DAL", "pos": "LB", "opp": "vs BAL (Rio)", "home": null,
+      "spread_def": 3.5, "total": 52.5, "team_def_plays": 135, "team_games": 2,
+      "snap_share_last1": 0.63, "snap_share_last3": 0.56, "role_conf": 0.55,
+      "stat_snaps": 45, "solo": 3, "ast": 1, "sacks": 0, "tfl": 1,
+      "dvp_pct": -19.5, "dvp_games": 2, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "Rookie with the green dot after Overshown's injury, but only 63% snaps in a 3-man rotation with Winters/Shemar James. Watch, not start.",
+      "sources": ["https://sports.yahoo.com/articles/snap-counts-cowboys-rookie-maxes-022847610.html"],
+      "data_flags": ["Wk2 stats only"]
+    },
+    {
+      "name": "Drake Thomas", "team": "SEA", "pos": "LB", "opp": "@WAS", "home": false,
+      "spread_def": -7.5, "total": 40.5, "team_def_plays": 114, "team_games": 2,
+      "snap_share_last1": 1.0, "snap_share_last3": 1.0, "role_conf": 0.8,
+      "stat_snaps": 57, "solo": 3, "ast": 5, "sacks": 1, "tfl": 1,
+      "dvp_pct": 32.2, "dvp_games": 2, "practice": "none", "roster_pct": 0.03, "available": null,
+      "notes": "Three-down LB (96 tackles on 68% in 2025). Ernest Jones (neck) LP Wed — if Jones sits, Thomas is the only every-down LB. Best LB grid matchup of the slate but SEA is a 7.5-pt favorite in a 40.5 total (fewer plays).",
+      "sources": ["https://www.dynastynerds.com/idp/week-2-idp-start-sit-2026/", "https://www.sharpfootballanalysis.com/betting/nfl-injury-report-this-week-all-32-teams/"],
+      "data_flags": ["Wk1 stats only"]
+    },
+    {
+      "name": "Leo Chenal", "team": "WAS", "pos": "LB", "opp": "vs SEA", "home": true,
+      "spread_def": 7.5, "total": 40.5, "team_def_plays": 107, "team_games": 2,
+      "snap_share_est": 0.8, "role_conf": 0.55,
+      "stat_snaps": 44, "comb": 12, "sacks": 0, "tfl": 0,
+      "dvp_pct": 0, "dvp_games": 0, "practice": "LP", "roster_pct": null, "available": null,
+      "notes": "12 tackles Wk2 filling in for Frankie Luvu (groin, DNP Wed again). Chest injury, limited Wed — 'should be available'. 27% tackle rate won't hold; role evaporates when Luvu returns.",
+      "sources": ["https://www.rotowire.com/football/headlines/leo-chenal-injury-limited-in-practice-wednesday-638940", "https://mikewoellert.substack.com/p/week-2-idp-review-looking-back-at-key-data"],
+      "data_flags": ["snap count not published — estimated from 27.3% tackle rate on 12 tackles"]
+    },
+    {
+      "name": "Carson Schwesinger", "team": "CLE", "pos": "LB", "opp": "vs CAR", "home": true,
+      "spread_def": 2.5, "total": 42.5, "team_def_plays": 118, "team_games": 2,
+      "snap_share_last1": 1.0, "snap_share_last3": 1.0, "role_conf": 0.9,
+      "stat_snaps": 0,
+      "dvp_pct": -54.0, "dvp_games": 2, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "Green dot, 100% snaps, JOK out for the year. Tackle stats not found in sources → projection is prior-only. Panthers offense is the worst LB matchup on the grid. Almost certainly rostered.",
+      "sources": ["https://www.lineups.com/nfl/snap-counts/defensive-players-snap-counts/", "https://www.espn.com/nfl/story/_/id/48712022/browns-owusu-koramoah-neck-miss-second-straight-season"],
+      "data_flags": ["no tackle stats found — prior only"]
+    },
+
+    {
+      "name": "Greg Rousseau", "team": "BUF", "pos": "EDGE", "opp": "vs LAC", "home": true,
+      "spread_def": -7.5, "total": 50.5, "team_def_plays": 135, "team_games": 2,
+      "snap_share_last1": 0.78, "snap_share_last3": 0.78, "role_conf": 0.9,
+      "stat_snaps": 105, "solo": 4, "ast": 1, "sacks": 4, "tfl": 2, "ff": 3, "pressures": 16,
+      "dvp_pct": 0, "dvp_games": 0, "opp_sack_env": 1.3, "practice": "none", "roster_pct": 0.02, "available": null,
+      "notes": "NFL sack leader (4.0), 16 pressures, 30.6% pass-rush win rate (PFF #4). Herbert pressured on 45.5% of dropbacks; LAC OL missing Awosika/Pipkins. 2% Yahoo rostership is stale — he'll be gone in most leagues; check yours.",
+      "sources": ["https://www.pff.com/news/nfl-edge-defender-rankings-highest-graded-players-through-week-2", "https://www.4for4.com/2026/w3/nfl-offensive-line-rankings-week-3-matchups-exploit", "https://www.cbssports.com/nfl/stats/"],
+      "data_flags": ["Wk2 tackles not reported (Wk1 4 solo only)", "Wk2 snap share not reported (Wk1 80% used)"]
+    },
+    {
+      "name": "Lukas Van Ness", "team": "GB", "pos": "EDGE", "opp": "vs ATL (TNF)", "home": true,
+      "spread_def": -6.5, "total": 45.5, "team_def_plays": 133, "team_games": 2,
+      "snap_share_last1": 0.70, "snap_share_last3": 0.65, "role_conf": 0.8,
+      "stat_snaps": 47, "solo": 7, "ast": 3, "sacks": 1.5, "tfl": 3, "pressures": 6,
+      "dvp_pct": 45.9, "dvp_games": 2, "opp_sack_env": 1.0, "practice": "none", "roster_pct": 0.01, "available": null,
+      "notes": "TONIGHT (TNF). Wk2: 10 tackles, 3 TFL, 1.5 sacks, 6 pressures filling the Parsons void (Parsons PUP, eligible Wk5). Falcons offense is the best DL matchup on the grid. Waiver must clear before 8:15 ET.",
+      "sources": ["https://ftnfantasy.com/nfl/idp-waiver-wire-claims-to-make-for-fantasy-football-week-3", "https://www.fantasypros.com/2026/09/fantasy-football-idp-waiver-wire-pickups-week-3-2026/"],
+      "data_flags": ["Wk2 stats only (Wk1: 1 sack, tackles not reported)"]
+    },
+    {
+      "name": "David Bailey", "team": "NYJ", "pos": "EDGE", "opp": "@DET", "home": false,
+      "spread_def": 6.5, "total": 47.5, "team_def_plays": 99, "team_games": 2,
+      "snap_share_last1": 0.55, "snap_share_last3": 0.62, "role_conf": 0.65,
+      "stat_snaps": 62, "solo": 2, "ast": 1, "sacks": 2, "tfl": 1, "ff": 1, "pressures": 11,
+      "dvp_pct": 21.2, "dvp_games": 2, "opp_sack_env": 0.85, "practice": "FP", "roster_pct": 0.05, "available": null,
+      "notes": "Sack in each game, 5+ pressures each week, but snaps fell 70%→55% and Lions OL is top-10 in pass protection. Elbow (full practice). Jets defense faces the fewest plays in the NFL (49.5/gm).",
+      "sources": ["https://www.fantasypros.com/2026/09/fantasy-football-idp-waiver-wire-pickups-week-3-2026/", "https://www.4for4.com/2026/w3/nfl-offensive-line-rankings-week-3-matchups-exploit"],
+      "data_flags": ["Wk1 tackles not reported"]
+    },
+    {
+      "name": "Gabe Jacas", "team": "NE", "pos": "EDGE", "opp": "@JAX", "home": false,
+      "spread_def": 2.5, "total": 44.5, "team_def_plays": 115, "team_games": 2,
+      "snap_share_last1": 0.70, "snap_share_last3": 0.54, "role_conf": 0.6,
+      "stat_snaps": 63, "comb": 6, "sacks": 1, "tfl": 0, "int": 1,
+      "dvp_pct": -20.6, "dvp_games": 2, "opp_sack_env": 1.25, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "Rookie edge, snaps jumped 38%→70% with Harold Landry out. Jaguars have the worst pass-block grade in the NFL (PFN). Thin sample.",
+      "sources": ["https://www.dynastynerds.com/idp/week-3-idp-waiver-wire-2026/", "https://www.profootballnetwork.com/nfl-offensive-line-rankings-2026-week-2/"],
+      "data_flags": ["solo/ast split not reported"]
+    },
+    {
+      "name": "Mason Graham", "team": "CLE", "pos": "IDL", "opp": "vs CAR", "home": true,
+      "spread_def": 2.5, "total": 42.5, "team_def_plays": 118, "team_games": 2,
+      "snap_share_est": 0.65, "role_conf": 0.6,
+      "stat_snaps": 77, "solo": 4, "ast": 4, "sacks": 2, "tfl": 3, "pressures": 4,
+      "dvp_pct": 0, "dvp_games": 0, "opp_sack_env": 1.15, "practice": "LP", "roster_pct": 0.03, "available": null,
+      "notes": "Back-to-back sacks, 3 TFL. Bryce Young pressured on 42.5% of dropbacks. Groin — limited Wed. Snap count not published; 65% is an estimate.",
+      "sources": ["https://ftnfantasy.com/nfl/idp-waiver-wire-claims-to-make-for-fantasy-football-week-3", "https://www.pff.com/news/nfl-quarterback-pressure-rates-week-2"],
+      "data_flags": ["snap share estimated (IDL starter typical)"]
+    },
+    {
+      "name": "Boye Mafe", "team": "CIN", "pos": "EDGE", "opp": "@PIT", "home": false,
+      "spread_def": -3.5, "total": 42.5, "team_def_plays": 130, "team_games": 2,
+      "snap_share_last1": 0.72, "snap_share_last3": 0.72, "role_conf": 0.8,
+      "stat_snaps": 94, "sacks": 1, "tfl": 0, "pressures": 12,
+      "dvp_pct": 50.9, "dvp_games": 2, "opp_sack_env": 1.0, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "12 pressures (7 in Wk2), 18.8% win rate (PFF #9) but only 1 sack — pressure says the sacks are coming. Tackle totals not found (prior-only). Steelers offense is a generous LB/DL matchup per grid.",
+      "sources": ["https://www.pff.com/news/nfl-edge-defender-rankings-highest-graded-players-through-week-2", "https://www.4for4.com/2026/w3/idp-waiver-wire-week-3-top-pickups-adds"],
+      "data_flags": ["no tackle stats found — prior only", "dvp is the LB grid value (DL grid not listed for CIN)"]
+    },
+    {
+      "name": "Leonard Williams", "team": "SEA", "pos": "IDL", "opp": "@WAS", "home": false,
+      "spread_def": -7.5, "total": 40.5, "team_def_plays": 114, "team_games": 2,
+      "snap_share_est": 0.75, "role_conf": 0.8,
+      "stat_snaps": 86, "solo": 7, "ast": 3, "sacks": 2, "tfl": 3, "pressures": 5,
+      "dvp_pct": -28.1, "dvp_games": 2, "opp_sack_env": 1.10, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "10 tackles (7 solo), 3 TFL, 2 sacks. Commanders OL ranked 25th (37.5% pressure allowed). Low-total game as a big favorite caps volume. Likely rostered.",
+      "sources": ["https://ftnfantasy.com/nfl/idp-waiver-wire-claims-to-make-for-fantasy-football-week-3", "https://www.4for4.com/2026/w3/nfl-offensive-line-rankings-week-3-matchups-exploit"],
+      "data_flags": ["snap share estimated"]
+    },
+    {
+      "name": "Za'Darius Smith", "team": "ATL", "pos": "EDGE", "opp": "@GB (TNF)", "home": false,
+      "spread_def": 6.5, "total": 45.5, "team_def_plays": 124, "team_games": 2,
+      "snap_share_last1": 0.35, "snap_share_last3": 0.30, "role_conf": 0.5,
+      "stat_snaps": 40, "solo": 3, "ast": 0, "sacks": 3, "tfl": 3, "pressures": 8,
+      "dvp_pct": 57.7, "dvp_games": 2, "opp_sack_env": 1.25, "practice": "none", "roster_pct": 0.0, "available": null,
+      "notes": "TONIGHT. 3 sacks on ~30% snaps — pure pass-rush specialist. Love pressured 43.6%; Packers OL missing starters (Banks OUT). Sack-or-bust profile, which 5-pt sacks reward. Ebukam OUT could add snaps.",
+      "sources": ["https://www.pff.com/news/nfl-edge-defender-rankings-highest-graded-players-through-week-2", "https://www.covers.com/nfl/week-3-odds-opening-lines-2026"],
+      "data_flags": ["Wk2 snap share not reported (est.)", "Wk2 tackles not reported"]
+    },
+    {
+      "name": "Alex Highsmith", "team": "PIT", "pos": "EDGE", "opp": "vs CIN", "home": true,
+      "spread_def": 3.5, "total": 42.5, "team_def_plays": 110, "team_games": 2,
+      "snap_share_est": 0.75, "role_conf": 0.8,
+      "stat_snaps": 82, "solo": 2, "ast": 1, "sacks": 3, "tfl": 2, "pressures": 5,
+      "dvp_pct": 0, "dvp_games": 0, "opp_sack_env": 1.15, "practice": "none", "roster_pct": 0.05, "available": null,
+      "notes": "3 sacks (T-3rd NFL) on just 5 pressures — sack rate will regress. Bengals OL (Brown Jr./Risner/Fairchild) each allowing multiple pressures. Wk2 tackles not reported.",
+      "sources": ["https://www.cbssports.com/nfl/stats/", "https://www.4for4.com/2026/w3/nfl-offensive-line-rankings-week-3-matchups-exploit"],
+      "data_flags": ["snap share estimated", "Wk2 tackles not reported"]
+    },
+    {
+      "name": "Abdul Carter", "team": "NYG", "pos": "EDGE", "opp": "vs TEN", "home": true,
+      "spread_def": -2.5, "total": 40.5, "team_def_plays": 112, "team_games": 2,
+      "snap_share_last1": 0.90, "snap_share_last3": 0.90, "role_conf": 0.9,
+      "stat_snaps": 101, "sacks": 1, "tfl": 0, "pressures": 5,
+      "dvp_pct": 0, "dvp_games": 0, "opp_sack_env": 1.0, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "90% snaps; Brian Burns (ankle) DNP Wed → more pass-rush reps. Only 5 pressures so far. Tackle totals not found. Titans offense allows 11th-most DL tackles. Almost certainly rostered.",
+      "sources": ["https://fantasysixpack.net/2026-idp-football-start-sit-week-3/", "https://www.pff.com/news/nfl-edge-defender-rankings-highest-graded-players-through-week-2"],
+      "data_flags": ["no tackle stats found — prior only"]
+    },
+
+    {
+      "name": "Evan Williams", "team": "GB", "pos": "S_BOX", "opp": "vs ATL (TNF)", "home": true,
+      "spread_def": -6.5, "total": 45.5, "team_def_plays": 133, "team_games": 2,
+      "snap_share_last1": 1.0, "snap_share_last3": 1.0, "role_conf": 0.9,
+      "stat_snaps": 139, "solo": 13, "ast": 4, "sacks": 0, "tfl": 1, "pd": 2,
+      "dvp_pct": 0, "dvp_games": 0, "practice": "none", "roster_pct": 0.03, "available": null,
+      "notes": "TONIGHT. 17 tackles (13 solo — elite solo share), 100% snaps. Alignment is mixed (82 FS / 44 box / 10 slot) so S_BOX prior is generous; Wk2 tackles inflated by Jets funneling to safeties.",
+      "sources": ["https://ftnfantasy.com/nfl/idp-waiver-wire-claims-to-make-for-fantasy-football-week-3", "https://mikewoellert.substack.com/p/week-2-idp-review-looking-back-at-key-data"],
+      "data_flags": ["alignment is FS-heavy; using box prior"]
+    },
+    {
+      "name": "Dax Hill", "team": "CIN", "pos": "CB", "opp": "@PIT", "home": false,
+      "spread_def": -3.5, "total": 42.5, "team_def_plays": 130, "team_games": 2,
+      "snap_share_est": 0.98, "role_conf": 0.85,
+      "stat_snaps": 127, "solo": 11, "ast": 6, "sacks": 0, "tfl": 0, "pd": 4,
+      "dvp_pct": -11.4, "dvp_games": 2, "practice": "none", "roster_pct": 0.04, "available": null,
+      "notes": "17 tackles + 4 PD from the slot/boundary, 5.6% missed-tackle rate. Elite tackle floor for a CB. PD worth 0 in current scoring config — re-check your league's PD value.",
+      "sources": ["https://ftnfantasy.com/nfl/idp-waiver-wire-claims-to-make-for-fantasy-football-week-3"],
+      "data_flags": ["snap share estimated"]
+    },
+    {
+      "name": "Marques Sigle", "team": "SF", "pos": "S_FREE", "opp": "vs ARI", "home": true,
+      "spread_def": -8.5, "total": 47.5, "team_def_plays": 113, "team_games": 2,
+      "snap_share_last1": 1.0, "snap_share_last3": 1.0, "role_conf": 0.85,
+      "stat_snaps": 120, "solo": 7, "ast": 9, "sacks": 1, "tfl": 1,
+      "dvp_pct": -10.6, "dvp_games": 2, "practice": "none", "roster_pct": 0.01, "available": null,
+      "notes": "Rookie FS, 100% snaps, 16 tackles + a sack. Assist-heavy (9 of 16) which the 2/1 split punishes. Big favorite.",
+      "sources": ["https://ftnfantasy.com/nfl/idp-waiver-wire-claims-to-make-for-fantasy-football-week-3", "https://sports.yahoo.com/articles/week-2-defensive-pff-breakdown-174134957.html"],
+      "data_flags": []
+    },
+    {
+      "name": "Andrew Wingard", "team": "ARI", "pos": "S_BOX", "opp": "@SF", "home": false,
+      "spread_def": 8.5, "total": 47.5, "team_def_plays": 118, "team_games": 2,
+      "snap_share_last1": 1.0, "snap_share_last3": 1.0, "role_conf": 0.8,
+      "stat_snaps": 62, "solo": 5, "ast": 3, "sacks": 0, "tfl": 1,
+      "dvp_pct": 0, "dvp_games": 0, "practice": "none", "roster_pct": 0.01, "available": null,
+      "notes": "100% snaps in a 3-safety look with Budda Baker. 8.5-pt road dog = volume. Dadrion Taylor-Demerson (back) DNP Wed → more box work for Wingard/Baker.",
+      "sources": ["https://www.fantasypros.com/2026/09/fantasy-football-idp-waiver-wire-pickups-week-3-2026/", "https://www.sharpfootballanalysis.com/betting/nfl-injury-report-this-week-all-32-teams/"],
+      "data_flags": ["Wk2 stats only"]
+    },
+    {
+      "name": "Amani Hooker", "team": "TEN", "pos": "S_BOX", "opp": "@NYG", "home": false,
+      "spread_def": 2.5, "total": 40.5, "team_def_plays": 135, "team_games": 2,
+      "snap_share_est": 1.0, "role_conf": 0.85,
+      "stat_snaps": 68, "solo": 3, "ast": 3, "sacks": 0, "tfl": 0, "int": 1, "pd": 1,
+      "dvp_pct": 24.2, "dvp_games": 2, "practice": "none", "roster_pct": 0.02, "available": null,
+      "notes": "63.1% box rate Wk1 — highest in the NFL. Titans defense leads the league in tackles (153). Giants offense is the best DB matchup on the grid this week. Wk2 tackle line was quiet (3/3 + INT).",
+      "sources": ["https://fantasysixpack.net/2026-idp-box-snap-usage-before-week-2-safety-dance/", "https://www.fantasypros.com/2026/09/fantasy-football-idp-waiver-wire-pickups-week-3-2026/"],
+      "data_flags": ["Wk2 stats only", "snap share assumed 100%"]
+    },
+    {
+      "name": "Andre Cisco", "team": "NYJ", "pos": "S_FREE", "opp": "@DET", "home": false,
+      "spread_def": 6.5, "total": 47.5, "team_def_plays": 99, "team_games": 2,
+      "snap_share_last1": 1.0, "snap_share_last3": 0.94, "role_conf": 0.7,
+      "stat_snaps": 93, "comb": 10, "sacks": 0, "tfl": 0,
+      "dvp_pct": 20, "dvp_games": 2, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "Starting while Minkah Fitzpatrick (groin, DNP Wed) is out 2–3 weeks. 5 tackles each game. Lions offense allows the most tackles to safeties (F6P). Jets defense faces the fewest plays in the league — the ceiling is capped.",
+      "sources": ["https://fantasysixpack.net/2026-idp-football-start-sit-week-3/", "https://www.si.com/nfl/jets/onsi/andre-cisco-can-change-his-jets-future-after-minkah-fitzpatrick-confirmed-to-miss-time-01m2jmkspbc2"],
+      "data_flags": ["solo/ast split not reported", "dvp from article, not grid"]
+    },
+    {
+      "name": "Chuck Clark", "team": "DET", "pos": "S_BOX", "opp": "vs NYJ", "home": true,
+      "spread_def": -6.5, "total": 47.5, "team_def_plays": 155, "team_games": 2,
+      "snap_share_last1": 0.86, "snap_share_last3": 0.85, "role_conf": 0.75,
+      "stat_snaps": 130, "solo": 6, "ast": 8, "sacks": 0, "tfl": 0, "int": 1,
+      "dvp_pct": 10.9, "dvp_games": 2, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "Expanded role with Branch (Achilles), Joseph (knee), Maddox (foot) out and Thomas Harper (ankle) DNP Wed. 14 tackles but assist-heavy. Lions defense faces the most plays in the NFL.",
+      "sources": ["https://sports.yahoo.com/articles/lions-week-2-snap-counts-141400657.html", "https://www.detroitlionspodcast.com/dlp-beat-bot/2026/09/23/lions-injury-report-week-3/"],
+      "data_flags": ["Wk1 snap share estimated ~85%"]
+    },
+    {
+      "name": "Cole Bishop", "team": "BUF", "pos": "S_BOX", "opp": "vs LAC", "home": true,
+      "spread_def": -7.5, "total": 50.5, "team_def_plays": 135, "team_games": 2,
+      "snap_share_last1": 1.0, "snap_share_last3": 1.0, "role_conf": 0.8,
+      "stat_snaps": 72, "comb": 7, "sacks": 0, "tfl": 0,
+      "dvp_pct": 30.0, "dvp_games": 2, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "59.7% box rate Wk1 (43 box snaps) — 'premium box role'. Chargers offense is a top-3 DB matchup on the grid; 50.5 total. Wk2 stats not reported.",
+      "sources": ["https://fantasysixpack.net/2026-idp-box-snap-usage-before-week-2-safety-dance/"],
+      "data_flags": ["Wk1 stats only", "Wk2 snap share not reported"]
+    },
+    {
+      "name": "Michael Taaffe", "team": "MIA", "pos": "S_BOX", "opp": "vs KC", "home": true,
+      "spread_def": 10.5, "total": 46.5, "team_def_plays": 116, "team_games": 2,
+      "snap_share_last1": 0.79, "snap_share_last3": 0.77, "role_conf": 0.6,
+      "stat_snaps": 90, "comb": 13, "sacks": 0, "tfl": 0, "int": 1,
+      "dvp_pct": 15, "dvp_games": 2, "practice": "none", "roster_pct": 0.0, "available": null,
+      "notes": "Rookie starter, 13 tackles + INT, but 'role stability a little concerning'. 10.5-pt home dog; Chiefs offense allowed 26 DB tackles in Wk1.",
+      "sources": ["https://www.dynastynerds.com/idp/week-3-idp-waiver-wire-2026/", "https://www.fantasypros.com/2026/09/fantasy-football-idp-waiver-wire-pickups-week-2-2026/"],
+      "data_flags": ["solo/ast split not reported", "dvp from article, not grid"]
+    },
+    {
+      "name": "Dillon Thieneman", "team": "CHI", "pos": "S_BOX", "opp": "vs PHI (MNF)", "home": true,
+      "spread_def": 4.5, "total": 41.5, "team_def_plays": 113, "team_games": 2,
+      "snap_share_last1": 1.0, "snap_share_last3": 1.0, "role_conf": 0.8,
+      "stat_snaps": 60, "solo": 8, "ast": 2, "sacks": 0, "tfl": 0, "pd": 1,
+      "dvp_pct": 10.1, "dvp_games": 2, "practice": "none", "roster_pct": 0.05, "available": null,
+      "notes": "Rookie, 100% snaps, kept the role with Bryant/Woods back. Wk1: 8 solo. Wk2 stats not reported. Monday night — latest kickoff gives you the most info before locking.",
+      "sources": ["https://www.fantasypros.com/2026/09/fantasy-football-idp-waiver-wire-pickups-week-2-2026/", "https://www.lineups.com/nfl/snap-counts/defensive-players-snap-counts/"],
+      "data_flags": ["Wk1 stats only"]
+    },
+    {
+      "name": "Justin Reid", "team": "NO", "pos": "S_BOX", "opp": "vs LV", "home": true,
+      "spread_def": -3.5, "total": 43.5, "team_def_plays": 129, "team_games": 2,
+      "snap_share_last1": 1.0, "snap_share_last3": 1.0, "role_conf": 0.9,
+      "stat_snaps": 77, "comb": 8, "sacks": 0, "tfl": 0,
+      "dvp_pct": 20.0, "dvp_games": 2, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "42 box snaps of 77 in Wk1, 8 tackles. Raiders offense is a top-6 DB matchup on the grid. Wk2 stats not reported.",
+      "sources": ["https://fantasysixpack.net/2026-idp-box-snap-usage-before-week-2-safety-dance/"],
+      "data_flags": ["Wk1 stats only", "solo/ast split not reported"]
+    }
+  ]
+}

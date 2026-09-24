@@ -94,7 +94,7 @@ public struct LeagueContextLoader: Sendable {
         )
 
         let teams = rosters.value.map { roster in
-            LeagueTeam(
+            var team = LeagueTeam(
                 rosterID: roster.rosterID,
                 ownerID: roster.ownerID,
                 manager: roster.ownerID.flatMap { managerNames[$0] } ?? "Roster \(roster.rosterID)",
@@ -104,6 +104,8 @@ public struct LeagueContextLoader: Sendable {
                 rawStarters: roster.starters ?? [],
                 settings: roster.settings
             )
+            team.reserveIDs = roster.reserve ?? []
+            return team
         }
 
         let byeCalendar = ByeCalendar(schedule: schedule.value)
@@ -112,7 +114,16 @@ public struct LeagueContextLoader: Sendable {
             players: seasonProfiles, template: template, teamCount: teams.count
         )
 
-        return LeagueContext(
+        // Everything forward-looking, fetched together and never allowed to
+        // fail the load: a screen renders from the produced numbers alone when
+        // Sleeper's undocumented routes or the data host are unreachable (§0).
+        let inSeason = await loadInSeason(
+            season: scheduleSeason, currentWeek: currentWeek, force: force,
+            kickoffs: KickoffCalendar(schedule: schedule.value)
+        )
+        let userRoster = rosters.value.first { $0.rosterID == userRosterID }
+
+        var context = LeagueContext(
             league: league.value,
             scheduleSeason: scheduleSeason,
             statsSeason: statsSeason,
@@ -144,6 +155,97 @@ public struct LeagueContextLoader: Sendable {
             staticProvenance: Provenance.weakest([
                 schedule.provenance, weekly.provenance, crosswalk.provenance,
             ])
+        )
+        context.leagueFacts = LeagueFacts.from(league: league.value, userRoster: userRoster?.settings)
+        context.inSeason = inSeason
+        return context
+    }
+
+    /// The in-season reads, each failing soft and reporting itself by name.
+    ///
+    /// Sleeper's projection and stats routes are undocumented, and the four
+    /// static files only exist once the season's first data run has published
+    /// them. A missing source is a labelled absence on screen, not an error.
+    private func loadInSeason(
+        season: Int,
+        currentWeek: Int,
+        force: Bool,
+        kickoffs: KickoffCalendar
+    ) async -> InSeasonData {
+        let onGameDay = GameDayWindow.playerIndexMaxAge(kickoffs: kickoffs, week: currentWeek, now: now())
+            < CacheTTL.players
+        let projectionMaxAge = onGameDay ? 60 * 60 : CacheTTL.projections
+
+        async let projectionsRead = try? sleeper.projections(
+            season: season, week: currentWeek, force: force, maxAge: projectionMaxAge
+        )
+        async let injuriesRead = try? staticData.injuries(season: season)
+        async let depthRead = try? staticData.depthCharts(season: season)
+        async let usageRead = try? staticData.usage(season: season)
+        async let contextRead = try? staticData.teamContext(season: season)
+
+        // Every week so far: completed weeks on the long lifetime, the live
+        // week on the short one.
+        let weeks = Array(1...max(1, currentWeek))
+        let statReads: [(Int, Fetched<[SleeperWeekStat]>?)] = await withTaskGroup(
+            of: (Int, Fetched<[SleeperWeekStat]>?).self
+        ) { group in
+            for week in weeks {
+                group.addTask {
+                    (week, try? await self.sleeper.weekStats(
+                        season: season, week: week, isCompleted: week < currentWeek, force: force && week == currentWeek
+                    ))
+                }
+            }
+            var out: [(Int, Fetched<[SleeperWeekStat]>?)] = []
+            for await read in group { out.append(read) }
+            return out
+        }
+
+        let projections = await projectionsRead
+        let injuries = await injuriesRead
+        let depth = await depthRead
+        let usage = await usageRead
+        let teamContext = await contextRead
+
+        var unavailable: [String] = []
+        if projections == nil { unavailable.append("Rotowire projections via Sleeper") }
+        if injuries == nil { unavailable.append("official injury report") }
+        if depth == nil { unavailable.append("depth charts") }
+        if usage == nil { unavailable.append("snap counts and expected points") }
+        if teamContext == nil { unavailable.append("team context") }
+
+        var weekStats: [Int: [String: SleeperWeekStat]] = [:]
+        var statProvenances: [Provenance] = []
+        var missingStatWeeks: [Int] = []
+        for (week, read) in statReads.sorted(by: { $0.0 < $1.0 }) {
+            guard let read else { missingStatWeeks.append(week); continue }
+            statProvenances.append(read.provenance)
+            weekStats[week] = Dictionary(read.value.map { ($0.playerID, $0) }, uniquingKeysWith: { first, _ in first })
+        }
+        if !missingStatWeeks.isEmpty {
+            unavailable.append("Sleeper stats for week\(missingStatWeeks.count == 1 ? "" : "s") "
+                + missingStatWeeks.map(String.init).joined(separator: ", "))
+        }
+
+        let projectionsByID = Dictionary(
+            (projections?.value ?? []).map { ($0.playerID, $0) }, uniquingKeysWith: { first, _ in first }
+        )
+        let sleeperProvenances = [projections?.provenance].compactMap { $0 } + statProvenances
+        let fileProvenances = [injuries?.provenance, depth?.provenance, usage?.provenance, teamContext?.provenance]
+            .compactMap { $0 }
+
+        return InSeasonData(
+            projections: projectionsByID,
+            weekStats: weekStats,
+            practiceReports: injuries?.value.reportsByPlayer(week: currentWeek) ?? [:],
+            depthCharts: depth?.value,
+            usage: usage?.value,
+            teamContext: teamContext?.value,
+            sleeperProvenance: sleeperProvenances.isEmpty ? nil : Provenance.weakest(sleeperProvenances),
+            filesProvenance: fileProvenances.isEmpty ? nil : Provenance.weakest(fileProvenances),
+            unavailable: unavailable,
+            projectionSourceLabel: projections?.value.first?.sourceLabel
         )
     }
 

@@ -43,6 +43,14 @@ public struct MatchupRow: Hashable, Sendable, Identifiable {
     public var isLive: Bool = false
     /// His game's kickoff this week; `nil` on bye.
     public var kickoff: Date? = nil
+    /// Rotowire's projection via Sleeper under the league's rules; `nil` when
+    /// there is none.
+    public var projected: Double? = nil
+    /// This season from Sleeper's own lines: games played and points per game.
+    /// The only production number DEF and IDP have.
+    public var thisSeason: SeasonLine? = nil
+    /// Which source the defense cell came from.
+    public var defenseSource: DefenseLookup.Source? = nil
 
     public var id: Int { index }
     public var isEmptySlot: Bool { playerID == nil }
@@ -207,7 +215,8 @@ public final class MatchupModel: ObservableObject {
     public static let linesNote = "Implied totals come from recorded closing lines, not live odds."
 
     public static let defenseNote = "Defense ranks are points allowed per game to the position, "
-        + "counting every player who faced them — so a defense that sees three-receiver sets looks softer to receivers."
+        + "counting every player who faced them — so a defense that sees three-receiver sets looks softer to receivers. "
+        + "Offensive positions rank from the nflverse stats season; DEF and IDP rank from Sleeper's stat lines this season, once a defense has four games."
 
     private var lastRequest: (leagueID: String, rosterID: Int, season: Int?)?
 
@@ -244,12 +253,13 @@ public final class MatchupModel: ObservableObject {
             // Defense-vs-position scores every row of the season, so it runs off
             // the main thread rather than stalling the screen while it does.
             let rows = matchups.value
-            let table = await Task.detached(priority: .userInitiated) {
-                DefenseVsPosition.compute(file: context.weekly, profile: context.scoring.profile)
+            let lookup = await Task.detached(priority: .userInitiated) {
+                DefenseLookup.build(context: context)
             }.value
-            defenseTable = table
+            defenseTable = lookup.nflverse
+            defenseLookup = lookup
             defenseTableBuilds += 1
-            apply(Self.build(context: context, matchups: rows, table: table))
+            apply(Self.build(context: context, matchups: rows, table: lookup.nflverse, lookup: lookup))
             lastLiveUpdate = nil
         } catch {
             errorMessage = String(describing: error)
@@ -262,6 +272,7 @@ public final class MatchupModel: ObservableObject {
     /// is the expensive part of a build, and it can't change during a game, so
     /// live refreshes reuse it.
     private var defenseTable: DefenseVsPositionTable?
+    private var defenseLookup: DefenseLookup?
     /// How many times the table has been computed — for tests.
     private(set) var defenseTableBuilds = 0
 
@@ -375,10 +386,14 @@ public final class MatchupModel: ObservableObject {
     nonisolated static func build(
         context: LeagueContext,
         matchups: [SleeperMatchup],
-        table: DefenseVsPositionTable? = nil
+        table: DefenseVsPositionTable? = nil,
+        lookup: DefenseLookup? = nil
     ) -> (mine: MatchupSide?, opponent: MatchupSide?, noOpponentReason: String?) {
         let lines = GameLines.week(context.schedule, week: context.currentWeek)
-        let table = table ?? DefenseVsPosition.compute(file: context.weekly, profile: context.scoring.profile)
+        let lookup = lookup ?? {
+            let nflverse = table ?? DefenseVsPosition.compute(file: context.weekly, profile: context.scoring.profile)
+            return DefenseLookup(nflverse: nflverse, sleeper: .empty, nflverseSeason: context.statsSeason, sleeperSeason: context.scheduleSeason)
+        }()
         let profilesByGSIS = Dictionary(
             context.seasonProfiles.map { ($0.gsisID, $0) }, uniquingKeysWith: { first, _ in first }
         )
@@ -420,7 +435,20 @@ public final class MatchupModel: ObservableObject {
                     )
                 }
 
-                return MatchupRow(
+                let played = context.inSeason.statLines(sleeperID: rawID).filter(\.played)
+                let thisSeason: SeasonLine? = context.sleeperPointsPerGame(rawID).map { ppg in
+                    let scoring = context.league.scoringSettings ?? [:]
+                    let recent = played.suffix(4).map { $0.score(scoring: scoring).points }
+                    return SeasonLine(
+                        games: played.count,
+                        pointsPerGame: ppg,
+                        formPointsPerGame: recent.isEmpty ? nil : recent.reduce(0, +) / Double(recent.count),
+                        floor: nil,
+                        ceiling: nil
+                    )
+                }
+
+                var row = MatchupRow(
                     index: index,
                     slot: slot,
                     playerID: rawID,
@@ -432,12 +460,16 @@ public final class MatchupModel: ObservableObject {
                     onBye: onBye,
                     livePoints: matchup?.playersPoints?[rawID],
                     season: season,
-                    defense: table.cell(defense: line?.opponent, position: position),
+                    defense: lookup.cell(defense: line?.opponent, position: position),
                     impliedTotal: line?.impliedTotal,
                     isLocked: context.isLocked(rawID),
                     isLive: context.isLive(rawID),
                     kickoff: context.kickoffs.kickoff(team: nflTeam, week: context.currentWeek)
                 )
+                row.projected = context.projectedPoints(rawID)
+                row.thisSeason = thisSeason
+                row.defenseSource = lookup.source(for: position)
+                return row
             }
 
             let environment = GameLines.lineupEnvironment(

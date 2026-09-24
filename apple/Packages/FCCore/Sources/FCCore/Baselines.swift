@@ -63,6 +63,20 @@ public enum Baselines {
         for player in players where player.games >= minimumGames {
             byPosition[player.position, default: []].append(player.pointsPerGame)
         }
+        return lines(byPosition: byPosition, template: template, teamCount: teamCount)
+    }
+
+    /// The same Nth-best construction over any per-position values — a week's
+    /// projected points, for instance — so a "projected start line" is built
+    /// exactly like the season one and the two are comparable in kind, though
+    /// never blended.
+    public static func lines(
+        byPosition: [Position: [Double]],
+        template: SlotTemplate,
+        teamCount: Int
+    ) -> [Position: PositionBaseline] {
+        guard teamCount > 0 else { return [:] }
+        let counts = template.dedicatedCounts()
 
         var out: [Position: PositionBaseline] = [:]
         for (position, values) in byPosition {

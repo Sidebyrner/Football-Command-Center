@@ -20,7 +20,10 @@ public actor SleeperService {
 
     private enum Key {
         static let nflState = "sleeper-nfl-state-v1"
-        static let players = "sleeper-players-v1"
+        // v2: carries injury detail and depth chart order. v3: depth chart
+        // position, which IDP alignment needs. Bumped so an index cached
+        // before those fields existed is not served without them.
+        static let players = "sleeper-players-v3"
         static let trendingAdds = "sleeper-trending-adds-v1"
         static let trendingDrops = "sleeper-trending-drops-v1"
         static func league(_ id: String) -> String { "sleeper-league-\(id)" }
@@ -32,6 +35,10 @@ public actor SleeperService {
         }
         static func drafts(_ id: String) -> String { "sleeper-drafts-\(id)" }
         static func draftPicks(_ id: String) -> String { "sleeper-picks-\(id)" }
+        static func projections(_ season: Int, _ week: Int) -> String { "sleeper-projections-\(season)-\(week)-v1" }
+        static func weekStats(_ season: Int, _ week: Int) -> String { "sleeper-weekstats-\(season)-\(week)-v1" }
+        static func news(_ playerID: String) -> String { "sleeper-news-\(playerID)-v1" }
+        static func playerProjections(_ playerID: String, _ season: Int) -> String { "sleeper-player-proj-\(playerID)-\(season)-v1" }
     }
 
     /// The one read path. Everything public below is this with a key and a TTL.
@@ -220,5 +227,60 @@ public actor SleeperService {
         try await through(key: Key.trendingDrops, ttl: CacheTTL.trending, force: force) {
             try await client.trendingDrops()
         }
+    }
+
+    // MARK: - Insights (undocumented routes)
+
+    /// Rotowire's projected stat lines for a week, every position. Undocumented
+    /// route: callers must fail soft and label the source.
+    ///
+    /// - Parameter maxAge: re-fetch once the cached copy is older than this,
+    ///   even inside the TTL — on game day the caller wants the morning's
+    ///   inactives reflected.
+    public func projections(
+        season: Int,
+        week: Int,
+        force: Bool = false,
+        maxAge: TimeInterval = CacheTTL.projections
+    ) async throws -> Fetched<[SleeperProjection]> {
+        let key = Key.projections(season, week)
+        let tooOld = await isTooOld([SleeperProjection].self, key: key, maxAge: maxAge)
+        return try await through(key: key, ttl: CacheTTL.projections, force: force || tooOld) {
+            try await client.projections(season: season, week: week)
+        }
+    }
+
+    /// Actual stat lines for a week, every position. A finished week never
+    /// changes, so it is cached like completed matchups; the live week is not.
+    public func weekStats(
+        season: Int,
+        week: Int,
+        isCompleted: Bool,
+        force: Bool = false
+    ) async throws -> Fetched<[SleeperWeekStat]> {
+        let ttl = isCompleted ? CacheTTL.completedWeek : CacheTTL.currentWeekStats
+        return try await through(key: Key.weekStats(season, week), ttl: ttl, force: force) {
+            try await client.weekStats(season: season, week: week)
+        }
+    }
+
+    /// One player's projections for every week of a season, past weeks
+    /// included — what a calibration of Rotowire's number against his actual
+    /// scores is built on.
+    public func playerProjections(playerID: String, season: Int, force: Bool = false) async throws -> Fetched<[Int: SleeperProjection]> {
+        try await through(key: Key.playerProjections(playerID, season), ttl: CacheTTL.projections, force: force) {
+            try await client.playerProjections(playerID: playerID, season: season)
+        }
+    }
+
+    public func playerNews(playerID: String, force: Bool = false) async throws -> Fetched<[SleeperPlayerNews]> {
+        try await through(key: Key.news(playerID), ttl: CacheTTL.news, force: force) {
+            try await client.playerNews(playerID: playerID)
+        }
+    }
+
+    private func isTooOld<Value: Codable & Sendable>(_ type: Value.Type, key: String, maxAge: TimeInterval) async -> Bool {
+        guard let hit = await cache.load(Value.self, key: key) else { return false }
+        return hit.age >= maxAge
     }
 }

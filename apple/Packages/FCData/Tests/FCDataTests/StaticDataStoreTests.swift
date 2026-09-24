@@ -50,6 +50,34 @@ final class StaticDataStoreTests: XCTestCase {
         XCTAssertGreaterThan(weekly.value.rowCount, 5_000)
     }
 
+    /// The four in-season files load through the same store, from the bundled
+    /// copy, into the FCCore types the screens read.
+    func testDecodesTheRealInSeasonFiles() async throws {
+        let injuries = try await store().injuries(season: 2026)
+        XCTAssertEqual(injuries.provenance, .bundled)
+        XCTAssertFalse(injuries.value.weeks.isEmpty)
+
+        let depth = try await store().depthCharts(season: 2026)
+        XCTAssertEqual(depth.value.teamCount, 32)
+
+        let usage = try await store().usage(season: 2026)
+        XCTAssertGreaterThan(usage.value.playerCount, 1_000)
+
+        let context = try await store().teamContext(season: 2026)
+        XCTAssertEqual(context.value.teamCount, 32)
+    }
+
+    /// A season with no in-season files yet — every August — is a normal
+    /// error the loader treats as "not published", never a crash.
+    func testAMissingInSeasonFileIsAnOrdinaryError() async {
+        do {
+            _ = try await store().injuries(season: 2031)
+            XCTFail("expected no bundled copy")
+        } catch {
+            // any DataLayerError is fine; the point is that it throws cleanly
+        }
+    }
+
     func testDecodesTheRealCrosswalk() async throws {
         let crosswalk = try await store().playerCrosswalk()
         XCTAssertGreaterThan(crosswalk.value.players.count, 5_000)

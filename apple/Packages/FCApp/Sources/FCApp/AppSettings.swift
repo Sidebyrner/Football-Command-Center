@@ -18,6 +18,10 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var accentTheme: AccentTheme
     /// Whether the Planning explainer has been dismissed.
     public var hasSeenPlanningIntro: Bool
+    /// The user's weights for the optional weighted grade on the Player Card,
+    /// keyed by `WeightedGrade.gradeKey` and `SituationMetric` raw values.
+    /// Absent keys use the defaults.
+    public var gradeWeights: [String: Double]
 
     public init(
         sleeperUsername: String? = nil,
@@ -26,7 +30,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
         rosterID: Int? = nil,
         relayBaseURL: URL? = nil,
         accentTheme: AccentTheme = .default,
-        hasSeenPlanningIntro: Bool = false
+        hasSeenPlanningIntro: Bool = false,
+        gradeWeights: [String: Double] = [:]
     ) {
         self.sleeperUsername = sleeperUsername
         self.userID = userID
@@ -35,11 +40,12 @@ public struct AppSettings: Codable, Hashable, Sendable {
         self.relayBaseURL = relayBaseURL
         self.accentTheme = accentTheme
         self.hasSeenPlanningIntro = hasSeenPlanningIntro
+        self.gradeWeights = gradeWeights
     }
 
     enum CodingKeys: String, CodingKey {
         case sleeperUsername, userID, leagueID, rosterID, relayBaseURL
-        case accentTheme, hasSeenPlanningIntro
+        case accentTheme, hasSeenPlanningIntro, gradeWeights
     }
 
     /// Settings saved by an older version lack the newer fields, and a theme
@@ -55,6 +61,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
         relayBaseURL = try container.decodeIfPresent(URL.self, forKey: .relayBaseURL)
         accentTheme = AccentTheme(stored: try? container.decodeIfPresent(String.self, forKey: .accentTheme))
         hasSeenPlanningIntro = (try? container.decodeIfPresent(Bool.self, forKey: .hasSeenPlanningIntro)) ?? false
+        gradeWeights = (try? container.decodeIfPresent([String: Double].self, forKey: .gradeWeights)) ?? [:]
     }
 
     /// Whether there is enough here to load a league. Until this is true the

@@ -25,6 +25,12 @@ public enum CacheTTL {
     public static let staticData: TimeInterval = 7 * 24 * 60 * 60
     /// A finished week's scores never change again, so history is cached long.
     public static let completedWeek: TimeInterval = 7 * 24 * 60 * 60
+    /// Rotowire refreshes projections a few times a week; six hours keeps a
+    /// mid-week lineup check current without hammering an undocumented route.
+    public static let projections: TimeInterval = 6 * 60 * 60
+    /// The live week's stat lines move while games are on.
+    public static let currentWeekStats: TimeInterval = 30 * 60
+    public static let news: TimeInterval = 30 * 60
 }
 
 /// A TTL'd, file-backed cache in Application Support.

@@ -253,7 +253,7 @@ public struct MatchupView: View {
         VStack(alignment: .leading, spacing: 10) {
             sideSummary(side)
             ForEach(Array(side.rows.enumerated()), id: \.element.id) { offset, row in
-                MatchupRowView(row: row)
+                MatchupRowView(row: row, context: model.context)
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("matchup.detail.\(row.index)")
                     .appear(index: offset)
@@ -450,6 +450,7 @@ struct PressableCardStyle: ButtonStyle {
 /// One team's player in full detail.
 struct MatchupRowView: View {
     let row: MatchupRow
+    var context: LeagueContext? = nil
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -475,6 +476,7 @@ struct MatchupRowView: View {
             }
         }
         .card(padding: 12)
+        .playerCardMenu(row.playerID, context: context)
     }
 }
 
@@ -505,16 +507,29 @@ struct PlayerDetail: View {
                 .foregroundStyle(row.onBye ? Palette.sit : Color.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if let projected = row.projected {
+                Text(String(format: "proj %.1f this week", projected))
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(Color.accentColor)
+            }
+
+            if let thisSeason = row.thisSeason {
+                Text(thisSeasonText(thisSeason))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             if let season = row.season {
                 Text(seasonText(season))
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-            } else if !row.hasProductionData {
+            } else if row.thisSeason == nil, !row.hasProductionData {
                 Text("No production data for \(row.position?.rawValue ?? "this position")")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
-            } else {
+            } else if row.thisSeason == nil {
                 Text("No season line")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
@@ -535,6 +550,13 @@ struct PlayerDetail: View {
         let venue = row.isHome == true ? "vs" : "@"
         let implied = row.impliedTotal.map { String(format: " · team total %.1f", $0) } ?? ""
         return "\(row.nflTeam ?? "") \(venue) \(opponent)\(implied)"
+    }
+
+    private func thisSeasonText(_ line: SeasonLine) -> String {
+        var parts = [String(format: "this season %.1f/gm", line.pointsPerGame)]
+        if let form = line.formPointsPerGame, line.games > 4 { parts.append(String(format: "last 4 %.1f", form)) }
+        parts.append("\(line.games) gm · Sleeper")
+        return parts.joined(separator: " · ")
     }
 
     private func seasonText(_ season: SeasonLine) -> String {

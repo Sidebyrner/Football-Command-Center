@@ -14,6 +14,16 @@ public enum LineupBasis: String, CaseIterable, Hashable, Sendable, Identifiable 
     /// body in a shootout outranks a stud in a slog — which is the point of
     /// running it *against* the others, not instead of them.
     case environment
+    /// Rotowire's projected stat line for this week via Sleeper, scored under
+    /// the league's own rules. Third-party, labelled as such, and the only
+    /// forward-looking basis that covers DEF and IDP.
+    case projected
+    /// Points per game this season from Sleeper's own stat lines — the only
+    /// production number DEF and IDP have.
+    case thisSeason
+    /// The app's own projection: this season regressed toward last, a usage
+    /// trend, and the matchup. A separate, named number (§6).
+    case commandCenter
 
     public var id: String { rawValue }
 
@@ -24,6 +34,9 @@ public enum LineupBasis: String, CaseIterable, Hashable, Sendable, Identifiable 
         case .floor: return "Floor"
         case .ceiling: return "Ceiling"
         case .environment: return "Game environment"
+        case .projected: return "Projected this week"
+        case .thisSeason: return "This season pts/gm"
+        case .commandCenter: return "Command Center"
         }
     }
 
@@ -34,6 +47,9 @@ public enum LineupBasis: String, CaseIterable, Hashable, Sendable, Identifiable 
         case .floor: return "his bad week — protect a lead"
         case .ceiling: return "his big week — you need a blowup"
         case .environment: return "his team's implied total — nothing about him"
+        case .projected: return "Rotowire's stat line via Sleeper, in your scoring — covers DEF and IDP"
+        case .thisSeason: return "Sleeper's own weekly lines this season, in your scoring — covers DEF and IDP"
+        case .commandCenter: return "our own: this season regressed toward last, his usage trend, and the matchup"
         }
     }
 
@@ -55,9 +71,15 @@ public struct UnrankedBreakdown: Hashable, Sendable {
     public let onBye: [String]
     /// Environment basis only: his team has no recorded line this week.
     public let noGameLine: [String]
+    /// Projected basis only: Rotowire has no line for him this week.
+    public var noProjection: [String] = []
+    /// This-season and Command Center bases: no Sleeper stat line yet, and
+    /// nothing else to project from.
+    public var noSleeperLine: [String] = []
 
     public var total: Int {
         noProductionData.count + noSeasonLine.count + onBye.count + noGameLine.count
+            + noProjection.count + noSleeperLine.count
     }
 }
 
@@ -166,6 +188,12 @@ public final class SitStartModel: ObservableObject {
     private let loader: LeagueContextLoader
     private var profilesBySleeperID: [String: SeasonProfile] = [:]
     private var lines: [String: TeamGameLine] = [:]
+    /// The Command Center projector, built once per load with both
+    /// defense-vs-position tables. Scoring a season is the slow part, so it is
+    /// built off the main thread.
+    private var projector: CommandCenterProjector?
+    /// Where the projected basis' numbers come from, for the screen.
+    @Published public private(set) var projectionSourceLabel: String?
 
     public init(loader: LeagueContextLoader) {
         self.loader = loader
@@ -210,6 +238,11 @@ public final class SitStartModel: ObservableObject {
                 if let profile = byGSIS[pair.key] { out[pair.value] = profile }
             }
             lines = GameLines.week(context.schedule, week: context.currentWeek)
+            projectionSourceLabel = context.inSeason.projectionSourceLabel
+            let defense = await Task.detached(priority: .userInitiated) {
+                DefenseLookup.build(context: context)
+            }.value
+            projector = CommandCenterProjector(context: context, defense: defense)
             recompute()
         } catch {
             errorMessage = String(describing: error)
@@ -238,7 +271,15 @@ public final class SitStartModel: ObservableObject {
         case .floor: return profilesBySleeperID[id]?.floor
         case .ceiling: return profilesBySleeperID[id]?.ceiling
         case .environment: return team(of: id, in: context).flatMap { lines[$0]?.impliedTotal }
+        case .projected: return context.projectedPoints(id)
+        case .thisSeason: return context.sleeperPointsPerGame(id)
+        case .commandCenter: return projector?.project(id)?.weekly
         }
+    }
+
+    /// The Command Center projection with its factors, for a player row.
+    public func commandCenterProjection(_ id: String) -> CommandCenterProjection? {
+        projector?.project(id)
     }
 
     func optimize(_ basis: LineupBasis, context: LeagueContext) -> LineupProposal {
@@ -376,6 +417,8 @@ public final class SitStartModel: ObservableObject {
         var noSeason: [String] = []
         var bye: [String] = []
         var noLine: [String] = []
+        var noProjection: [String] = []
+        var noSleeper: [String] = []
 
         for id in ids {
             let label = context.playerName(id) ?? id
@@ -384,17 +427,24 @@ public final class SitStartModel: ObservableObject {
                 bye.append(label)
             } else if basis == .environment {
                 noLine.append(label)
+            } else if basis == .projected {
+                noProjection.append(label)
+            } else if basis == .thisSeason || basis == .commandCenter {
+                noSleeper.append(label)
             } else if !(context.position(id)?.hasWeeklyProductionData ?? false) {
                 noProduction.append(label)
             } else {
                 noSeason.append(label)
             }
         }
-        return UnrankedBreakdown(
+        var breakdown = UnrankedBreakdown(
             noProductionData: noProduction.sorted(),
             noSeasonLine: noSeason.sorted(),
             onBye: bye.sorted(),
             noGameLine: noLine.sorted()
         )
+        breakdown.noProjection = noProjection.sorted()
+        breakdown.noSleeperLine = noSleeper.sorted()
+        return breakdown
     }
 }

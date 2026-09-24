@@ -20,7 +20,8 @@ struct FantasyCommandCenterApp: App {
             )
         }
         #if os(macOS)
-        .defaultSize(width: 1_100, height: 760)
+        .defaultSize(width: 1_180, height: 780)
+        .windowResizability(.contentMinSize)
         #endif
     }
 }

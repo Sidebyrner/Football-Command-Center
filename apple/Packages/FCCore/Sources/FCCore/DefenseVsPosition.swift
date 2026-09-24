@@ -31,9 +31,35 @@ public struct DefenseVsPositionTable: Sendable {
     /// How many defenses there are to be ranked against — the "of 32".
     public var defenseCount: Int { byDefense.count }
 
+    public static let empty = DefenseVsPositionTable(
+        byDefense: [:], leagueAverage: [:], ranked: [:], weeks: [], minimumGames: DefenseVsPosition.defaultMinimumGames
+    )
+
     public func cell(defense: String?, position: Position?) -> DefenseCell? {
         guard let defense, let position else { return nil }
         return byDefense[NFLTeams.nflverse(defense) ?? defense]?[position]
+    }
+
+    /// Whether any player at the position faced any defense in this table.
+    public func covers(_ position: Position) -> Bool {
+        byDefense.values.contains { $0[position]?.playerWeeks ?? 0 > 0 }
+    }
+}
+
+/// One player-week against one defense, already scored. The unit both
+/// sources — the nflverse weekly file and Sleeper's own stat lines — reduce to.
+public struct DefenseFacing: Hashable, Sendable {
+    public let week: Int
+    public let position: Position
+    /// nflverse team code of the defense faced.
+    public let defense: String
+    public let points: Double
+
+    public init(week: Int, position: Position, defense: String, points: Double) {
+        self.week = week
+        self.position = position
+        self.defense = NFLTeams.nflverse(defense) ?? defense
+        self.points = points
     }
 }
 
@@ -67,26 +93,45 @@ public enum DefenseVsPosition {
         weekRange: ClosedRange<Int>? = nil,
         minimumGames: Int = defaultMinimumGames
     ) -> DefenseVsPositionTable {
-        var totals: [String: [Position: (points: Double, playerWeeks: Int)]] = [:]
-        var weeksByDefense: [String: Set<Int>] = [:]
-        var weeksSeen: Set<Int> = []
-
+        var facing: [DefenseFacing] = []
         for player in file.allPlayers() {
             guard let position = player.position, positions.contains(position) else { continue }
             for row in player.rows {
                 if let weekRange, !weekRange.contains(row.week) { continue }
                 guard let defense = row.opponent, !defense.isEmpty else { continue }
-
-                weeksSeen.insert(row.week)
-                weeksByDefense[defense, default: []].insert(row.week)
-
-                guard let points = ScoringEngine.score(row, profile: profile, position: position).points
-                else { continue }
-                var bucket = totals[defense, default: [:]][position] ?? (0, 0)
-                bucket.points += points
-                bucket.playerWeeks += 1
-                totals[defense, default: [:]][position] = bucket
+                // A week the engine cannot score still counts as a game the
+                // defense played, so it is recorded with no points.
+                let points = ScoringEngine.score(row, profile: profile, position: position).points
+                facing.append(DefenseFacing(week: row.week, position: position, defense: defense, points: points ?? .nan))
             }
+        }
+        return compute(facing: facing, positions: positions, minimumGames: minimumGames)
+    }
+
+    /// The same table from already-scored player-weeks — the path Sleeper's own
+    /// stat lines take, which is the only one that covers IDP. A `points` of
+    /// `nan` records that the defense played that week without adding points.
+    public static func compute(
+        facing: [DefenseFacing],
+        positions: Set<Position>,
+        minimumGames: Int = defaultMinimumGames
+    ) -> DefenseVsPositionTable {
+        var totals: [String: [Position: (points: Double, playerWeeks: Int)]] = [:]
+        var weeksByDefense: [String: Set<Int>] = [:]
+        var weeksSeen: Set<Int> = []
+
+        for line in facing where positions.contains(line.position) {
+            // Keyed in the nflverse dialect, which is what `cell(defense:)`
+            // looks up — Sleeper's lines say LAR, and a raw key would leave
+            // every Rams matchup unresolvable.
+            let defense = NFLTeams.nflverse(line.defense) ?? line.defense
+            weeksSeen.insert(line.week)
+            weeksByDefense[defense, default: []].insert(line.week)
+            guard line.points.isFinite else { continue }
+            var bucket = totals[defense, default: [:]][line.position] ?? (0, 0)
+            bucket.points += line.points
+            bucket.playerWeeks += 1
+            totals[defense, default: [:]][line.position] = bucket
         }
 
         // Per-game rates, before ranking.

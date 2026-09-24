@@ -33,6 +33,13 @@ public enum Position: String, CaseIterable, Codable, Hashable, Sendable {
         guard let code else { return nil }
         switch code.uppercased() {
         case "DST": self = .def
+        // Sleeper lists most defenders by their football position, not the
+        // IDP slot — live, about 2,000 active players are CB, DE, DT, OLB, SS
+        // and the like rather than DB, DL or LB. Without these every one of
+        // them has no position and falls out of the pool.
+        case "CB", "S", "SS", "FS": self = .db
+        case "DE", "DT", "NT": self = .dl
+        case "ILB", "OLB", "MLB": self = .lb
         default:
             guard let value = Position(rawValue: code.uppercased()) else { return nil }
             self = value

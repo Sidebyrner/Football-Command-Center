@@ -45,6 +45,14 @@ public struct SitStartView: View {
                         if let note = context.statsSeasonNote {
                             CoverageNote(text: note)
                         }
+                        if model.basis == .projected, let label = model.projectionSourceLabel {
+                            CoverageNote(text: "Projections: \(label), scored under your league's rules.")
+                        } else if model.basis == .projected {
+                            CoverageNote(text: "Projections are unavailable right now, so this basis values nobody.")
+                        }
+                        if model.basis == .commandCenter {
+                            CoverageNote(text: "Command Center: this season regressed toward last season (4 games to even), times a usage trend from expected points, times the matchup from defense-vs-position. Its own number, never blended with Rotowire's.")
+                        }
                         CoverageNote(text: SitStartModel.modelBasisNote)
                     }
                 }
@@ -292,6 +300,8 @@ public struct SitStartView: View {
                 group("No stats for DEF and IDP", unranked.noProductionData)
                 group("No \(model.basis.label.lowercased()) value in \(context.statsSeason)", unranked.noSeasonLine)
                 group("No recorded line for their game", unranked.noGameLine)
+                group("No projection this week", unranked.noProjection)
+                group("No Sleeper stat line this season, and nothing to project from", unranked.noSleeperLine)
             }
             .card()
         }

@@ -399,9 +399,19 @@ struct TradeTargetCard: View {
 
 struct WaiversSection: View {
     @ObservedObject var model: PlanningModel
+    @Environment(\.openScreen) private var openScreen
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            Button {
+                openScreen(.waivers)
+            } label: {
+                Label("Open the Waiver Board — projections, snaps, targets and expected points for every free agent", systemImage: "tray.and.arrow.down")
+                    .font(.footnote.weight(.semibold))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .buttonStyle(.bordered)
             if model.userShortWeeks().isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionHeader(title: "Best available", subtitle: "No short weeks — the best free agents by season points per game.")

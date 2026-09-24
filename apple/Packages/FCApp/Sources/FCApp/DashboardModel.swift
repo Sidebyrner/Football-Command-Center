@@ -312,13 +312,20 @@ public final class DashboardModel: ObservableObject {
         }
 
         for id in actionable {
-            guard let status = context.injuryStatus(id), !status.isEmpty else { continue }
+            let report = context.practiceReport(sleeperID: id)
+            let status = context.injuryStatus(id) ?? report?.designation?.rawValue
+            guard let status, !status.isEmpty else { continue }
+            // "Questionable · Toe · Limited practice": the tag, the body part
+            // and the official practice status, each only when known.
+            var parts = [status]
+            if let injury = report?.injury ?? context.players[id]?.injuryBodyPart, !injury.isEmpty { parts.append(injury) }
+            if let practice = report?.practice { parts.append(practice.phrase) }
             alerts.append(
                 LineupAlert(
                     kind: .injured,
                     playerID: id,
                     playerName: context.playerName(id) ?? id,
-                    detail: status,
+                    detail: parts.joined(separator: " · "),
                     asOf: context.players.builtAt
                 )
             )

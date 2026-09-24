@@ -123,11 +123,46 @@ public struct SleeperLeague: Codable, Hashable, Sendable {
         /// Day waivers process, 0 = Sunday … 6 = Saturday.
         public let waiverDayOfWeek: Int?
         public let playoffWeekStart: Int?
+        /// Sleeper's waiver system: 0 rolling, 1 reverse standings, 2 FAAB.
+        public let waiverType: Int?
+        /// The FAAB budget when `waiverType` is 2; present but unused otherwise.
+        public let waiverBudget: Int?
+        /// Days a dropped player sits on waivers before clearing.
+        public let waiverClearDays: Int?
+        public let dailyWaivers: Int?
+        public let playoffTeams: Int?
+        /// IR slots per roster.
+        public let reserveSlots: Int?
+        public let taxiSlots: Int?
 
         enum CodingKeys: String, CodingKey {
             case tradeDeadline = "trade_deadline"
             case waiverDayOfWeek = "waiver_day_of_week"
             case playoffWeekStart = "playoff_week_start"
+            case waiverType = "waiver_type"
+            case waiverBudget = "waiver_budget"
+            case waiverClearDays = "waiver_clear_days"
+            case dailyWaivers = "daily_waivers"
+            case playoffTeams = "playoff_teams"
+            case reserveSlots = "reserve_slots"
+            case taxiSlots = "taxi_slots"
+        }
+
+        public init(
+            tradeDeadline: Int? = nil, waiverDayOfWeek: Int? = nil, playoffWeekStart: Int? = nil,
+            waiverType: Int? = nil, waiverBudget: Int? = nil, waiverClearDays: Int? = nil,
+            dailyWaivers: Int? = nil, playoffTeams: Int? = nil, reserveSlots: Int? = nil, taxiSlots: Int? = nil
+        ) {
+            self.tradeDeadline = tradeDeadline
+            self.waiverDayOfWeek = waiverDayOfWeek
+            self.playoffWeekStart = playoffWeekStart
+            self.waiverType = waiverType
+            self.waiverBudget = waiverBudget
+            self.waiverClearDays = waiverClearDays
+            self.dailyWaivers = dailyWaivers
+            self.playoffTeams = playoffTeams
+            self.reserveSlots = reserveSlots
+            self.taxiSlots = taxiSlots
         }
 
         /// `nil` when the league has no deadline.
@@ -170,12 +205,18 @@ public struct SleeperRoster: Codable, Hashable, Sendable {
         public let fptsDecimal: Double?
         public let fptsAgainst: Double?
         public let fptsAgainstDecimal: Double?
+        /// FAAB spent so far, when the league uses it.
+        public let waiverBudgetUsed: Int?
+        /// One-based place in the waiver order.
+        public let waiverPosition: Int?
 
         enum CodingKeys: String, CodingKey {
             case wins, losses, ties, fpts
             case fptsDecimal = "fpts_decimal"
             case fptsAgainst = "fpts_against"
             case fptsAgainstDecimal = "fpts_against_decimal"
+            case waiverBudgetUsed = "waiver_budget_used"
+            case waiverPosition = "waiver_position"
         }
 
         /// Sleeper splits points either side of the decimal point.

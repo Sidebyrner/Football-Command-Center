@@ -15,6 +15,13 @@ actor StubTransport: HTTPTransport {
         routes.append((pathContains, json, status))
     }
 
+    /// A route answered from a fixture file's bytes — the recorded Sleeper
+    /// projection and stat payloads are far too large to inline.
+    func on(_ pathContains: String, fixture name: String) throws {
+        let url = try XCTUnwrap(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures"))
+        routes.append((pathContains, try String(contentsOf: url, encoding: .utf8), 200))
+    }
+
     /// Replaces an already-scripted route. The first match wins, so a plain
     /// `on` cannot override an earlier one — this puts the new answer in front.
     func override(_ pathContains: String, json: String, status: Int = 200) {
