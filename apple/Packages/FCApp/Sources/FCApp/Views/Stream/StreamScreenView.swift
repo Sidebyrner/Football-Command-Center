@@ -100,6 +100,7 @@ struct StreamScreenView<Kind: StreamKind>: View {
         .safeAreaInset(edge: .bottom) {
             if !model.compareIDs.isEmpty { compareTray }
         }
+        .animation(Motion.snappy, value: model.compareIDs.isEmpty)
         .refreshable { await model.refresh() }
         .sensoryFeedback(.success, trigger: model.refreshCount)
         .navigationTitle(spec.title)
@@ -395,25 +396,90 @@ struct StreamScreenView<Kind: StreamKind>: View {
     // MARK: - Compare tray
 
     private var compareTray: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "person.2.crop.square.stack")
-            Text("Comparing \(model.compareIDs.count)")
-                .font(.subheadline.weight(.semibold))
-            Text(model.compareIDs.compactMap { model.projection(for: $0).map { StreamFormat.shortName($0.name) } }.joined(separator: ", "))
-                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            Spacer()
-            Button("Clear") { model.clearCompare() }
-                .buttonStyle(.borderless)
-                .font(.caption)
-            Button("Compare") { comparing = true }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+        StreamCompareTray(
+            players: model.compareIDs.compactMap { model.projection(for: $0) },
+            limit: StreamScreenModel<Kind>.compareLimit,
+            onClear: { withAnimation(Motion.snappy) { model.clearCompare() } },
+            onCompare: { comparing = true }
+        )
+    }
+}
+
+/// Who is lined up to compare, with room for the names and a clear primary
+/// action. Compare needs two; until then it says so.
+struct StreamCompareTray<P: StreamProjection>: View {
+    let players: [P]
+    let limit: Int
+    let onClear: () -> Void
+    let onCompare: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                HStack(spacing: -10) {
+                    ForEach(players.prefix(4), id: \.id) { p in
+                        PlayerAvatar(sleeperID: p.playerID, name: p.name, position: p.platform, size: 34)
+                            .overlay(Circle().stroke(.background, lineWidth: 2))
+                    }
+                }
+                .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(players.count) of \(limit) to compare")
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    Text(players.count < 2
+                         ? "Add one more to see them side by side"
+                         : players.map { StreamFormat.shortName($0.name) }.joined(separator: " · "))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            HStack(spacing: 10) {
+                Button(role: .destructive, action: onClear) {
+                    Text("Clear")
+                        .font(.subheadline.weight(.medium))
+                        .lineLimit(1)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(Palette.surfaceRaised))
+                }
+                .buttonStyle(PressableStyle(scale: 0.96))
+                Button(action: onCompare) {
+                    Label("Compare side by side", systemImage: "person.2.crop.square.stack")
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .foregroundStyle(.white)
+                        .background(Capsule().fill(Color.accentColor))
+                }
+                .buttonStyle(PressableStyle(scale: 0.97))
+                .disabled(players.count < 2)
+                .opacity(players.count < 2 ? 0.5 : 1)
+            }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
         .padding(.horizontal)
         .padding(.bottom, 8)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+}
+
+/// Dims and shrinks slightly while pressed, so a card or pill reads as
+/// something you can tap.
+struct PressableStyle: ButtonStyle {
+    var scale: CGFloat = 0.98
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? scale : 1)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .animation(.snappy(duration: 0.18), value: configuration.isPressed)
     }
 }
 
@@ -446,10 +512,11 @@ struct StreamRowView<P: StreamProjection>: View {
             Button(action: onToggle) {
                 summary.contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableStyle())
             .accessibilityElement(children: .combine)
             .accessibilityLabel(accessibilitySummary)
-            .accessibilityHint(isExpanded ? "Hides the details" : "Shows the stats")
+            .accessibilityHint(isExpanded ? "Hides the stats" : "Shows the stats")
+            footer.padding(.top, 12)
 
             if isExpanded {
                 details
@@ -458,6 +525,10 @@ struct StreamRowView<P: StreamProjection>: View {
             }
         }
         .card(padding: 14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.accentColor.opacity(isComparing ? 0.6 : 0), lineWidth: 1.5)
+        )
     }
 
     // MARK: Collapsed
@@ -506,15 +577,49 @@ struct StreamRowView<P: StreamProjection>: View {
                 }
                 .fixedSize()
             }
-            HStack(alignment: .center, spacing: 10) {
-                StreamRangeBar(floor: row.floorP25, expected: row.expPts, ceiling: row.ceilingP75,
-                               scaleMax: scaleMax, tint: Palette.position(row.platform))
-                Image(systemName: "chevron.down")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-                    .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                    .accessibilityHidden(true)
+            StreamRangeBar(floor: row.floorP25, expected: row.expPts, ceiling: row.ceilingP75,
+                           scaleMax: scaleMax, tint: Palette.position(row.platform))
+        }
+    }
+
+    /// Two labelled controls, so neither the compare action nor the fact that
+    /// the card opens is hidden behind an icon.
+    private var footer: some View {
+        HStack(spacing: 8) {
+            Button(action: onCompare) {
+                Label(isComparing ? "In compare" : "Compare",
+                      systemImage: isComparing ? "checkmark.circle.fill" : "plus.circle")
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .foregroundStyle(isComparing ? Color.white : Color.accentColor)
+                    .background(Capsule().fill(isComparing ? Color.accentColor : Color.accentColor.opacity(0.12)))
+                    .contentShape(Capsule())
             }
+            .buttonStyle(PressableStyle(scale: 0.95))
+            .disabled(!isComparing && !canCompare)
+            .opacity(!isComparing && !canCompare ? 0.45 : 1)
+            .sensoryFeedback(.selection, trigger: isComparing)
+            .accessibilityLabel(isComparing ? "Remove \(row.name) from compare" : "Add \(row.name) to compare")
+            .help(canCompare || isComparing ? "Side-by-side comparison, up to 4 players" : "Compare is full — remove someone first")
+            Spacer(minLength: 8)
+            Button(action: onToggle) {
+                HStack(spacing: 4) {
+                    Text(isExpanded ? "Less" : "Stats")
+                    Image(systemName: "chevron.down")
+                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                }
+                .font(.subheadline.weight(.medium))
+                .lineLimit(1)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Capsule().strokeBorder(Color.secondary.opacity(0.3)))
+                .contentShape(Capsule())
+            }
+            .buttonStyle(PressableStyle(scale: 0.95))
+            .accessibilityHidden(true) // the card itself carries this action
         }
     }
 
@@ -534,12 +639,6 @@ struct StreamRowView<P: StreamProjection>: View {
             Text(availability.label)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(Palette.caution)
-                .lineLimit(1)
-        }
-        if isComparing {
-            Label("Comparing", systemImage: "checkmark.circle.fill")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
                 .lineLimit(1)
         }
     }
@@ -603,12 +702,6 @@ struct StreamRowView<P: StreamProjection>: View {
 
     @ViewBuilder
     private var actions: some View {
-        Button(action: onCompare) {
-            Label(isComparing ? "Remove from compare" : "Add to compare",
-                  systemImage: isComparing ? "checkmark.circle.fill" : "plus.circle")
-        }
-        .buttonStyle(.bordered)
-        .disabled(!isComparing && !canCompare)
         Button(action: onAdjust) {
             Label("Adjust inputs", systemImage: "slider.horizontal.3")
         }
