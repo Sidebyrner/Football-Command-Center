@@ -47,11 +47,18 @@ final class SitStartModelTests: XCTestCase {
         """
     }
 
-    private func loaded(week: Int = 1) async throws -> SitStartModel {
+    /// - Parameter injuries: Sleeper injury tags to put on players, by id.
+    private func loaded(week: Int = 1, injuries: [String: String] = [:], rosters: String = Fixture.rosters) async throws -> SitStartModel {
+        var players = Fixture.players
+        for (id, tag) in injuries {
+            players = players.replacingOccurrences(
+                of: #""\#(id)":{"#, with: #""\#(id)":{"injury_status":"\#(tag)","#
+            )
+        }
         let transport = await Harness.standardTransport()
         await transport.override("/state/nfl", json: #"{"week":\#(week),"season":"2025","season_type":"regular"}"#)
-        await transport.override("/league/L1/rosters", json: Fixture.rosters)
-        await transport.override("/players/nfl", json: Fixture.players)
+        await transport.override("/league/L1/rosters", json: rosters)
+        await transport.override("/players/nfl", json: players)
         let harness = Harness.make(transport: transport)
         cacheDirectory = harness.cacheDirectory
 
@@ -218,6 +225,68 @@ final class SitStartModelTests: XCTestCase {
             XCTAssertFalse(proposed.contains("4984"), "\(basis) started Josh Allen on bye")
             XCTAssertFalse(proposed.contains("k1"), "\(basis) started a BAL kicker on bye")
         }
+    }
+
+    // MARK: - Injuries
+
+    /// A Doubtful starter is benched on every basis, named with his status,
+    /// and the swap says why.
+    func testADoubtfulQuarterbackIsNeverRecommended() async throws {
+        let model = try await loaded(injuries: ["4984": "Doubtful"])
+        XCTAssertEqual(slot(model, "QB")?.name, "Jared Goff")
+        XCTAssertTrue(model.unranked.injured.contains("Josh Allen (Doubtful)"))
+        let sit = try XCTUnwrap(model.sits.first { $0.name == "Josh Allen" })
+        XCTAssertEqual(sit.injury, "Doubtful")
+        for basis in LineupBasis.allCases {
+            model.basis = basis
+            let proposed = Set(model.proposal?.proposedIDs.compactMap { $0 } ?? [])
+            XCTAssertFalse(proposed.contains("4984"), "\(basis) started a Doubtful Josh Allen")
+        }
+    }
+
+    func testOutAndIRPlayersAreLeftOutWithTheirStatus() async throws {
+        let model = try await loaded(injuries: ["7564": "IR", "4866": "Out"])
+        let proposed = Set(model.proposal?.proposedIDs.compactMap { $0 } ?? [])
+        XCTAssertFalse(proposed.contains("7564"))
+        XCTAssertFalse(proposed.contains("4866"))
+        XCTAssertTrue(model.unranked.injured.contains("Ja'Marr Chase (IR)"))
+        XCTAssertTrue(model.unranked.injured.contains("Saquon Barkley (Out)"))
+        XCTAssertFalse(model.lineup.contains { $0.name == "Ja'Marr Chase" || $0.name == "Saquon Barkley" })
+    }
+
+    /// Questionable players usually play, so they are started on their value —
+    /// but badged.
+    func testAQuestionableStarterStaysButIsFlagged() async throws {
+        let healthy = try await loaded()
+        let tagged = try await loaded(injuries: ["4984": "Questionable"])
+        XCTAssertEqual(slot(tagged, "QB")?.name, slot(healthy, "QB")?.name)
+        if slot(tagged, "QB")?.name == "Josh Allen" {
+            XCTAssertEqual(slot(tagged, "QB")?.availability, .questionable)
+        }
+        XCTAssertTrue(tagged.unranked.injured.isEmpty)
+    }
+
+    /// With both quarterbacks out, nobody can be valued for the slot: the
+    /// current starter is kept, and the screen says there is no cover.
+    func testAnInjuredStarterWithNoCoverIsCalledOut() async throws {
+        let model = try await loaded(injuries: ["4984": "Out", "3163": "IR"])
+        let qb = try XCTUnwrap(slot(model, "QB"))
+        XCTAssertTrue(qb.keptBecauseUnvalued)
+        XCTAssertEqual(qb.availability, .unavailable("Out"))
+        XCTAssertEqual(model.injuredWithoutCover, ["Josh Allen (Out) at QB"])
+    }
+
+    /// A player in the user's IR slot cannot be started from there.
+    func testAPlayerOnTheUsersReserveIsNotStarted() async throws {
+        let rosters = Fixture.rosters.replacingOccurrences(
+            of: #""starters":["4984","4866","rb_sea","7564","wr2","te1","0","k1","PHI","lb1","dl1"]}"#,
+            with: #""starters":["4984","4866","rb_sea","7564","wr2","te1","0","k1","PHI","lb1","dl1"],"reserve":["9221"]}"#
+        )
+        XCTAssertNotEqual(rosters, Fixture.rosters)
+        let model = try await loaded(rosters: rosters)
+        let proposed = Set(model.proposal?.proposedIDs.compactMap { $0 } ?? [])
+        XCTAssertFalse(proposed.contains("9221"))
+        XCTAssertTrue(model.unranked.injured.contains("Jahmyr Gibbs (On your IR)"))
     }
 
     // MARK: - Disagreement

@@ -76,10 +76,13 @@ public struct UnrankedBreakdown: Hashable, Sendable {
     /// This-season and Command Center bases: no Sleeper stat line yet, and
     /// nothing else to project from.
     public var noSleeperLine: [String] = []
+    /// Out, Doubtful, IR and the like — excluded on every basis, with the
+    /// status named: "Kyren Williams (Doubtful)".
+    public var injured: [String] = []
 
     public var total: Int {
         noProductionData.count + noSeasonLine.count + onBye.count + noGameLine.count
-            + noProjection.count + noSleeperLine.count
+            + noProjection.count + noSleeperLine.count + injured.count
     }
 }
 
@@ -101,6 +104,9 @@ public struct LineupChange: Hashable, Sendable, Identifiable {
     public let slot: String
     /// His value on the active basis; `nil` when the basis can't value him.
     public let value: Double?
+    /// Injury badge — "Q" for a Questionable start, or the status of a starter
+    /// being sat because he is Out, Doubtful or on IR.
+    public var injury: String? = nil
 
     public var id: String { playerID }
 }
@@ -129,6 +135,8 @@ public struct ProposedSlot: Hashable, Sendable, Identifiable {
     public let changed: Bool
     /// His game has kicked off, so Sleeper won't let this slot change.
     public let isLocked: Bool
+    /// The player's injury standing for this week.
+    public var availability: StartAvailability = .clear
 
     public var id: Int { index }
 }
@@ -167,6 +175,10 @@ public final class SitStartModel: ObservableObject {
     @Published public private(set) var starts: [LineupChange] = []
     @Published public private(set) var sits: [LineupChange] = []
     @Published public private(set) var moves: [SlotMove] = []
+
+    /// Slots where the current starter is Out, Doubtful or on IR and nobody on
+    /// the bench can be valued to replace him — "Name (Out) at RB".
+    @Published public private(set) var injuredWithoutCover: [String] = []
 
     /// Bench players whose game has already kicked off — they can't be started
     /// this week, so they are left out of every proposal.
@@ -265,6 +277,11 @@ public final class SitStartModel: ObservableObject {
            context.byeCalendar.isOnBye(team: team, week: context.currentWeek) {
             return nil
         }
+        // Nor may it recommend a player who is Out, Doubtful or on IR: his
+        // season average says nothing about a week he will not play.
+        if StartAvailability.of(id, context: context).blocksStart {
+            return nil
+        }
         switch basis {
         case .seasonAverage: return profilesBySleeperID[id]?.pointsPerGame
         case .form: return profilesBySleeperID[id]?.formPointsPerGame
@@ -330,8 +347,14 @@ public final class SitStartModel: ObservableObject {
                 value: shown.flatMap { value(of: $0, basis: basis, context: context) },
                 keptBecauseUnvalued: proposed == nil && incumbentID != nil,
                 changed: proposed != nil && proposed != incumbentID,
-                isLocked: shown.map { context.isLocked($0) } ?? false
+                isLocked: shown.map { context.isLocked($0) } ?? false,
+                availability: shown.map { StartAvailability.of($0, context: context) } ?? .clear
             )
+        }
+        injuredWithoutCover = lineup.compactMap { slot in
+            guard slot.keptBecauseUnvalued, !slot.isLocked, case .unavailable(let status) = slot.availability,
+                  let name = slot.name else { return nil }
+            return "\(name) (\(status)) at \(slot.slot)"
         }
 
         swaps = active.swaps.map { swap in
@@ -393,7 +416,8 @@ public final class SitStartModel: ObservableObject {
                 playerID: id,
                 name: context.playerName(id) ?? id,
                 slot: slot,
-                value: value(of: id, basis: basis, context: context)
+                value: value(of: id, basis: basis, context: context),
+                injury: StartAvailability.of(id, context: context).badge
             )
         }
 
@@ -419,12 +443,15 @@ public final class SitStartModel: ObservableObject {
         var noLine: [String] = []
         var noProjection: [String] = []
         var noSleeper: [String] = []
+        var injured: [String] = []
 
         for id in ids {
             let label = context.playerName(id) ?? id
             if let team = team(of: id, in: context),
                context.byeCalendar.isOnBye(team: team, week: context.currentWeek) {
                 bye.append(label)
+            } else if case .unavailable(let status) = StartAvailability.of(id, context: context) {
+                injured.append("\(label) (\(status))")
             } else if basis == .environment {
                 noLine.append(label)
             } else if basis == .projected {
@@ -445,6 +472,7 @@ public final class SitStartModel: ObservableObject {
         )
         breakdown.noProjection = noProjection.sorted()
         breakdown.noSleeperLine = noSleeper.sorted()
+        breakdown.injured = injured.sorted()
         return breakdown
     }
 }

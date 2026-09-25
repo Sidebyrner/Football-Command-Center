@@ -451,7 +451,12 @@ public final class InjuryCenterModel: ObservableObject {
                 playerIDs: ids,
                 template: context.template,
                 positions: { context.position($0) },
-                valueOf: { self.value(of: $0, basis: self.basis, context: context) },
+                // Your other Out, Doubtful and IR players can't fill the hole
+                // either — the same rule Sit/Start uses.
+                valueOf: {
+                    StartAvailability.of($0, context: context).blocksStart
+                        ? nil : self.value(of: $0, basis: self.basis, context: context)
+                },
                 locked: locked
             ).proposedTotal
         }

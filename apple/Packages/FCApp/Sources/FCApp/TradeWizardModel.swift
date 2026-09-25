@@ -576,6 +576,11 @@ public final class TradeWizardModel: ObservableObject {
             if context.byeCalendar.isOnBye(team: context.nflTeam(of: id) ?? rival.roster.first(where: { $0.id == id })?.team, week: context.currentWeek) {
                 return nil
             }
+            // Out, Doubtful and IR players don't play this week — the same
+            // rule Sit/Start uses — so they add nothing to this week's lineup.
+            if StartAvailability.of(id, context: context).blocksStart {
+                return nil
+            }
             return values[id]
         }
         func bestLineup(ids: [String], starters: [String], positionOf: @escaping (String) -> Position?) -> Double? {

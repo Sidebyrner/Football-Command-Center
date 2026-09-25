@@ -20,7 +20,7 @@ final class WaiverBoardModelTests: XCTestCase {
     /// A back with a week-3 projection and no recorded week-2 line.
     private static let projectedOnlyBack = "9509"
 
-    private func transport() async throws -> StubTransport {
+    private func transport(injuries: [String: String] = [:]) async throws -> StubTransport {
         let transport = await Harness.standardTransport()
         await transport.override("/state/nfl", json: #"{"week":3,"season":"2026","season_type":"regular"}"#)
         await transport.replace("/league/L1", json: """
@@ -38,7 +38,7 @@ final class WaiverBoardModelTests: XCTestCase {
               "players":["qb2","rb2","wr3","wr4","\(Self.gibbs)"],
               "starters":["qb2","rb2","wr3","wr4"]}]
             """)
-        await transport.replace("/players/nfl", json: """
+        var players = """
             {"qb1":{"full_name":"Starter QB","position":"QB","team":"BUF","active":true},
              "rb1":{"full_name":"Starter Back","position":"RB","team":"DET","active":true},
              "wr1":{"full_name":"Receiver One","position":"WR","team":"MIN","active":true},
@@ -53,7 +53,11 @@ final class WaiverBoardModelTests: XCTestCase {
              "\(Self.smithNjigba)":{"full_name":"Jaxon Smith-Njigba","position":"WR","team":"SEA","active":true},
              "\(Self.projectedOnlyBack)":{"full_name":"Bijan Robinson","position":"RB","team":"ATL","active":true},
              "retired":{"full_name":"Retired Receiver","position":"WR","team":"SEA","active":false}}
-            """)
+            """
+        for (id, tag) in injuries {
+            players = players.replacingOccurrences(of: #""\#(id)":{"#, with: #""\#(id)":{"injury_status":"\#(tag)","#)
+        }
+        await transport.replace("/players/nfl", json: players)
         try await transport.on("/projections/nfl/2026/3", fixture: "projections-2026-w3")
         try await transport.on("/stats/nfl/2026/2", fixture: "stats-2026-w2")
         return transport
@@ -157,6 +161,17 @@ final class WaiverBoardModelTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(effect.after), try XCTUnwrap(jsn.projected), accuracy: 0.11)
         XCTAssertEqual(try XCTUnwrap(effect.delta), try XCTUnwrap(jsn.projected), accuracy: 0.11)
         XCTAssertTrue(effect.basisLabel.contains("Rotowire"))
+    }
+
+    /// An Out free agent can't be in this week's lineup, so adding him gains
+    /// nothing now — and the effect says why.
+    func testAddingAnOutPlayerGainsNothingThisWeek() async throws {
+        let model = await model(try await transport(injuries: [Self.smithNjigba: "Out"]))
+        let jsn = try XCTUnwrap(model.rows.first { $0.id == Self.smithNjigba })
+        let drop = try XCTUnwrap(model.dropCandidates.first)
+        let effect = model.pairEffect(add: jsn, drop: drop)
+        XCTAssertEqual(effect.delta, 0)
+        XCTAssertTrue(effect.note?.contains("Out") ?? false)
     }
 
     /// With no projections reachable the board still lists what it can measure

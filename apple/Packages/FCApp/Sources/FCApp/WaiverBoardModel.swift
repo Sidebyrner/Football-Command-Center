@@ -294,24 +294,30 @@ public final class WaiverBoardModel: ObservableObject {
             return PairEffect(addID: add.id, dropID: drop.id, before: nil, after: nil, delta: nil, basisLabel: label, note: "\(add.name) has no projection this week.")
         }
         let locked = Set(mine.roster.map(\.id).filter { context.isLocked($0) })
+        // Out, Doubtful and IR players can't be in this week's lineup — the
+        // same rule Sit/Start uses — so neither side of the pair counts them.
         func best(_ ids: [String]) -> Double? {
             LineupOptimizer.optimize(
                 currentStarterIDs: mine.rawStarters,
                 playerIDs: ids,
                 template: context.template,
                 positions: { context.position($0) },
-                valueOf: { context.projectedPoints($0) },
+                valueOf: { StartAvailability.of($0, context: context).blocksStart ? nil : context.projectedPoints($0) },
                 locked: locked
             ).proposedTotal
         }
         let current = mine.roster.map(\.id)
         let before = best(current) ?? 0
         let after = best(current.filter { $0 != drop.id } + [add.id]) ?? 0
+        var note: String?
+        if case .unavailable(let status) = StartAvailability.of(add.id, context: context) {
+            note = "\(add.name) is \(status), so he can't help this week's lineup — a stash, not a start."
+        }
         return PairEffect(
             addID: add.id, dropID: drop.id,
             before: before, after: after,
             delta: ((after - before) * 10).rounded() / 10,
-            basisLabel: label, note: nil
+            basisLabel: label, note: note
         )
     }
 

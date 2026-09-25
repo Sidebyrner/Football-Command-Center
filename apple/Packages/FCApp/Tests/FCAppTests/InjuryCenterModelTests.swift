@@ -138,6 +138,40 @@ final class InjuryCenterModelTests: XCTestCase {
                        "nobody else on the roster has a valued line, so he is the whole gain")
     }
 
+    /// A Doubtful receiver on the bench can't fill the hole either, so a
+    /// healthy free agent's gain is his whole value — not what he adds over a
+    /// player who won't play.
+    func testAnInjuredBenchPlayerIsNotCountedAsCover() async throws {
+        let transport = try await transport()
+        await transport.replace("/league/L1", json: """
+            {"league_id":"L1","name":"Whack-A-Mole","season":"2026","total_rosters":8,
+             "roster_positions":["QB","RB","WR","BN","BN","BN"],
+             "scoring_settings":{"pass_yd":0.05,"pass_td":6,"rec_yd":0.1,"rec_td":6,"rush_yd":0.1,"rush_td":6},
+             "settings":{"reserve_slots":2}}
+            """)
+        await transport.replace("/league/L1/rosters", json: """
+            [{"roster_id":1,"owner_id":"u1","players":["qb1","rb1","\(Self.collins)","\(Self.smithNjigba)"],
+              "starters":["qb1","rb1","\(Self.collins)"]},
+             {"roster_id":2,"owner_id":"u2","players":["qb2"],"starters":["qb2"]}]
+            """)
+        await transport.replace("/players/nfl", json: """
+            {"qb1":{"full_name":"Starter QB","position":"QB","team":"BUF","active":true},
+             "rb1":{"full_name":"Starter Back","position":"RB","team":"DET","active":true},
+             "\(Self.collins)":{"full_name":"Nico Collins","position":"WR","team":"HOU","active":true,"injury_status":"Out"},
+             "\(Self.smithNjigba)":{"full_name":"Jaxon Smith-Njigba","position":"WR","team":"SEA","active":true,"injury_status":"Doubtful"},
+             "2133":{"full_name":"Davante Adams","position":"WR","team":"LAR","active":true},
+             "qb2":{"full_name":"Rival QB","position":"QB","team":"CIN","active":true}}
+            """)
+        let model = await model(transport)
+        model.basis = .sleeperPointsPerGame
+        let collins = try XCTUnwrap(model.roster.first { $0.id == Self.collins })
+        let candidates = model.candidates(for: collins)
+        XCTAssertFalse(candidates.contains { $0.id == Self.smithNjigba }, "a Doubtful player is not a replacement")
+        let adams = try XCTUnwrap(candidates.first { $0.id == "2133" })
+        XCTAssertEqual(try XCTUnwrap(adams.lineupGain), try XCTUnwrap(adams.value), accuracy: 0.1,
+                       "Smith-Njigba is Doubtful, so the WR slot is empty without Adams")
+    }
+
     /// No projections were scripted, so the projected basis values nobody —
     /// and says so with an empty list rather than a list of zeroes.
     func testAnUnavailableBasisYieldsNoCandidatesRatherThanZeroes() async throws {

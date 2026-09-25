@@ -46,10 +46,16 @@ public struct LineupReadiness: Hashable, Sendable {
                 settled += 1
             } else if context.byeCalendar.isOnBye(team: context.nflTeam(of: id), week: context.currentWeek) {
                 problems += 1
-            } else if let status = context.injuryStatus(id) {
-                if problemTags.contains(status.uppercased()) { problems += 1 } else { caution += 1 }
             } else {
-                ready += 1
+                // The same rule Sit/Start uses, so the ring and the lineup
+                // advice can never disagree about who is fit to start.
+                switch StartAvailability.of(id, context: context) {
+                case .unavailable: problems += 1
+                case .questionable: caution += 1
+                case .clear:
+                    // Any other tag Sleeper invents is a caution, not a pass.
+                    if context.injuryStatus(id) != nil { caution += 1 } else { ready += 1 }
+                }
             }
         }
         return LineupReadiness(slots: slotCount, ready: ready, caution: caution, problems: problems, settled: settled)

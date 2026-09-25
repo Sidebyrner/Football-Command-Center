@@ -197,6 +197,9 @@ public struct SitStartView: View {
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
+                    if let injury = change.injury {
+                        InjuryBadge(label: injury)
+                    }
                     Spacer()
                     Text(change.value.map { String(format: "%.1f", $0) } ?? "—")
                         .font(.subheadline.monospacedDigit())
@@ -246,6 +249,9 @@ public struct SitStartView: View {
                         .foregroundStyle(slot.playerID == nil ? Palette.caution : Color.primary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
+                    if let badge = slot.availability.badge {
+                        InjuryBadge(label: badge)
+                    }
                     Spacer(minLength: 4)
                     if slot.isLocked {
                         Image(systemName: "lock.fill")
@@ -278,6 +284,23 @@ public struct SitStartView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 4)
             }
+            if !model.injuredWithoutCover.isEmpty {
+                Label {
+                    Text("Nobody on your bench can replace \(model.injuredWithoutCover.joined(separator: ", ")). Check the waiver wire before kickoff.")
+                        .fixedSize(horizontal: false, vertical: true)
+                } icon: {
+                    Image(systemName: "cross.case.fill").foregroundStyle(Palette.sit)
+                }
+                .font(.caption)
+                .padding(.top, 6)
+            }
+            if model.lineup.contains(where: { $0.availability == .questionable }) {
+                Text("Q players are started on their full value. Most Questionable players play — check inactives about 90 minutes before kickoff.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 4)
+            }
             if model.lineup.contains(where: \.keptBecauseUnvalued) {
                 Text("\"Kept\" slots have no value on this basis, so your current starter stays.")
                     .font(.caption2)
@@ -296,6 +319,7 @@ public struct SitStartView: View {
         if unranked.total > 0 {
             VStack(alignment: .leading, spacing: 8) {
                 SectionHeader(title: "Left out", subtitle: "Players this basis can't value — never counted as zero.")
+                group("Injured — never recommended to start", unranked.injured, tint: Palette.sit)
                 group("On bye this week", unranked.onBye, tint: Palette.sit)
                 group("No stats for DEF and IDP", unranked.noProductionData)
                 group("No \(model.basis.label.lowercased()) value in \(context.statsSeason)", unranked.noSeasonLine)
@@ -318,5 +342,25 @@ public struct SitStartView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+}
+
+/// "Q", "Out", "Doubtful", "IR" beside a player's name — caution for
+/// Questionable, the sit colour for everything that should not start.
+struct InjuryBadge: View {
+    let label: String
+
+    private var tint: Color { label == "Q" ? Palette.caution : Palette.sit }
+
+    var body: some View {
+        Text(label)
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(Capsule().fill(tint.opacity(0.15)))
+            .lineLimit(1)
+            .fixedSize()
+            .accessibilityLabel(label == "Q" ? "Questionable" : label)
     }
 }

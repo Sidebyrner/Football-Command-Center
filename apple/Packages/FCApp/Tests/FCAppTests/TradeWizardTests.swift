@@ -44,10 +44,15 @@ final class TradeWizardTests: XCTestCase {
         }
     }
 
-    private func context(deadline: Int = 11, state: String = TestLeague.nflStateJSON) async throws -> LeagueContext {
+    private func context(deadline: Int = 11, state: String = TestLeague.nflStateJSON,
+                         injuries: [String: String] = [:]) async throws -> LeagueContext {
+        var players = Fixture.players
+        for (id, tag) in injuries {
+            players = players.replacingOccurrences(of: #""\#(id)":{"#, with: #""\#(id)":{"injury_status":"\#(tag)","#)
+        }
         let transport = await Harness.standardTransport()
         await transport.override("/league/L1/rosters", json: Fixture.rosters)
-        await transport.override("/players/nfl", json: Fixture.players)
+        await transport.override("/players/nfl", json: players)
         await transport.replace("/league/L1", json: Fixture.league(deadline: deadline))
         await transport.replace("/state/nfl", json: state)
         let harness = Harness.make(transport: transport)
@@ -130,6 +135,26 @@ final class TradeWizardTests: XCTestCase {
         model.toggleSending("wr_spare")
         XCTAssertFalse(model.effects.warnings.contains { $0.hasPrefix("Leaves rival short") })
         XCTAssertTrue(model.effects.theirWeeks.allSatisfy { $0.after <= $0.before })
+    }
+
+    /// Receiving a player who is Out adds nothing to this week's lineup — he
+    /// is warned about and not counted.
+    func testAnOutPlayerYouReceiveAddsNothingThisWeek() async throws {
+        func lineupAfter(_ injuries: [String: String]) async throws -> TradeWizardModel {
+            let model = TradeWizardModel(context: try await context(injuries: injuries), relay: nil,
+                                         secrets: InMemorySecretStore(), prefill: nil)
+            model.choose(goal: try rbWeek8(model))
+            model.choose(partner: try XCTUnwrap(model.partners.first))
+            model.toggleSending("wr_spare")
+            return model
+        }
+        let healthy = try await lineupAfter([:])
+        let hurt = try await lineupAfter(["9509": "Out"])
+        XCTAssertEqual(healthy.receiving, ["9509"])
+        XCTAssertEqual(hurt.receiving, ["9509"])
+        XCTAssertTrue(hurt.effects.warnings.contains { $0.contains("Bijan Robinson is listed Out") })
+        let withHim = try XCTUnwrap(healthy.effects.lineupAfter)
+        XCTAssertLessThan(hurt.effects.lineupAfter ?? 0, withHim, "an Out Bijan is not counted in this week's lineup")
     }
 
     // MARK: - Pitch
