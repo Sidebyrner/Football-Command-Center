@@ -30,8 +30,12 @@ public struct IDPStreamView: View {
         usage: { "\(StreamFormat.pct($0.snapShare)) snaps" },
         rowPills: { p in [
             StreamPill(label: "snaps", value: StreamFormat.whole(p.expSnaps)),
-            StreamPill(label: "tkl", value: StreamFormat.one(p.expTackles)),
-            StreamPill(label: "sk", value: StreamFormat.two(p.eSack)),
+            StreamPill(label: "tackles", value: StreamFormat.one(p.expTackles)),
+            StreamPill(label: "sacks", value: StreamFormat.two(p.eSack)),
+            StreamPill(label: "TFL", value: StreamFormat.two(p.eTfl)),
+            StreamPill(label: "QB hits", value: StreamFormat.two(p.eQbHit)),
+            StreamPill(label: "pass def", value: StreamFormat.two(p.ePd)),
+            StreamPill(label: "chance he plays", value: StreamFormat.pct(p.pPlay)),
         ] },
         starterPills: { p in [StreamPill(label: "snaps", value: StreamFormat.whole(p.expSnaps))] },
         compare: StreamCompareSpec(

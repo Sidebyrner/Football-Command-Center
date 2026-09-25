@@ -37,11 +37,13 @@ public struct RBStreamView: View {
         },
         usage: { "\(StreamFormat.pct($0.carryShare)) of carries" },
         rowPills: { p in [
-            StreamPill(label: "car", value: StreamFormat.one(p.expCarries)),
-            StreamPill(label: "tgt", value: StreamFormat.one(p.expTargets)),
-            StreamPill(label: "ru yds", value: StreamFormat.whole(p.eRushYd)),
-            StreamPill(label: "1st dn", value: StreamFormat.one(p.eFirstDowns)),
-            StreamPill(label: "TD", value: StreamFormat.two(p.eTouchdowns)),
+            StreamPill(label: "carries", value: StreamFormat.one(p.expCarries)),
+            StreamPill(label: "targets", value: StreamFormat.one(p.expTargets)),
+            StreamPill(label: "rush yds", value: StreamFormat.whole(p.eRushYd)),
+            StreamPill(label: "rec yds", value: StreamFormat.whole(p.eRecYd)),
+            StreamPill(label: "first downs", value: StreamFormat.one(p.eFirstDowns)),
+            StreamPill(label: "TDs", value: StreamFormat.two(p.eTouchdowns)),
+            StreamPill(label: "chance he plays", value: StreamFormat.pct(p.pPlay)),
         ] },
         starterPills: { p in [
             StreamPill(label: "carries", value: StreamFormat.one(p.expCarries)),

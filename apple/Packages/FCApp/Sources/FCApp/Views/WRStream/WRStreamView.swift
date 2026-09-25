@@ -35,11 +35,12 @@ public struct WRStreamView: View {
         },
         usage: { "\(StreamFormat.pct($0.targetShare)) of targets" },
         rowPills: { p in [
-            StreamPill(label: "tgt", value: StreamFormat.one(p.expTargets)),
-            StreamPill(label: "yds", value: StreamFormat.whole(p.eRecYd)),
-            StreamPill(label: "1st dn", value: StreamFormat.one(p.eFirstDowns)),
-            StreamPill(label: "TD", value: StreamFormat.two(p.eTouchdowns)),
-            StreamPill(label: "30+", value: StreamFormat.two(p.e30)),
+            StreamPill(label: "targets", value: StreamFormat.one(p.expTargets)),
+            StreamPill(label: "rec yds", value: StreamFormat.whole(p.eRecYd)),
+            StreamPill(label: "first downs", value: StreamFormat.one(p.eFirstDowns)),
+            StreamPill(label: "TDs", value: StreamFormat.two(p.eTouchdowns)),
+            StreamPill(label: "30+ yd catches", value: StreamFormat.two(p.e30)),
+            StreamPill(label: "chance he plays", value: StreamFormat.pct(p.pPlay)),
         ] },
         starterPills: { p in [
             StreamPill(label: "targets", value: StreamFormat.one(p.expTargets)),

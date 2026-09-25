@@ -251,12 +251,11 @@ struct StreamScreenView<Kind: StreamKind>: View {
                     Spacer()
                     StatPill(label: "E[pts]", value: StreamFormat.one(inc.expPts))
                 }
-                StreamPillGrid(pills: [
-                    StreamPill(label: "floor", value: StreamFormat.one(inc.floorP25)),
-                    StreamPill(label: "ceiling", value: StreamFormat.one(inc.ceilingP75)),
-                ] + spec.starterPills(inc) + [
+                StreamRangeBar(floor: inc.floorP25, expected: inc.expPts, ceiling: inc.ceilingP75,
+                               scaleMax: scaleMax, tint: Palette.position(inc.platform))
+                StreamPillGrid(pills: spec.starterPills(inc) + [
                     StreamPill(label: "P(plays)", value: StreamFormat.pct(inc.pPlay)),
-                ])
+                ], minimumWidth: 72)
             } else {
                 Text("No starter chosen — rankings show projected points only. Pick anyone with Change.")
                     .font(.footnote).foregroundStyle(.secondary)
@@ -274,7 +273,16 @@ struct StreamScreenView<Kind: StreamKind>: View {
 
     private var controls: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SlidingPicker(options: StreamRiskMode.allCases, selection: $model.risk) { $0.label }
+            SlidingPicker(options: StreamRiskMode.allCases, selection: $model.risk) { mode in
+                switch mode {
+                case .floor: return "Floor"
+                case .neutral: return "Neutral"
+                case .ceiling: return "Ceiling"
+                }
+            }
+            Text(riskHint)
+                .font(.caption)
+                .foregroundStyle(.secondary)
             HStack {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
@@ -319,7 +327,7 @@ struct StreamScreenView<Kind: StreamKind>: View {
                 .foregroundStyle(.secondary)
                 .card()
         } else {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 10) {
                 ForEach(Array(model.rows.prefix(50).enumerated()), id: \.element.id) { offset, row in
                     StreamRowView(
                         row: row,
@@ -328,6 +336,8 @@ struct StreamScreenView<Kind: StreamKind>: View {
                         pills: spec.rowPills(row),
                         bid: model.bidLabel(row),
                         availability: row.playerID.flatMap { model.context?.availability(ofSleeperID: $0) },
+                        injuryBadge: injuryBadge(row),
+                        scaleMax: scaleMax,
                         isExpanded: expanded == row.id,
                         onToggle: { withAnimation(Motion.snappy) { expanded = expanded == row.id ? nil : row.id } },
                         onAdjust: { editingPlayer = row },
@@ -350,6 +360,35 @@ struct StreamScreenView<Kind: StreamKind>: View {
                         .font(.caption2).foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+
+    private var riskHint: String {
+        switch model.risk {
+        case .floor: return "Favours a safe floor — for when you're favoured to win."
+        case .neutral: return "Ranks on expected points."
+        case .ceiling: return "Favours upside — for when you're the underdog."
+        }
+    }
+
+    /// One scale for every range bar on screen.
+    private var scaleMax: Double {
+        max(model.rows.prefix(50).map(\.ceilingP75).max() ?? 0, model.report?.incumbent?.ceilingP75 ?? 0) * 1.05
+    }
+
+    /// The league's injury read first (Sleeper tag, practice report, IR
+    /// slot); the stream's own practice input when the player has no ID.
+    private func injuryBadge(_ row: Kind.Projection) -> String? {
+        if let id = row.playerID, let context = model.context,
+           let badge = StartAvailability.of(id, context: context).badge {
+            return badge
+        }
+        switch row.practice {
+        case .Q: return "Q"
+        case .D: return "Doubtful"
+        case .OUT: return "Out"
+        case .IR: return "IR"
+        default: return nil
         }
     }
 
@@ -380,6 +419,10 @@ struct StreamScreenView<Kind: StreamKind>: View {
 
 // MARK: - Row
 
+/// One streamer. Collapsed, it answers "who, how healthy, how many points":
+/// name, role, injury, and the floor-to-ceiling range on a scale shared with
+/// every other row. Tapped, it opens into roomy stat tiles, the odds against
+/// your starter, the model's reasoning and the actions.
 struct StreamRowView<P: StreamProjection>: View {
     let row: P
     let rank: Int
@@ -387,6 +430,10 @@ struct StreamRowView<P: StreamProjection>: View {
     let pills: [StreamPill]
     let bid: String?
     let availability: Availability?
+    /// "Q", "Out", "Doubtful", "IR" — from the league's injury sources.
+    var injuryBadge: String? = nil
+    /// Top of the shared range scale, so bars compare down the list.
+    var scaleMax: Double = 0
     let isExpanded: Bool
     let onToggle: () -> Void
     let onAdjust: () -> Void
@@ -395,106 +442,271 @@ struct StreamRowView<P: StreamProjection>: View {
     var onCompare: () -> Void = {}
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             Button(action: onToggle) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 10) {
-                        Text("\(rank)")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .frame(width: 20, alignment: .trailing)
-                        PlayerAvatar(sleeperID: row.playerID, name: row.name, position: row.platform, size: 32)
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 6) {
-                                Text(row.name)
-                                    .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.8)
-                                    .layoutPriority(1)
-                                PositionChip(position: row.platform, label: row.roleLabel)
-                            }
-                            Text(subtitle)
-                                .font(.caption2)
-                                .foregroundStyle(availability == .freeAgent ? Color.secondary : Palette.caution)
-                                .lineLimit(2)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .layoutPriority(1)
-                        Spacer(minLength: 4)
-                        Button(action: onCompare) {
-                            Image(systemName: isComparing ? "checkmark.circle.fill" : "plus.circle")
-                                .foregroundStyle(isComparing ? Color.accentColor : Color.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(!isComparing && !canCompare)
-                        .help(isComparing ? "Remove from compare" : "Add to compare")
-                        VStack(alignment: .trailing, spacing: 1) {
-                            Text(StreamFormat.one(row.expPts))
-                                .font(.headline.monospacedDigit())
-                                .contentTransition(.numericText())
-                            if let gain = row.expGain {
-                                Text((gain >= 0 ? "+" : "") + StreamFormat.one(gain))
-                                    .font(.caption2.monospacedDigit())
-                                    .foregroundStyle(gain >= 0 ? Palette.start : Palette.sit)
-                            }
-                        }
-                        .fixedSize()
-                    }
-                    StreamPillGrid(pills: statPills)
-                }
-                .contentShape(Rectangle())
+                summary.contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilitySummary)
+            .accessibilityHint(isExpanded ? "Hides the details" : "Shows the stats")
 
             if isExpanded {
-                VStack(alignment: .leading, spacing: 4) {
+                details
+                    .padding(.top, 14)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .card(padding: 14)
+    }
+
+    // MARK: Collapsed
+
+    private var summary: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                ZStack(alignment: .bottomTrailing) {
+                    PlayerAvatar(sleeperID: row.playerID, name: row.name, position: row.platform, size: 44)
+                    Text("\(rank)")
+                        .font(.caption2.weight(.bold).monospacedDigit())
+                        .foregroundStyle(.white)
+                        .frame(minWidth: 18, minHeight: 18)
+                        .padding(.horizontal, 2)
+                        .background(Capsule().fill(Color.secondary))
+                        .offset(x: 4, y: 4)
+                }
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(row.name)
+                        .font(.headline)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    badges
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(StreamFormat.one(row.expPts))
+                        .font(.title2.weight(.bold).monospacedDigit())
+                        .contentTransition(.numericText())
+                    Text("est pts")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    if let gain = row.expGain {
+                        Text((gain >= 0 ? "+" : "") + StreamFormat.one(gain))
+                            .font(.caption.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(gain >= 0 ? Palette.start : Palette.sit)
+                            .padding(.top, 2)
+                        Text("vs starter")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .fixedSize()
+            }
+            HStack(alignment: .center, spacing: 10) {
+                StreamRangeBar(floor: row.floorP25, expected: row.expPts, ceiling: row.ceilingP75,
+                               scaleMax: scaleMax, tint: Palette.position(row.platform))
+                Image(systemName: "chevron.down")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+
+    /// Role, injury and roster status as chips, wrapping rather than squeezing.
+    private var badges: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) { badgeItems }
+            VStack(alignment: .leading, spacing: 4) { badgeItems }
+        }
+    }
+
+    @ViewBuilder
+    private var badgeItems: some View {
+        PositionChip(position: row.platform, label: row.roleLabel)
+        if let injuryBadge { InjuryBadge(label: injuryBadge) }
+        if let availability, availability != .freeAgent {
+            Text(availability.label)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(Palette.caution)
+                .lineLimit(1)
+        }
+        if isComparing {
+            Label("Comparing", systemImage: "checkmark.circle.fill")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+                .lineLimit(1)
+        }
+    }
+
+    // MARK: Expanded
+
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Divider()
+            if row.pBeatIncumbent != nil || bid != nil {
+                HStack(spacing: 10) {
+                    if let p = row.pBeatIncumbent {
+                        StreamStatTile(value: StreamFormat.pct(p), label: "beats your starter",
+                                       tint: p >= 0.6 ? Palette.start : p < 0.4 ? Palette.sit : .primary)
+                    }
+                    if let bid { StreamStatTile(value: bid, label: "suggested bid") }
+                }
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("This week").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 10)], alignment: .leading, spacing: 10) {
+                    ForEach(tiles, id: \.self) { pill in
+                        StreamStatTile(value: pill.value, label: pill.label, tint: pill.tint)
+                    }
+                }
+            }
+            if !row.notes.isEmpty || !row.explain.isEmpty || !row.flags.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Why").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     if !row.notes.isEmpty {
                         Text(row.notes).font(.footnote)
                     }
                     ForEach(row.explain, id: \.self) { line in
-                        Text("• \(line)").font(.caption).foregroundStyle(.secondary)
+                        Label {
+                            Text(line).fixedSize(horizontal: false, vertical: true)
+                        } icon: {
+                            Image(systemName: "circle.fill").font(.system(size: 4))
+                        }
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                     }
                     if !row.flags.isEmpty {
                         Label(row.flags.joined(separator: " · "), systemImage: "flag")
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(Palette.caution)
                     }
-                    HStack {
-                        Text(row.sources.joined(separator: " · "))
-                            .font(.caption2).foregroundStyle(.tertiary)
-                        Spacer()
-                        Button("Adjust inputs…", action: onAdjust)
-                            .font(.caption)
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                    }
                 }
-                .padding(.leading, 30)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) { actions }
+                VStack(alignment: .leading, spacing: 8) { actions }
+            }
+            if !row.sources.isEmpty {
+                Text(row.sources.joined(separator: " · "))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .card(padding: 12)
     }
 
-    /// Floor and ceiling, the stream's own numbers, then the comparison with
-    /// the starter and the bid.
-    private var statPills: [StreamPill] {
-        var out = [
-            StreamPill(label: "floor", value: StreamFormat.one(row.floorP25)),
-            StreamPill(label: "ceiling", value: StreamFormat.one(row.ceilingP75)),
-        ] + pills
-        if let p = row.pBeatIncumbent {
-            out.append(StreamPill(label: "vs starter", value: StreamFormat.pct(p), tint: p >= 0.6 ? Palette.start : .primary))
+    @ViewBuilder
+    private var actions: some View {
+        Button(action: onCompare) {
+            Label(isComparing ? "Remove from compare" : "Add to compare",
+                  systemImage: isComparing ? "checkmark.circle.fill" : "plus.circle")
         }
-        if let bid { out.append(StreamPill(label: "bid", value: bid)) }
-        return out
+        .buttonStyle(.bordered)
+        .disabled(!isComparing && !canCompare)
+        Button(action: onAdjust) {
+            Label("Adjust inputs", systemImage: "slider.horizontal.3")
+        }
+        .buttonStyle(.bordered)
     }
+
+    /// The stream's own numbers. Floor and ceiling already sit on the bar.
+    private var tiles: [StreamPill] { pills }
 
     private var subtitle: String {
         var parts = ["\(row.team) \(row.opponent)", usage]
-        if row.practice != .none { parts.append(row.practice.label) }
-        if let availability, availability != .freeAgent { parts.append(availability.label) }
+        // A practice line the injury badge doesn't already say.
+        if injuryBadge == nil, row.practice != .none { parts.append(row.practice.label) }
         return parts.filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
+    private var accessibilitySummary: String {
+        var parts = ["\(rank). \(row.name)", row.roleLabel]
+        if let injuryBadge { parts.append(injuryBadge == "Q" ? "Questionable" : injuryBadge) }
+        parts.append("\(StreamFormat.one(row.expPts)) expected points, floor \(StreamFormat.one(row.floorP25)), ceiling \(StreamFormat.one(row.ceilingP75))")
+        if let gain = row.expGain { parts.append("\(StreamFormat.signed(gain)) versus your starter") }
+        return parts.joined(separator: ", ")
+    }
+}
+
+/// Floor to ceiling with a dot at the estimate, labelled underneath. Rows
+/// share `scaleMax`, so a wider or further-right bar really is a bigger range.
+struct StreamRangeBar: View {
+    let floor: Double
+    let expected: Double
+    let ceiling: Double
+    var scaleMax: Double = 0
+    var tint: Color = .accentColor
+
+    var body: some View {
+        let top = max(scaleMax, ceiling, 1)
+        VStack(spacing: 4) {
+            GeometryReader { bar in
+                let w = bar.size.width
+                let x = { (v: Double) in CGFloat(min(max(v / top, 0), 1)) * w }
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Palette.surfaceRaised).frame(height: 4)
+                    Capsule()
+                        .fill(tint.opacity(0.35))
+                        .frame(width: max(x(ceiling) - x(floor), 6), height: 10)
+                        .offset(x: x(floor))
+                    Circle()
+                        .fill(tint)
+                        .overlay(Circle().stroke(.background, lineWidth: 2))
+                        .frame(width: 14, height: 14)
+                        .offset(x: min(max(x(expected) - 7, 0), w - 14))
+                }
+                .frame(maxHeight: .infinity)
+            }
+            .frame(height: 14)
+            HStack {
+                labelled(StreamFormat.one(floor), "floor")
+                Spacer()
+                labelled(StreamFormat.one(ceiling), "ceiling", trailing: true)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Floor \(StreamFormat.one(floor)), estimate \(StreamFormat.one(expected)), ceiling \(StreamFormat.one(ceiling))")
+    }
+
+    private func labelled(_ value: String, _ label: String, trailing: Bool = false) -> some View {
+        HStack(spacing: 3) {
+            Text(value).font(.caption.weight(.semibold).monospacedDigit())
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+        }
+        .lineLimit(1)
+    }
+}
+
+/// A stat with room: the number large, its label under it, on a tile.
+struct StreamStatTile: View {
+    let value: String
+    let label: String
+    var tint: Color = .primary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value)
+                .font(.title3.weight(.semibold).monospacedDigit())
+                .foregroundStyle(tint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.background.opacity(0.7)))
+        .accessibilityElement(children: .combine)
     }
 }
 
