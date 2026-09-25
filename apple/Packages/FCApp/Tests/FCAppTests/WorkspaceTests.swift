@@ -145,6 +145,30 @@ final class WorkspaceGeometryTests: XCTestCase {
     }
 }
 
+final class PanelTrayTests: XCTestCase {
+    func testTheTrayOffersEveryPanelAndEveryMetric() {
+        let items = TrayItem.sections.flatMap(\.1)
+        XCTAssertEqual(Set(items.map(\.kind)), Set(PanelKind.allCases))
+        XCTAssertEqual(items.compactMap { if case .metric(let m) = $0 { return m } else { return nil } }, PlayerMetric.allCases)
+    }
+
+    func testDragTokensRoundTrip() {
+        for item in TrayItem.sections.flatMap(\.1) {
+            XCTAssertEqual(TrayItem(token: item.token), item)
+        }
+        XCTAssertNil(TrayItem(token: "panel:hologram"))
+        XCTAssertNil(TrayItem(token: "nonsense"))
+    }
+
+    func testAMetricFromTheTrayArrivesSetToItsStat() {
+        let panel = TrayItem.metric(.targets).placement(at: GridRect(x: 0, y: 0, w: 4, h: 3))
+        XCTAssertEqual(panel.kind, .metric)
+        XCTAssertEqual(panel.settings.extra["metric"], "targets")
+        XCTAssertEqual(panel.linkGroup, .one)
+        XCTAssertNil(TrayItem.panel(.news).placement(at: GridRect(x: 0, y: 0, w: 3, h: 2)).linkGroup, "news doesn't link")
+    }
+}
+
 final class WorkspacePresetsTests: XCTestCase {
     func testEveryPresetIsAValidLayout() {
         for preset in WorkspacePresets.all {

@@ -55,6 +55,30 @@ final class WorkspaceUITests: XCTestCase {
         XCTAssertTrue(element(app, "workspace.panel.rbStream").exists, "the panel stays after locking")
     }
 
+    func testTheTrayAddsWithoutClosingAndTheSheetAddsSeveral() throws {
+        let app = try launch("workspace:trade-desk")
+        XCTAssertTrue(element(app, "workspace.grid").waitForExistence(timeout: 30))
+        element(app, "workspace.edit").tap()
+
+        XCTAssertTrue(element(app, "workspace.tray").waitForExistence(timeout: 5), "unlocking shows the tray")
+        element(app, "tray.panel:lineupReadiness").tap()
+        XCTAssertTrue(element(app, "workspace.panel.lineupReadiness").waitForExistence(timeout: 5))
+        element(app, "tray.panel:sitStart").tap()
+        XCTAssertTrue(element(app, "workspace.panel.sitStart").waitForExistence(timeout: 5), "the tray stayed open for a second add")
+
+        element(app, "workspace.addPanel").tap()
+        // Rows near the top of the sheet: the list only exposes rows on screen.
+        XCTAssertTrue(element(app, "library.pick.matchupScore").waitForExistence(timeout: 5))
+        element(app, "library.pick.matchupScore").tap()
+        element(app, "library.pick.waiverTargets").tap()
+        element(app, "library.addPicked").tap()
+        XCTAssertTrue(element(app, "workspace.panel.matchupScore").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(app, "workspace.panel.waiverTargets").exists)
+
+        element(app, "workspace.edit").tap()
+        XCTAssertFalse(element(app, "workspace.tray").waitForExistence(timeout: 2), "locking hides the tray")
+    }
+
     func testSwitchingWorkspacesFromTheSidebar() throws {
         let app = try launch("workspace:game-day")
         XCTAssertTrue(element(app, "workspace.panel.sitStart").waitForExistence(timeout: 30))

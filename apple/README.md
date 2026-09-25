@@ -333,16 +333,23 @@ build yourself out of panels, the way a trading platform's desktop is built
 (Bloomberg Launchpad's pages of components, IBKR Mosaic's snap grid and colour
 linking, thinkorswim's gadget library and preset workspaces).
 
-- **Panels.** Twenty compact views — lineup readiness, Sit/Start, matchup,
+- **Panels.** Twenty-two compact views — lineup readiness, Sit/Start, matchup,
   injuries, waiver targets, trade partners, byes, the three streams, news,
-  standings, a Player Card, and the seven Discovery panels below — each drawn
+  standings, a Player Card, the seven Discovery panels, a Metric panel and a
+  Player search — each drawn
   from the *same* model its full screen uses, so a panel never loads anything
   of its own. The arrow on a panel's title bar opens the full screen.
 - **Grid.** Twelve columns; rows of 96pt. Unlock (⌘E) to drag a panel by its
-  title bar or resize it from the corner; a ghost shows where it lands, green
-  when the spot is free and red when it isn't, and an overlapping drop snaps
-  back. Nothing is ever pushed out of the way. Add panels from the library
-  (⇧⌘A); "Tidy up" slides everything up.
+  title bar or resize it from the corner. It goes exactly where you put it:
+  anything in the way slides straight down, live, and everything floats back
+  up to fill gaps when you shrink or move away (the gridstack model) — nothing
+  overlaps and nothing snaps back. "Tidy up" slides everything up.
+- **Adding panels.** While unlocked, a panel tray docks beside the grid and
+  stays open: click an item to drop it in the next free spot, or drag it onto
+  the grid where you want it (the ghost and the push preview follow the
+  pointer). Every metric is also a tray item, so one drag makes a Targets or
+  Snap share panel. The Add panel sheet (⇧⌘A) still works, and takes several
+  at once — tick them and "Add N panels".
 - **Linking.** The dot on a title bar sets a link colour. Click a player in
   any panel of that colour and the Player Card panel shows him; the Trade
   partners panel offers "Trade for…" or "Offer…". Standings publishes a team.
@@ -364,8 +371,18 @@ linking, thinkorswim's gadget library and preset workspaces).
   search in the Compare panel. It draws weekly points as overlaid lines,
   per-game numbers as grouped bars, a table with the best value on each row
   picked out (lower is better for opponent rank), and each player's range.
-- **Library.** Four presets ship — Game day, Waiver Tuesday, Trade desk,
-  Discovery — and
+- **Metric panels and Player search.** A Metric panel shows one of fourteen
+  stats (fantasy points, snap share, targets, target share, receptions,
+  receiving/air/rushing yards, carries, red-zone touches, xFP, yards after
+  contact, tackles, sacks). It picks whose numbers: the clicked player, the
+  link colour's compare list, players pinned to it, or your roster. One
+  player gets his season average, last game, last three with a trend arrow,
+  rank at his position and a chart against the position average; several
+  get overlaid lines and a mini leaderboard. The two-column Player search
+  focuses a player on click and adds him to the comparison with ＋ or ⌘-click,
+  so a search plus a few Metric panels is a comparison board of your own.
+- **Library.** Five presets ship — Game day, Waiver Tuesday, Trade desk,
+  Discovery, Comparison lab — and
   workspaces can be added (empty or from a preset), renamed, given an icon,
   duplicated, reordered, reset to their preset, or deleted. ⌥⌘1–9 switch
   between them.
@@ -413,7 +430,8 @@ accent. All of it is compiled out of Release.
   content returns exactly where it started. This guards the drift Connor saw.
 - **Workspaces on iPad** — opens the Game day preset (`-FCCTab
   workspace:game-day`), checks its panels and the sidebar, unlocks, adds a
-  panel from the library and locks again, and switches to Waiver Tuesday.
+  panel from the library and locks again, adds two panels from the tray and
+  two at once from the sheet, and switches to Waiver Tuesday.
   Skipped on iPhone.
 - **Screenshot tour** — walks every screen and mode and saves images to
   `FCC_SCREENSHOT_DIR` (`TEST_RUNNER_FCC_SCREENSHOT_DIR=… xcodebuild test …`),

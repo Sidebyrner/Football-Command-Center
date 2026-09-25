@@ -13,8 +13,21 @@ struct WorkspaceGridView: View {
     @Binding var selectedPanelID: UUID?
     /// Applies an edit to the workspace (the store saves it).
     let onUpdate: ((inout Workspace) -> Void) -> Void
+    /// What's being dragged in from the tray, if anything.
+    var trayItem: () -> TrayItem? = { nil }
+    /// A tray drop landed; the new panel should be selected.
+    var onInserted: (UUID) -> Void = { _ in }
 
     @State private var drag: DragState?
+    @State private var insertion: InsertState?
+
+    /// A panel hovering in from the tray.
+    struct InsertState: Equatable {
+        let item: TrayItem
+        let panel: PanelPlacement
+        /// Every panel with the new one in place and the others pushed aside.
+        let preview: [PanelPlacement]
+    }
 
     private static let padding: CGFloat = 16
     static let coordinateSpace = "workspace-grid"
@@ -64,8 +77,16 @@ struct WorkspaceGridView: View {
             if let drag {
                 ghost(drag.candidate, cellWidth: cellWidth)
             }
+            if let insertion {
+                ghost(insertion.panel.frame, cellWidth: cellWidth)
+            }
         }
         .frame(width: width, height: height, alignment: .topLeading)
+        .contentShape(Rectangle())
+        .onDrop(of: [.plainText, .text], delegate: GridDropDelegate(
+            cellWidth: cellWidth, panels: workspace.panels, item: trayItem, hover: $insertion,
+            onDrop: { panel in insert(panel) }
+        ))
         .coordinateSpace(name: Self.coordinateSpace)
         .padding(Self.padding)
     }
@@ -73,12 +94,13 @@ struct WorkspaceGridView: View {
     // MARK: - Layout
 
     /// The panels as drawn: the drag's preview while dragging.
-    private var shown: [PanelPlacement] { drag?.preview ?? workspace.panels }
+    private var shown: [PanelPlacement] { drag?.preview ?? insertion?.preview ?? workspace.panels }
 
     /// Room below the lowest panel while editing, so there's somewhere to drag to.
     private var rows: Int {
         var rows = WorkspaceGeometry.rows(shown) + (editing ? 2 : 0)
         if let drag { rows = max(rows, drag.candidate.maxY + 1) }
+        if let insertion { rows = max(rows, insertion.panel.frame.maxY + 1) }
         return rows
     }
 
@@ -91,7 +113,7 @@ struct WorkspaceGridView: View {
         let active = drag?.id == panel.id ? drag : nil
         // The dragged panel follows the pointer from where it started; the
         // rest sit where the preview has pushed them.
-        let rect = active != nil ? panel.frame : (drag?.preview.first { $0.id == panel.id }?.frame ?? panel.frame)
+        let rect = active != nil ? panel.frame : (shown.first { $0.id == panel.id }?.frame ?? panel.frame)
         let frame = WorkspaceGeometry.frame(rect, cellWidth: cellWidth)
         let size = liveSize(frame: frame, active: active, kind: panel.kind, cellWidth: cellWidth)
         PanelHost(
@@ -193,6 +215,16 @@ struct WorkspaceGridView: View {
         withAnimation(Motion.snappy) {
             onUpdate { ws in ws.panels = settled }
         }
+    }
+
+    /// A panel from the tray, placed where it was dropped with the others pushed aside.
+    private func insert(_ panel: PanelPlacement) {
+        let settled = WorkspaceGeometry.settle(WorkspaceGeometry.inserting(panel, at: panel.frame, into: workspace.panels))
+        withAnimation(Motion.snappy) {
+            onUpdate { ws in ws.panels = settled }
+            insertion = nil
+        }
+        onInserted(panel.id)
     }
 
     private func remove(_ id: UUID) {

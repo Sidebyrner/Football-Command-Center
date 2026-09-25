@@ -32,6 +32,10 @@ public final class AppRouter: ObservableObject {
     @Published public var workspaceEditing = false
     @Published public var selectedPanelID: UUID?
     @Published public var showPanelLibrary = false
+    /// The panel tray beside an unlocked workspace: full, or an icon strip.
+    @Published public var panelTrayExpanded = true
+    /// What's being dragged out of the tray, so the grid can size its ghost.
+    @Published var trayDrag: TrayItem?
 
     public init(selection: SidebarItem = .screen(.dashboard)) {
         self.selection = selection

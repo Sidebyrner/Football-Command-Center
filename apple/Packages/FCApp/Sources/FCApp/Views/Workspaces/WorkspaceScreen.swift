@@ -23,8 +23,8 @@ struct WorkspaceScreen: View {
 
     @ViewBuilder
     private func content(_ workspace: Workspace) -> some View {
-        Group {
-            if workspace.panels.isEmpty {
+        HStack(spacing: 0) {
+            if workspace.panels.isEmpty && !router.workspaceEditing {
                 emptyState(workspace)
             } else {
                 WorkspaceGridView(
@@ -32,14 +32,26 @@ struct WorkspaceScreen: View {
                     editing: router.workspaceEditing,
                     services: services,
                     selectedPanelID: $router.selectedPanelID,
-                    onUpdate: { mutate in store.update(workspaceID, mutate) }
+                    onUpdate: { mutate in store.update(workspaceID, mutate) },
+                    trayItem: { [router] in router.trayDrag },
+                    onInserted: { id in
+                        router.selectedPanelID = id
+                        router.trayDrag = nil
+                    }
                 )
             }
+            if router.workspaceEditing {
+                PanelTray(router: router) { item in add(item) }
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
         }
+        .animation(Motion.snappy, value: router.workspaceEditing)
         .navigationTitle(workspace.name)
         .toolbar { toolbar(workspace) }
         .sheet(isPresented: $router.showPanelLibrary) {
-            PanelLibrarySheet(existing: Set(workspace.panels.map(\.kind))) { kind in add(kind) }
+            PanelLibrarySheet(existing: Set(workspace.panels.map(\.kind)),
+                              onAdd: { kind in add(.panel(kind)) },
+                              onAddMany: { kinds in addMany(kinds) })
         }
         #if os(macOS)
         .onDeleteCommand {
@@ -188,17 +200,28 @@ struct WorkspaceScreen: View {
         }
     }
 
-    private func add(_ kind: PanelKind) {
+    /// Drops a panel in the next free spot and selects it.
+    private func add(_ item: TrayItem) {
         withAnimation(Motion.snappy) {
             var added: UUID?
             store.update(workspaceID) { workspace in
-                let frame = WorkspaceGeometry.firstFreeSlot(size: kind.defaultSize, in: workspace.panels)
-                let link: LinkGroup? = (kind.publishesLink || kind.consumesLink) ? .one : nil
-                let panel = PanelPlacement(kind: kind, frame: frame, linkGroup: link)
+                let frame = WorkspaceGeometry.firstFreeSlot(size: item.kind.defaultSize, in: workspace.panels)
+                let panel = item.placement(at: frame)
                 workspace.panels.append(panel)
                 added = panel.id
             }
             router.selectedPanelID = added
+        }
+    }
+
+    private func addMany(_ kinds: [PanelKind]) {
+        withAnimation(Motion.snappy) {
+            store.update(workspaceID) { workspace in
+                workspace.panels = WorkspaceGeometry.appending(kinds, into: workspace.panels) { kind in
+                    (kind.publishesLink || kind.consumesLink) ? .one : nil
+                }
+            }
+            router.selectedPanelID = nil
         }
     }
 }
@@ -208,9 +231,12 @@ struct WorkspaceScreen: View {
 struct PanelLibrarySheet: View {
     let existing: Set<PanelKind>
     let onAdd: (PanelKind) -> Void
+    var onAddMany: ([PanelKind]) -> Void = { _ in }
     @Environment(\.dismiss) private var dismiss
+    /// Ticked panels, in the order ticked.
+    @State private var picked: [PanelKind] = []
 
-    private let groups: [(String, [PanelKind])] = [
+    static let groups: [(String, [PanelKind])] = [
         ("This week", [.lineupReadiness, .sitStart, .matchupScore, .injuries]),
         ("Market", [.waiverTargets, .tradePartners, .idpStream, .wrStream, .rbStream]),
         ("Season", [.byeWeeks, .standings, .news]),
@@ -222,7 +248,7 @@ struct PanelLibrarySheet: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(groups, id: \.0) { title, kinds in
+                ForEach(Self.groups, id: \.0) { title, kinds in
                     Section(title) {
                         ForEach(kinds) { kind in row(kind) }
                     }
@@ -233,6 +259,15 @@ struct PanelLibrarySheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
                 }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(picked.isEmpty ? "Add" : "Add \(picked.count) panel\(picked.count == 1 ? "" : "s")") {
+                        onAddMany(picked)
+                        dismiss()
+                    }
+                    .disabled(picked.isEmpty)
+                    .keyboardShortcut(.defaultAction)
+                    .accessibilityIdentifier("library.addPicked")
+                }
             }
         }
         #if os(macOS)
@@ -242,6 +277,16 @@ struct PanelLibrarySheet: View {
 
     private func row(_ kind: PanelKind) -> some View {
         HStack(spacing: 12) {
+            Button {
+                if let index = picked.firstIndex(of: kind) { picked.remove(at: index) } else { picked.append(kind) }
+            } label: {
+                Image(systemName: picked.contains(kind) ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(picked.contains(kind) ? Color.accentColor : .secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(picked.contains(kind) ? "Untick \(kind.title)" : "Tick \(kind.title)")
+            .accessibilityIdentifier("library.pick.\(kind.rawValue)")
             Image(systemName: kind.systemImage)
                 .font(.title3)
                 .foregroundStyle(Color.accentColor)
