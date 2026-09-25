@@ -31,11 +31,17 @@ extension View {
     func playerCardMenu(_ playerID: String?, context: LeagueContext?) -> some View {
         modifier(PlayerCardMenu(playerID: playerID, context: context))
     }
+
+    /// The same menu with "Add to compare" for a workspace panel's link colour.
+    func playerCardMenu(_ playerID: String?, context: LeagueContext?, compare: PanelCompareAction?) -> some View {
+        modifier(PlayerCardMenu(playerID: playerID, context: context, compare: compare))
+    }
 }
 
 struct PlayerCardMenu: ViewModifier {
     let playerID: String?
     let context: LeagueContext?
+    var compare: PanelCompareAction? = nil
     @Environment(\.openPlayerCard) private var openPlayerCard
     @Environment(\.openTrade) private var openTrade
 
@@ -48,6 +54,16 @@ struct PlayerCardMenu: ViewModifier {
                     Label("Open Player Card", systemImage: "person.text.rectangle")
                 }
                 tradeButton(playerID, context: context)
+                if let compare {
+                    let comparing = compare.isComparing(playerID)
+                    Button {
+                        compare.toggle(playerID)
+                    } label: {
+                        Label(comparing ? "Remove from compare" : "Add to compare",
+                              systemImage: comparing ? "person.2.slash" : "person.2")
+                    }
+                    .disabled(!comparing && !compare.canAdd())
+                }
                 Button {
                     Clipboard.copy(context.playerName(playerID) ?? playerID)
                 } label: {

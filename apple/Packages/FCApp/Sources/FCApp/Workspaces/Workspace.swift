@@ -67,6 +67,14 @@ public enum PanelKind: String, Codable, CaseIterable, Hashable, Sendable, Identi
     case news
     case standings
     case playerCard
+    // Discovery: a list of every free agent, and panels that follow a click.
+    case discovery
+    case playerProfile
+    case playerNews
+    case gameLog
+    case trendChart
+    case schedule
+    case compare
 
     public var id: String { rawValue }
 }

@@ -57,7 +57,20 @@ public enum WorkspacePresets {
         ]
     }
 
-    public static let all: [WorkspacePreset] = [gameDay, waiverTuesday, tradeDesk]
+    /// Research: every free agent, and everything about whoever you click.
+    public static let discovery = WorkspacePreset(id: "discovery", name: "Discovery", icon: "binoculars") {
+        [
+            panel(.discovery, 0, 0, 4, 9, link: .one, topN: 20),
+            panel(.playerProfile, 4, 0, 4, 4, link: .one),
+            panel(.schedule, 8, 0, 4, 4, link: .one),
+            panel(.trendChart, 4, 4, 4, 5, link: .one, topN: 6),
+            panel(.playerNews, 8, 4, 4, 5, link: .one, topN: 5),
+            panel(.gameLog, 0, 9, 6, 4, link: .one, topN: 6),
+            panel(.compare, 6, 9, 6, 4, link: .one, topN: 6),
+        ]
+    }
+
+    public static let all: [WorkspacePreset] = [gameDay, waiverTuesday, tradeDesk, discovery]
 
     public static func preset(id: String) -> WorkspacePreset? {
         all.first { $0.id == id }

@@ -41,6 +41,7 @@ struct PanelHost: View {
                 .environment(\.linkPublish, LinkPublishAction(group: placement.linkGroup) { [linkBus = services.linkBus] change in
                     if let group = placement.linkGroup { linkBus.publish(change, to: group) }
                 })
+                .environment(\.panelCompare, compareAction)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 // Unlocked, the content is inert so a drag always means "move".
                 .allowsHitTesting(!editing)
@@ -60,6 +61,20 @@ struct PanelHost: View {
         .accessibilityLabel(kind.title)
         .accessibilityIdentifier("workspace.panel.\(kind.rawValue)")
         .accessibilityActions { if editing { editingAccessibilityActions } }
+    }
+
+    /// The link colour's compare list, for every row in this panel.
+    private var compareAction: PanelCompareAction {
+        guard let group = placement.linkGroup else { return .none }
+        let bus = services.linkBus
+        return PanelCompareAction(
+            group: group,
+            isComparing: { bus.isComparing($0, in: group) },
+            canAdd: { bus.canAddToCompare(in: group) },
+            toggle: { id in
+                bus.publish(bus.isComparing(id, in: group) ? .removeCompare(id) : .addCompare(id), to: group)
+            }
+        )
     }
 
     private var border: Color {
@@ -232,24 +247,58 @@ struct PanelOptionsMenu: View {
         switch kind {
         case .injuries, .waiverTargets, .idpStream, .wrStream, .rbStream, .news, .standings, .tradePartners:
             return [3, 5, 8, 12]
+        case .discovery: return [8, 12, 20, 40]
+        case .gameLog, .trendChart, .compare: return [4, 6, 8, 12]
+        case .playerNews: return [3, 5, 8]
         default:
             return nil
         }
     }
 
-    private var positionChoices: [String]? {
-        kind == .waiverTargets ? ["QB", "RB", "WR", "TE", "K", "DEF"] : nil
+    private var rowsLabel: String {
+        switch kind {
+        case .gameLog, .trendChart, .compare: return "Last games"
+        default: return "Rows"
+        }
     }
 
+    private var positionChoices: [String]? {
+        switch kind {
+        case .waiverTargets: return ["QB", "RB", "WR", "TE", "K", "DEF"]
+        case .discovery: return ["QB", "RB", "WR", "TE", "K", "DEF", "LB", "DL", "DB"]
+        default: return nil
+        }
+    }
+
+    private var metricChoices: [TrendMetric]? { kind == .trendChart ? TrendMetric.allCases : nil }
+    private var sortChoices: [DiscoverySort]? { kind == .discovery ? DiscoverySort.all : nil }
+
     var body: some View {
-        if rowChoices != nil || positionChoices != nil {
+        if rowChoices != nil || positionChoices != nil || metricChoices != nil || sortChoices != nil {
             Menu {
+                if let metricChoices {
+                    Picker("Chart", selection: Binding(
+                        get: { settings.extra["metric"].flatMap(TrendMetric.init(rawValue:)) ?? .points },
+                        set: { var next = settings; next.extra["metric"] = $0.rawValue; onChange(next) }
+                    )) {
+                        ForEach(metricChoices) { Text($0.label).tag($0) }
+                    }
+                }
+                if let sortChoices {
+                    Picker("Sort", selection: Binding(
+                        get: { settings.extra["sort"] ?? "" },
+                        set: { var next = settings; next.extra["sort"] = $0.isEmpty ? nil : $0; onChange(next) }
+                    )) {
+                        Text("Follow the list").tag("")
+                        ForEach(sortChoices) { Text($0.label).tag($0.storageKey) }
+                    }
+                }
                 if let rowChoices {
-                    Picker("Rows", selection: Binding(
+                    Picker(rowsLabel, selection: Binding(
                         get: { settings.topN ?? PanelBody.defaultRows(kind) },
                         set: { var next = settings; next.topN = $0; onChange(next) }
                     )) {
-                        ForEach(rowChoices, id: \.self) { Text("\($0) rows").tag($0) }
+                        ForEach(rowChoices, id: \.self) { Text(rowsLabel == "Rows" ? "\($0) rows" : "Last \($0)").tag($0) }
                     }
                 }
                 if let positionChoices {

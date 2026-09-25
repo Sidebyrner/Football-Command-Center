@@ -13,6 +13,8 @@ struct PanelBody: View {
         case .waiverTargets: return 8
         case .standings: return 12
         case .news: return 6
+        case .discovery: return 12
+        case .gameLog, .trendChart, .compare: return 6
         default: return 5
         }
     }
@@ -47,6 +49,22 @@ struct PanelBody: View {
             StandingsPanel(model: services.dashboard, rows: rows)
         case .playerCard:
             PlayerCardPanel(dashboard: services.dashboard, services: services)
+        case .discovery:
+            DiscoveryListPanel(model: services.discovery, settings: settings, rows: rows)
+        case .playerProfile:
+            LinkedCardGate(services: services) { card, _ in PlayerProfilePanel(card: card) }
+        case .playerNews:
+            LinkedCardGate(services: services) { card, _ in PlayerNewsPanel(card: card, rows: rows) }
+        case .gameLog:
+            LinkedCardGate(services: services) { card, _ in GameLogPanel(card: card, rows: rows) }
+        case .trendChart:
+            LinkedCardGate(services: services) { card, _ in TrendChartPanel(card: card, settings: settings, rows: rows) }
+        case .schedule:
+            LinkedCardGate(services: services) { card, context in
+                SchedulePanel(card: card, context: context, discovery: services.discovery)
+            }
+        case .compare:
+            ComparePanel(services: services, discovery: services.discovery, rows: rows)
         }
     }
 }

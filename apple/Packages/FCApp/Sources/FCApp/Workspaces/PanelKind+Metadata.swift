@@ -16,6 +16,13 @@ public extension PanelKind {
         case .news: return "News"
         case .standings: return "Standings"
         case .playerCard: return "Player Card"
+        case .discovery: return "Discovery"
+        case .playerProfile: return "Profile"
+        case .playerNews: return "Player news"
+        case .gameLog: return "Game log"
+        case .trendChart: return "Trend"
+        case .schedule: return "Schedule & SoS"
+        case .compare: return "Compare"
         }
     }
 
@@ -29,6 +36,8 @@ public extension PanelKind {
         case .waiverTargets: return .waivers
         case .tradePartners: return .trades
         case .byeWeeks: return .planning
+        case .discovery: return .waivers
+        case .playerProfile, .playerNews, .gameLog, .trendChart, .schedule, .compare: return nil
         case .idpStream: return .idpStream
         case .wrStream: return .wrStream
         case .rbStream: return .rbStream
@@ -43,6 +52,13 @@ public extension PanelKind {
         case .standings: return "list.number"
         case .byeWeeks: return "calendar.badge.exclamationmark"
         case .playerCard: return "person.text.rectangle"
+        case .discovery: return "binoculars"
+        case .playerProfile: return "person.crop.rectangle"
+        case .playerNews: return "newspaper.circle"
+        case .gameLog: return "list.bullet.rectangle"
+        case .trendChart: return "chart.xyaxis.line"
+        case .schedule: return "calendar"
+        case .compare: return "person.2.crop.square.stack"
         default: return fullScreen?.systemImage ?? "square"
         }
     }
@@ -63,6 +79,13 @@ public extension PanelKind {
         case .news: return "The latest on your players."
         case .standings: return "The league table."
         case .playerCard: return "Everything on one player. Link it to follow clicks in other panels."
+        case .discovery: return "Every free agent at the positions you start — search, sort, click to research."
+        case .playerProfile: return "Bio, status, depth chart and grade for the linked player."
+        case .playerNews: return "The latest on the linked player."
+        case .gameLog: return "The linked player's last game and last few games."
+        case .trendChart: return "A chart of the linked player's points, snaps or targets by week."
+        case .schedule: return "The linked player's remaining games, lines and how soft each defense is."
+        case .compare: return "Two to four players side by side, with charts. ⌘-click players to add them."
         }
     }
 
@@ -76,6 +99,13 @@ public extension PanelKind {
         case .waiverTargets, .idpStream, .wrStream, .rbStream, .playerCard: return GridSize(w: 4, h: 5)
         case .tradePartners: return GridSize(w: 5, h: 6)
         case .news: return GridSize(w: 3, h: 4)
+        case .discovery: return GridSize(w: 4, h: 6)
+        case .playerProfile: return GridSize(w: 4, h: 4)
+        case .playerNews: return GridSize(w: 3, h: 4)
+        case .gameLog: return GridSize(w: 5, h: 4)
+        case .trendChart: return GridSize(w: 6, h: 4)
+        case .schedule: return GridSize(w: 5, h: 5)
+        case .compare: return GridSize(w: 8, h: 6)
         }
     }
 
@@ -86,20 +116,31 @@ public extension PanelKind {
         case .matchupScore: return GridSize(w: 4, h: 2)
         case .waiverTargets, .idpStream, .wrStream, .rbStream, .playerCard: return GridSize(w: 3, h: 3)
         case .lineupReadiness, .injuries, .byeWeeks, .news, .standings: return GridSize(w: 3, h: 2)
+        case .discovery: return GridSize(w: 3, h: 4)
+        case .playerProfile: return GridSize(w: 3, h: 3)
+        case .playerNews: return GridSize(w: 3, h: 2)
+        case .gameLog, .trendChart, .schedule: return GridSize(w: 4, h: 3)
+        case .compare: return GridSize(w: 6, h: 4)
         }
     }
 
     /// Panels that follow a linked selection.
     var consumesLink: Bool {
-        self == .playerCard || self == .tradePartners
+        switch self {
+        case .playerCard, .tradePartners, .playerProfile, .playerNews, .gameLog, .trendChart, .schedule, .compare:
+            return true
+        default:
+            return false
+        }
     }
 
     /// Panels whose rows publish a player (or team) to their link group.
     var publishesLink: Bool {
         switch self {
-        case .sitStart, .injuries, .waiverTargets, .tradePartners, .idpStream, .wrStream, .rbStream, .standings, .matchupScore:
+        case .sitStart, .injuries, .waiverTargets, .tradePartners, .idpStream, .wrStream, .rbStream, .standings, .matchupScore,
+             .discovery, .compare:
             return true
-        case .lineupReadiness, .byeWeeks, .news, .playerCard:
+        case .lineupReadiness, .byeWeeks, .news, .playerCard, .playerProfile, .playerNews, .gameLog, .trendChart, .schedule:
             return false
         }
     }

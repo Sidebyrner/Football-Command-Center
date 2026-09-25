@@ -1,5 +1,8 @@
 import SwiftUI
 import FCData
+#if os(macOS)
+import AppKit
+#endif
 
 /// Sends a click in a panel to the panel's link group.
 struct LinkPublishAction {
@@ -13,6 +16,23 @@ struct LinkPublishAction {
     func callAsFunction(_ change: LinkChange) {
         handler(change)
     }
+}
+
+/// The panel's compare list: read at the moment it's needed and changed in
+/// place, so rows never observe the link bus just to offer "Add to compare".
+struct PanelCompareAction {
+    let group: LinkGroup?
+    let isComparing: @MainActor (String) -> Bool
+    let canAdd: @MainActor () -> Bool
+    let toggle: @MainActor (String) -> Void
+
+    static let none = PanelCompareAction(group: nil, isComparing: { _ in false }, canAdd: { false }, toggle: { _ in })
+
+    var isAvailable: Bool { group != nil }
+}
+
+private struct PanelCompareKey: EnvironmentKey {
+    static let defaultValue = PanelCompareAction.none
 }
 
 private struct LinkPublishKey: EnvironmentKey {
@@ -35,6 +55,11 @@ extension EnvironmentValues {
     var linkPublish: LinkPublishAction {
         get { self[LinkPublishKey.self] }
         set { self[LinkPublishKey.self] = newValue }
+    }
+
+    var panelCompare: PanelCompareAction {
+        get { self[PanelCompareKey.self] }
+        set { self[PanelCompareKey.self] = newValue }
     }
 
     var panelLinkGroup: LinkGroup? {
@@ -74,12 +99,15 @@ struct PanelPlayerTap: ViewModifier {
     let playerID: String?
     let context: LeagueContext?
     @Environment(\.linkPublish) private var publish
+    @Environment(\.panelCompare) private var compare
     @Environment(\.openPlayerCard) private var openPlayerCard
 
     func body(content: Content) -> some View {
         if let playerID {
             Button {
-                if publish.isLinked {
+                if compare.isAvailable, Self.commandHeld {
+                    compare.toggle(playerID)
+                } else if publish.isLinked {
                     publish(.player(playerID))
                 } else if let context {
                     openPlayerCard(playerID, context: context)
@@ -88,11 +116,24 @@ struct PanelPlayerTap: ViewModifier {
                 content.contentShape(Rectangle())
             }
             .buttonStyle(PanelRowStyle())
-            .playerCardMenu(playerID, context: context)
-            .help(publish.isLinked ? "Show in linked panels" : "Open Player Card")
+            .playerCardMenu(playerID, context: context, compare: compare.isAvailable ? compare : nil)
+            .help(publish.isLinked
+                  ? (compare.isAvailable ? "Show in linked panels · ⌘-click to compare" : "Show in linked panels")
+                  : "Open Player Card")
         } else {
             content
         }
+    }
+
+    /// ⌘ held on the click that triggered the action. Read from the current
+    /// event rather than a modifier gesture, which fights the row's button.
+    @MainActor
+    static var commandHeld: Bool {
+        #if os(macOS)
+        return NSApp.currentEvent?.modifierFlags.contains(.command) ?? false
+        #else
+        return false
+        #endif
     }
 }
 

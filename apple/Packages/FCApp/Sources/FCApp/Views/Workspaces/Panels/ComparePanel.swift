@@ -1,0 +1,368 @@
+import SwiftUI
+import Charts
+import FCCore
+import FCData
+
+/// Two to four players side by side: their weekly points on one chart, the
+/// key per-game numbers as grouped bars, a table with the best value on each
+/// row picked out, and each player's range. Players come from the link
+/// colour's compare list — ⌘-click (or long-press) a player in any panel of
+/// the same colour, or search here.
+struct ComparePanel: View {
+    let services: AppServices
+    @ObservedObject var discovery: DiscoveryModel
+    let rows: Int
+    @EnvironmentObject private var linkBus: LinkBus
+    @Environment(\.panelLinkGroup) private var group
+    @Environment(\.linkPublish) private var publish
+    @State private var search = ""
+    /// Bumped when the cards finish loading, so the comparison is rebuilt
+    /// with their projections.
+    @State private var loadedGeneration = 0
+
+    private var ids: [String] { linkBus.compareList(for: group) }
+
+    var body: some View {
+        if let group {
+            if let context = services.dashboard.context {
+                content(group: group, context: context)
+            } else {
+                PanelMessage(style: .loading, text: "Loading…")
+            }
+        } else {
+            PanelMessage(style: .empty, text: "Pick a link colour on this panel, then ⌘-click players in panels of the same colour.")
+        }
+    }
+
+    @ViewBuilder
+    private func content(group: LinkGroup, context: LeagueContext) -> some View {
+        let cards = ids.map { services.playerCard($0, context: context) }
+        // Read so a finished load re-renders the panel with the loaded cards.
+        let _ = loadedGeneration
+        let comparison = PlayerComparison.build(cards: cards, rows: discovery.row(for:), defense: discovery.defense, lastN: rows)
+        PanelScroll {
+            header(comparison, group: group, context: context)
+            if comparison.players.isEmpty {
+                emptyState(group)
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 16) {
+                        chartBlock("Points by week") { CompareLinesChart(comparison: comparison) }
+                            .frame(minWidth: 320)
+                        chartBlock("Per game") { CompareBarsChart(comparison: comparison) }
+                            .frame(minWidth: 260)
+                    }
+                    VStack(alignment: .leading, spacing: 12) {
+                        chartBlock("Points by week") { CompareLinesChart(comparison: comparison) }
+                        chartBlock("Per game") { CompareBarsChart(comparison: comparison) }
+                    }
+                }
+                CompareMetricTable(comparison: comparison)
+                ranges(comparison)
+            }
+        }
+        .task(id: ids.joined(separator: ",")) {
+            await withTaskGroup(of: Void.self) { tasks in
+                for card in cards { tasks.addTask { await card.load() } }
+            }
+            loadedGeneration += 1
+        }
+    }
+
+    // MARK: - Header
+
+    private func header(_ comparison: PlayerComparison, group: LinkGroup, context: LeagueContext) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 6, alignment: .leading)], alignment: .leading, spacing: 6) {
+                ForEach(comparison.players) { player in
+                    playerChip(player)
+                }
+            }
+            HStack(spacing: 8) {
+                if linkBus.canAddToCompare(in: group) {
+                    addField
+                } else {
+                    Text("Four is the most — remove one to add another.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                if !comparison.players.isEmpty {
+                    Button("Clear") { publish(.clearCompare) }
+                        .font(.caption2.weight(.semibold))
+                        .buttonStyle(.borderless)
+                }
+            }
+            if !search.trimmingCharacters(in: .whitespaces).isEmpty {
+                searchResults(context: context)
+            }
+        }
+    }
+
+    private func playerChip(_ player: PlayerComparison.Player) -> some View {
+        let tint = ChartPalette.color(player.seriesIndex)
+        return HStack(spacing: 6) {
+            Button {
+                publish(.player(player.id))
+            } label: {
+                HStack(spacing: 6) {
+                    PlayerAvatar(sleeperID: player.id, name: player.name, position: player.position, size: 24)
+                        .overlay(Circle().stroke(tint, lineWidth: 2))
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(player.name).font(.caption.weight(.semibold)).lineLimit(1)
+                        Text([player.position?.rawValue, player.team].compactMap { $0 }.joined(separator: " · "))
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
+            }
+            .buttonStyle(.plain)
+            .help("Show in linked panels")
+            Spacer(minLength: 2)
+            Button {
+                publish(.removeCompare(player.id))
+            } label: {
+                Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Remove \(player.name) from compare")
+        }
+        .padding(6)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(tint.opacity(0.10)))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(tint.opacity(0.35)))
+    }
+
+    private var addField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "plus.magnifyingglass").foregroundStyle(.secondary)
+            TextField("Add a player…", text: $search)
+                .textFieldStyle(.plain)
+                .font(.caption)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Palette.surface))
+        .frame(maxWidth: 260)
+    }
+
+    /// The best fuzzy matches for the add field, skipping anyone already compared.
+    static func matches(_ needle: String, in context: LeagueContext, excluding: [String], limit: Int = 6) -> [IndexedPlayer] {
+        var scored: [(player: IndexedPlayer, score: Int)] = []
+        for player in context.players.activePlayers() where player.position != nil && !excluding.contains(player.id) {
+            let extra: [String] = player.team.map { [$0] } ?? []
+            if let score = FuzzyNameMatch.score(query: needle, name: player.name, extra: extra) {
+                scored.append((player, score))
+            }
+        }
+        scored.sort { a, b in a.score == b.score ? a.player.name < b.player.name : a.score > b.score }
+        return scored.prefix(limit).map(\.player)
+    }
+
+    private func searchResults(context: LeagueContext) -> some View {
+        let needle = search.trimmingCharacters(in: .whitespaces)
+        let matches = Self.matches(needle, in: context, excluding: ids)
+        return VStack(alignment: .leading, spacing: 2) {
+            if matches.isEmpty {
+                Text("No player matches “\(needle)”.").font(.caption2).foregroundStyle(.secondary)
+            }
+            ForEach(matches, id: \.id) { player in
+                Button {
+                    publish(.addCompare(player.id))
+                    search = ""
+                } label: {
+                    PanelPlayerRow(playerID: player.id, name: player.name, position: player.position,
+                                   detail: [player.position?.rawValue, player.team].compactMap { $0 }.joined(separator: " · ")) {
+                        Image(systemName: "plus.circle").foregroundStyle(Color.accentColor)
+                    }
+                }
+                .buttonStyle(PanelRowStyle())
+            }
+        }
+        .padding(6)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Palette.surface))
+    }
+
+    private func emptyState(_ group: LinkGroup) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: "person.2.crop.square.stack")
+                .font(.title2)
+                .foregroundStyle(group.color)
+            Text("Compare up to four players")
+                .font(.caption.weight(.semibold))
+            Text("⌘-click players in any \(group.name.lowercased()) panel (long-press on iPad), or search above.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+    }
+
+    private func chartBlock<Chart: View>(_ title: String, @ViewBuilder chart: () -> Chart) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            chart()
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.surface.opacity(0.7)))
+    }
+
+    private func ranges(_ comparison: PlayerComparison) -> some View {
+        let top = (comparison.players.compactMap(\.ceiling).max() ?? 0) * 1.05
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Range this season").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            ForEach(comparison.players) { player in
+                if let floor = player.floor, let ceiling = player.ceiling {
+                    HStack(spacing: 10) {
+                        Text(StreamFormat.shortName(player.name))
+                            .font(.caption.weight(.medium))
+                            .lineLimit(1)
+                            .frame(width: 84, alignment: .leading)
+                        StreamRangeBar(floor: floor, expected: player.expected ?? (floor + ceiling) / 2, ceiling: ceiling,
+                                       scaleMax: top, tint: ChartPalette.color(player.seriesIndex))
+                    }
+                }
+            }
+            PanelFootnote(text: "Worst and best game this season; the dot is this week's projection, else his average.")
+        }
+    }
+}
+
+/// Weekly points, one line per player, over the shared weeks.
+struct CompareLinesChart: View {
+    let comparison: PlayerComparison
+
+    private struct Point: Identifiable {
+        let player: String
+        let week: Int
+        let points: Double
+        var id: String { "\(player)-\(week)" }
+    }
+
+    private var points: [Point] {
+        comparison.players.flatMap { player in
+            player.log.compactMap { week in week.points.map { Point(player: player.name, week: week.week, points: $0) } }
+        }
+    }
+
+    var body: some View {
+        let names = comparison.players.map(\.name)
+        let colors = comparison.players.map { ChartPalette.color($0.seriesIndex) }
+        let weeks = comparison.weeks
+        if points.isEmpty {
+            Text("No games logged yet.").font(.caption).foregroundStyle(.secondary).frame(height: 170)
+        } else {
+            Chart(points) { point in
+                LineMark(x: .value("Week", Double(point.week)), y: .value("Points", point.points))
+                    .foregroundStyle(by: .value("Player", point.player))
+                    .interpolationMethod(.monotone)
+                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                PointMark(x: .value("Week", Double(point.week)), y: .value("Points", point.points))
+                    .foregroundStyle(by: .value("Player", point.player))
+                    .symbolSize(24)
+            }
+            .chartForegroundStyleScale(domain: names, range: colors)
+            .chartLegend(position: .top, alignment: .leading, spacing: 6)
+            .chartXAxis {
+                AxisMarks(values: weeks.map(Double.init)) { value in
+                    AxisGridLine()
+                    AxisValueLabel { if let week = value.as(Double.self) { Text("W\(Int(week))") } }
+                }
+            }
+            .chartXScale(domain: ChartPalette.weekDomain(weeks))
+            .chartYAxis { AxisMarks(position: .leading) }
+            .frame(height: 170)
+            .accessibilityLabel("Points by week for \(names.joined(separator: ", "))")
+        }
+    }
+}
+
+/// The per-game numbers that are on one scale, as grouped bars.
+struct CompareBarsChart: View {
+    let comparison: PlayerComparison
+
+    private static let measures: [PlayerComparison.Metric] = [.pointsPerGame, .expectedPointsLast4, .projectedThisWeek, .restOfSeason]
+
+    private struct Bar: Identifiable {
+        let measure: String
+        let player: String
+        let value: Double
+        var id: String { "\(measure)-\(player)" }
+    }
+
+    private var bars: [Bar] {
+        Self.measures.flatMap { metric in
+            comparison.players.compactMap { player in
+                player.values[metric].map { Bar(measure: Self.shortLabel(metric), player: player.name, value: $0) }
+            }
+        }
+    }
+
+    static func shortLabel(_ metric: PlayerComparison.Metric) -> String {
+        switch metric {
+        case .pointsPerGame: return "Pts/gm"
+        case .expectedPointsLast4: return "xFP L4"
+        case .projectedThisWeek: return "Proj"
+        case .restOfSeason: return "RoS"
+        default: return metric.label
+        }
+    }
+
+    var body: some View {
+        let names = comparison.players.map(\.name)
+        let colors = comparison.players.map { ChartPalette.color($0.seriesIndex) }
+        if bars.isEmpty {
+            Text("No per-game numbers yet.").font(.caption).foregroundStyle(.secondary).frame(height: 150)
+        } else {
+            Chart(bars) { bar in
+                BarMark(x: .value("Measure", bar.measure), y: .value("Points", bar.value))
+                    .foregroundStyle(by: .value("Player", bar.player))
+                    .position(by: .value("Player", bar.player))
+                    .cornerRadius(3)
+            }
+            .chartForegroundStyleScale(domain: names, range: colors)
+            .chartLegend(.hidden)
+            .chartYAxis { AxisMarks(position: .leading) }
+            .frame(height: 170)
+            .accessibilityLabel("Per-game numbers for \(names.joined(separator: ", "))")
+        }
+    }
+}
+
+/// One row per metric, one column per player; the best value on each row is
+/// picked out, respecting which direction is better.
+struct CompareMetricTable: View {
+    let comparison: PlayerComparison
+
+    var body: some View {
+        Grid(alignment: .trailing, horizontalSpacing: 12, verticalSpacing: 5) {
+            GridRow {
+                Text("").gridColumnAlignment(.leading)
+                ForEach(comparison.players) { player in
+                    HStack(spacing: 4) {
+                        Circle().fill(ChartPalette.color(player.seriesIndex)).frame(width: 7, height: 7)
+                        Text(StreamFormat.shortName(player.name)).lineLimit(1)
+                    }
+                    .font(.caption2.weight(.bold))
+                }
+            }
+            Divider().gridCellUnsizedAxes(.horizontal)
+            ForEach(PlayerComparison.Metric.allCases) { metric in
+                let values = comparison.values(metric)
+                if values.contains(where: { $0 != nil }) {
+                    let best = comparison.bestIndex(metric)
+                    GridRow {
+                        Text(metric.label).font(.caption2).foregroundStyle(.secondary).gridColumnAlignment(.leading)
+                        ForEach(Array(values.enumerated()), id: \.offset) { index, value in
+                            Text(value.map(metric.format) ?? "—")
+                                .font(.caption.monospacedDigit().weight(index == best ? .bold : .regular))
+                                .foregroundStyle(index == best ? Palette.start : value == nil ? Color.secondary : Color.primary)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.surface.opacity(0.7)))
+    }
+}

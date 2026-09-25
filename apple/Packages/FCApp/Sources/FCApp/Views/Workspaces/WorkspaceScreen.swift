@@ -214,6 +214,7 @@ struct PanelLibrarySheet: View {
         ("This week", [.lineupReadiness, .sitStart, .matchupScore, .injuries]),
         ("Market", [.waiverTargets, .tradePartners, .idpStream, .wrStream, .rbStream]),
         ("Season", [.byeWeeks, .standings, .news]),
+        ("Discovery", [.discovery, .playerProfile, .playerNews, .gameLog, .trendChart, .schedule, .compare]),
         ("Players", [.playerCard]),
     ]
 

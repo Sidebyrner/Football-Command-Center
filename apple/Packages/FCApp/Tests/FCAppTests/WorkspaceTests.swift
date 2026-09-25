@@ -103,11 +103,11 @@ final class WorkspaceStoreTests: XCTestCase {
         super.tearDown()
     }
 
-    func testAFirstLaunchSeedsTheThreePresetsAndSavesThem() throws {
+    func testAFirstLaunchSeedsThePresetsAndSavesThem() throws {
         let persistence = FileWorkspacePersistence(directory: directory)
         let store = WorkspaceStore(persistence: persistence)
-        XCTAssertEqual(store.workspaces.map(\.name), ["Game day", "Waiver Tuesday", "Trade desk"])
-        XCTAssertEqual(try persistence.load()?.workspaces.count, 3)
+        XCTAssertEqual(store.workspaces.map(\.name), ["Game day", "Waiver Tuesday", "Trade desk", "Discovery"])
+        XCTAssertEqual(try persistence.load()?.workspaces.count, 4)
     }
 
     func testEditsSurviveARelaunch() throws {
@@ -173,7 +173,7 @@ final class WorkspaceStoreTests: XCTestCase {
         let persistence = FileWorkspacePersistence(directory: directory)
         try Data("not json".utf8).write(to: persistence.fileURL)
         let store = WorkspaceStore(persistence: persistence)
-        XCTAssertEqual(store.workspaces.count, 3, "presets reseeded")
+        XCTAssertEqual(store.workspaces.count, WorkspacePresets.all.count, "presets reseeded")
         let aside = directory.appendingPathComponent("library.corrupt.json")
         XCTAssertEqual(try String(contentsOf: aside, encoding: .utf8), "not json")
     }
