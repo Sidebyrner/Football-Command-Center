@@ -40,8 +40,9 @@ public enum StartAvailability: Hashable, Sendable {
     }
 
     /// Pure, so the rules are tested without a league.
-    public static func evaluate(sleeperTag: String?, designation: InjuryDesignation?, onReserve: Bool) -> StartAvailability {
-        if onReserve { return .unavailable("On your IR") }
+    public static func evaluate(sleeperTag: String?, designation: InjuryDesignation?, onReserve: Bool,
+                                reserveLabel: String = "On your IR") -> StartAvailability {
+        if onReserve { return .unavailable(reserveLabel) }
         switch designation {
         case .out: return .unavailable("Out")
         case .doubtful: return .unavailable("Doubtful")
@@ -54,11 +55,16 @@ public enum StartAvailability: Hashable, Sendable {
         return designation == .questionable ? .questionable : .clear
     }
 
+    /// Checks every roster's IR slots, not only the user's: a rival's player
+    /// parked on IR can't start for anyone this week either.
     public static func of(_ id: String, context: LeagueContext) -> StartAvailability {
-        evaluate(
+        let onMyReserve = context.userTeam?.reserveIDs.contains(id) ?? false
+        let onAnyReserve = onMyReserve || context.teams.contains { $0.reserveIDs.contains(id) }
+        return evaluate(
             sleeperTag: context.injuryStatus(id),
             designation: context.practiceReport(sleeperID: id)?.designation,
-            onReserve: context.userTeam?.reserveIDs.contains(id) ?? false
+            onReserve: onAnyReserve,
+            reserveLabel: onMyReserve ? "On your IR" : "On IR"
         )
     }
 }

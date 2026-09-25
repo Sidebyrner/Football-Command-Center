@@ -37,6 +37,7 @@ struct PlayerCardMenu: ViewModifier {
     let playerID: String?
     let context: LeagueContext?
     @Environment(\.openPlayerCard) private var openPlayerCard
+    @Environment(\.openTrade) private var openTrade
 
     func body(content: Content) -> some View {
         if let playerID, let context {
@@ -46,6 +47,7 @@ struct PlayerCardMenu: ViewModifier {
                 } label: {
                     Label("Open Player Card", systemImage: "person.text.rectangle")
                 }
+                tradeButton(playerID, context: context)
                 Button {
                     Clipboard.copy(context.playerName(playerID) ?? playerID)
                 } label: {
@@ -57,6 +59,30 @@ struct PlayerCardMenu: ViewModifier {
         }
     }
 }
+extension PlayerCardMenu {
+    /// "Trade for…" on a rival's player, "Offer in trade" on your own.
+    @ViewBuilder
+    func tradeButton(_ playerID: String, context: LeagueContext) -> some View {
+        let position = context.position(playerID)
+        switch context.availability(ofSleeperID: playerID) {
+        case .rivalStarter(let rosterID, _), .rivalBench(let rosterID, _):
+            Button {
+                openTrade(TradeWizardPrefill(positions: position.map { [$0] }, rivalRosterID: rosterID, theirPlayerID: playerID))
+            } label: {
+                Label("Trade for…", systemImage: "arrow.triangle.swap")
+            }
+        case .mine:
+            Button {
+                openTrade(TradeWizardPrefill(myPlayerID: playerID))
+            } label: {
+                Label("Offer in trade", systemImage: "arrow.triangle.swap")
+            }
+        case .freeAgent:
+            EmptyView()
+        }
+    }
+}
+
 
 /// The clipboard on both platforms.
 enum Clipboard {

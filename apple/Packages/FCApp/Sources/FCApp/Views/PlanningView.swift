@@ -289,11 +289,11 @@ struct LeagueGrid: View {
 
 struct TradesSection: View {
     @ObservedObject var model: PlanningModel
-    @State private var launch: TradeWizardLaunch?
+    @Environment(\.openTrade) private var openTrade
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            StartTradeCard { launch = TradeWizardLaunch() }
+            StartTradeCard { openTrade() }
                 .disabled(model.context == nil)
 
             if model.userShortWeeks().isEmpty {
@@ -313,7 +313,7 @@ struct TradesSection: View {
                     .fixedSize(horizontal: false, vertical: true)
                 ForEach(Array(model.tradeTargets.enumerated()), id: \.element.id) { offset, target in
                     TradeTargetCard(target: target) {
-                        launch = TradeWizardLaunch(prefill: TradeWizardPrefill(
+                        openTrade(TradeWizardPrefill(
                             positions: Set(target.candidates.map(\.position)),
                             weeks: target.weeksCovered,
                             rivalRosterID: target.rival.rosterID,
@@ -322,11 +322,6 @@ struct TradesSection: View {
                     }
                     .appear(index: offset)
                 }
-            }
-        }
-        .sheet(item: $launch) { launch in
-            if let context = model.context {
-                TradeWizardSheet(context: context, relayBaseURL: model.relayBaseURL, prefill: launch.prefill)
             }
         }
     }

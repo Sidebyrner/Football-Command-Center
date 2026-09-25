@@ -32,6 +32,7 @@ public struct RootView: View {
     @State private var idpStreamModel: IDPStreamScreenModel
     @State private var wrStreamModel: WRStreamScreenModel
     @State private var rbStreamModel: RBStreamScreenModel
+    @State private var tradeModel: TradeDeskScreenModel
     @State private var selection: Screen = .dashboard
     /// The Player Card on screen, opened from any row's context menu.
     @State private var playerCard: PlayerCardModel?
@@ -74,6 +75,9 @@ public struct RootView: View {
         _idpStreamModel = State(initialValue: IDPStreamScreenModel(loader: loader))
         _wrStreamModel = State(initialValue: WRStreamScreenModel(loader: loader))
         _rbStreamModel = State(initialValue: RBStreamScreenModel(loader: loader))
+        let trades = TradeDeskScreenModel(loader: loader)
+        trades.relayBaseURL = relayBaseURL
+        _tradeModel = State(initialValue: trades)
     }
 
     /// The four screens of the first release (§7), plus Settings.
@@ -93,6 +97,7 @@ public struct RootView: View {
         case injuries = "Injuries"
         case planning = "Planning"
         case waivers = "Waivers"
+        case trades = "Trades"
         case idpStream = "IDP Stream"
         case wrStream = "WR Stream"
         case rbStream = "RB Stream"
@@ -108,6 +113,7 @@ public struct RootView: View {
             case .dashboard: return "person.crop.square"
             case .injuries: return "cross.case"
             case .waivers: return "tray.and.arrow.down"
+            case .trades: return "arrow.triangle.swap"
             case .idpStream: return "shield.lefthalf.filled"
             case .wrStream: return "figure.american.football"
             case .rbStream: return "figure.run"
@@ -122,7 +128,7 @@ public struct RootView: View {
             switch self {
             case .dashboard, .sitStart, .injuries: return .team
             case .matchup: return .week
-            case .planning, .waivers, .idpStream, .wrStream, .rbStream: return .market
+            case .planning, .waivers, .trades, .idpStream, .wrStream, .rbStream: return .market
             case .settings: return .settings
             }
         }
@@ -152,6 +158,10 @@ public struct RootView: View {
         .environment(\.openScreen, OpenScreenAction { screen in
             selection = screen
         })
+        .environment(\.openTrade, OpenTradeAction { [tradeModel] prefill in
+            selection = .trades
+            Task { await tradeModel.open(prefill) }
+        })
         .environment(\.openPlayerCard, OpenPlayerCardAction { id, context in
             let store = settingsStore
             playerCard = PlayerCardModel(
@@ -173,6 +183,7 @@ public struct RootView: View {
         .onChange(of: settingsModel.settings.relayBaseURL) { _, url in
             dashboardModel.setRelay(baseURL: url)
             planningModel.relayBaseURL = url
+            tradeModel.relayBaseURL = url
             guard let leagueID = settingsModel.settings.leagueID,
                   let rosterID = settingsModel.settings.rosterID else { return }
             Task { await dashboardModel.load(leagueID: leagueID, userRosterID: rosterID) }
@@ -283,6 +294,12 @@ public struct RootView: View {
             } else {
                 needsSetup
             }
+        case .trades:
+            if settingsModel.settings.isConfigured {
+                TradeDeskScreen(screen: tradeModel)
+            } else {
+                needsSetup
+            }
         case .idpStream:
             if settingsModel.settings.isConfigured {
                 IDPStreamView(model: idpStreamModel)
@@ -331,6 +348,7 @@ public struct RootView: View {
         async let idpStream: Void = idpStreamModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let wrStream: Void = wrStreamModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let rbStream: Void = rbStreamModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
-        _ = await (dashboard, matchup, sitStart, planning, injuries, waivers, idpStream, wrStream, rbStream)
+        async let trades: Void = tradeModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
+        _ = await (dashboard, matchup, sitStart, planning, injuries, waivers, idpStream, wrStream, rbStream, trades)
     }
 }

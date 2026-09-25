@@ -70,17 +70,25 @@ public enum Baselines {
     /// projected points, for instance — so a "projected start line" is built
     /// exactly like the season one and the two are comparable in kind, though
     /// never blended.
+    ///
+    /// - Parameter flexDemand: extra starters per team at each position from
+    ///   flex slots, as the league actually fills them (see `FlexDemand`). Empty
+    ///   keeps the conservative dedicated-only count. A superflex league needs
+    ///   it: there the QB line is roughly the 16th QB in an 8-team league, not
+    ///   the 8th.
     public static func lines(
         byPosition: [Position: [Double]],
         template: SlotTemplate,
-        teamCount: Int
+        teamCount: Int,
+        flexDemand: [Position: Double] = [:]
     ) -> [Position: PositionBaseline] {
         guard teamCount > 0 else { return [:] }
         let counts = template.dedicatedCounts()
 
         var out: [Position: PositionBaseline] = [:]
         for (position, values) in byPosition {
-            let starters = (counts[position] ?? 0) * teamCount
+            let perTeam = Double(counts[position] ?? 0) + (flexDemand[position] ?? 0)
+            let starters = Int((perTeam * Double(teamCount)).rounded())
             guard starters > 0, !values.isEmpty else { continue }
 
             let descending = values.sorted(by: >)
@@ -103,5 +111,34 @@ public enum Baselines {
             )
         }
         return out
+    }
+}
+
+
+/// How a league's flex slots are actually filled, as extra starters per team
+/// at each position. Measured from the managers' own lineups rather than
+/// assumed, because the split is the league's habit: in a superflex league
+/// nearly every SUPER_FLEX slot holds a quarterback.
+public enum FlexDemand {
+    /// - Parameter lineups: each team's current starters' positions, aligned
+    ///   with `template.starters`; `nil` for an empty or unknown slot.
+    public static func observed(template: SlotTemplate, lineups: [[Position?]]) -> [Position: Double] {
+        guard !lineups.isEmpty else { return [:] }
+        var filled: [Position: Double] = [:]
+        var slotsSeen: [Int: Int] = [:]
+        for lineup in lineups {
+            for (index, slot) in template.starters.enumerated() where slot.isFlex {
+                guard index < lineup.count, let position = lineup[index], slot.accepts(position) else { continue }
+                filled[position, default: 0] += 1
+                slotsSeen[index, default: 0] += 1
+            }
+        }
+        // A flex slot left empty on some teams still exists on every team:
+        // scale each position's share up to the full slot count.
+        let flexSlots = template.starters.filter(\.isFlex).count
+        let observedSlots = slotsSeen.values.reduce(0, +)
+        guard flexSlots > 0, observedSlots > 0 else { return [:] }
+        let scale = Double(flexSlots * lineups.count) / Double(observedSlots)
+        return filled.mapValues { $0 * scale / Double(lineups.count) }
     }
 }

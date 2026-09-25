@@ -21,3 +21,25 @@ public extension EnvironmentValues {
         set { self[OpenScreenKey.self] = newValue }
     }
 }
+
+/// Opens the Trade Desk, optionally pointed at a need, team or player —
+/// "Trade for…" from a player card or any row.
+public struct OpenTradeAction: Sendable {
+    let handler: @MainActor @Sendable (TradeWizardPrefill?) -> Void
+
+    @MainActor
+    public func callAsFunction(_ prefill: TradeWizardPrefill? = nil) {
+        handler(prefill)
+    }
+}
+
+private struct OpenTradeKey: EnvironmentKey {
+    static let defaultValue = OpenTradeAction { _ in }
+}
+
+public extension EnvironmentValues {
+    var openTrade: OpenTradeAction {
+        get { self[OpenTradeKey.self] }
+        set { self[OpenTradeKey.self] = newValue }
+    }
+}

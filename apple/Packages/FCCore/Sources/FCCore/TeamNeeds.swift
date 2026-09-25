@@ -81,7 +81,8 @@ public enum TeamNeedsBuilder {
         values: [String: Double],
         baselines: [Position: PositionBaseline],
         calendar: ByeCalendar,
-        weeks: [Int]
+        weeks: [Int],
+        includeFlexStarters: Bool = false
     ) -> TeamNeeds {
         var needs: [Need] = []
 
@@ -106,14 +107,22 @@ public enum TeamNeedsBuilder {
             needs.append(Need(positions: eligible, kind: .shortWeeks(list), viaFlex: true))
         }
 
-        // Weak starters: dedicated slots only — a flex starter isn't competing
-        // against one position's line.
+        // Weak starters in dedicated slots. With `includeFlexStarters`, a flex
+        // starter is measured against his own position's line — a superflex
+        // quarterback below the QB line is a real hole — and any position the
+        // slot accepts could fill it.
         let positions = Dictionary(roster.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         for (index, slot) in template.starters.enumerated() {
-            guard let dedicated = slot.dedicated, index < starters.count else { continue }
+            guard index < starters.count else { continue }
             let id = starters[index]
-            guard id != "0", let value = values[id], let line = baselines[dedicated]?.startLine, value < line else { continue }
-            needs.append(Need(positions: [dedicated], kind: .weakStarter(playerID: id, gap: line - value), viaFlex: false))
+            guard id != "0", let value = values[id] else { continue }
+            if let dedicated = slot.dedicated {
+                guard let line = baselines[dedicated]?.startLine, value < line else { continue }
+                needs.append(Need(positions: [dedicated], kind: .weakStarter(playerID: id, gap: line - value), viaFlex: false))
+            } else if includeFlexStarters, let position = positions[id]?.position,
+                      let line = baselines[position]?.startLine, value < line {
+                needs.append(Need(positions: slot.eligible, kind: .weakStarter(playerID: id, gap: line - value), viaFlex: true))
+            }
         }
 
         // Surplus: bench players at a position where the dedicated slots are

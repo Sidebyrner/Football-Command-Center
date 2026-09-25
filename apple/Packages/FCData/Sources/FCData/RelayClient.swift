@@ -126,15 +126,40 @@ public struct RelayClient: Sendable {
 
     private struct TradePitchResponse: Decodable { let pitch: String }
 
+    /// Why a pitch could not be polished — each needs a different fix.
+    public enum PolishFailure: Error, Hashable, Sendable {
+        /// The relay refused the token (401/403): fix it in Settings.
+        case unauthorized
+        /// No answer — offline, the relay is down, or the model timed out.
+        case unreachable
+        /// The relay answered with an error status.
+        case server(status: Int)
+        /// It answered, but with nothing usable.
+        case emptyResponse
+    }
+
+    /// Rewrites a trade pitch on the relay's local model, saying why when it
+    /// can't. The template pitch is always there to fall back on.
+    public func polishTradePitchResult(_ request: TradePitchRequest, token: String?) async -> Result<String, PolishFailure> {
+        guard let body = try? JSONEncoder().encode(request) else { return .failure(.emptyResponse) }
+        let response: HTTPResponse
+        do {
+            response = try await send("api/ai/trade-pitch", method: "POST", body: body, token: token)
+        } catch {
+            return .failure(.unreachable)
+        }
+        if response.status == 401 || response.status == 403 { return .failure(.unauthorized) }
+        guard response.isOK else { return .failure(.server(status: response.status)) }
+        guard let decoded = try? JSONDecoder().decode(TradePitchResponse.self, from: response.body) else {
+            return .failure(.emptyResponse)
+        }
+        let trimmed = decoded.pitch.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? .failure(.emptyResponse) : .success(trimmed)
+    }
+
     /// Rewrites a trade pitch on the relay's local model. `nil` on any failure —
     /// the template pitch is always there to fall back on.
     public func polishTradePitch(_ request: TradePitchRequest, token: String?) async -> String? {
-        guard let body = try? JSONEncoder().encode(request),
-              let response = try? await send("api/ai/trade-pitch", method: "POST", body: body, token: token),
-              response.isOK,
-              let decoded = try? JSONDecoder().decode(TradePitchResponse.self, from: response.body)
-        else { return nil }
-        let trimmed = decoded.pitch.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
+        try? await polishTradePitchResult(request, token: token).get()
     }
 }

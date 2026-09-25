@@ -120,6 +120,24 @@ final class TradeSupportTests: XCTestCase {
         XCTAssertNil(pitch)
     }
 
+    /// Each failure says what to fix: the token, the relay, or the model.
+    func testPitchPolishSaysWhyItFailed() async {
+        func result(status: Int, json: String = #"{"error":"x"}"#) async -> Result<String, RelayClient.PolishFailure> {
+            let transport = StubTransport()
+            await transport.on("api/ai/trade-pitch", json: json, status: status)
+            let client = RelayClient(baseURL: URL(string: "https://relay.example.test")!, transport: transport)
+            return await client.polishTradePitchResult(.init(facts: [], draft: "Draft"), token: "t")
+        }
+        let unauthorized = await result(status: 401)
+        XCTAssertEqual(unauthorized, .failure(.unauthorized))
+        let server = await result(status: 503)
+        XCTAssertEqual(server, .failure(.server(status: 503)))
+        let empty = await result(status: 200, json: #"{"pitch":"   "}"#)
+        XCTAssertEqual(empty, .failure(.emptyResponse))
+        let ok = await result(status: 200, json: #"{"pitch":"Hi"}"#)
+        XCTAssertEqual(ok, .success("Hi"))
+    }
+
     func testInMemorySecretStoreRoundTrips() {
         let store = InMemorySecretStore()
         store.save("abc")

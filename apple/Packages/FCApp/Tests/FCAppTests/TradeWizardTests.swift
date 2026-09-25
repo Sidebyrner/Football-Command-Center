@@ -137,17 +137,23 @@ final class TradeWizardTests: XCTestCase {
         XCTAssertTrue(model.effects.theirWeeks.allSatisfy { $0.after <= $0.before })
     }
 
-    /// Receiving a player who is Out adds nothing to this week's lineup — he
-    /// is warned about and not counted.
+    /// Matching never suggests an Out player, but the manager can still trade
+    /// for one on purpose — and then he adds nothing to this week's lineup, and
+    /// is warned about.
     func testAnOutPlayerYouReceiveAddsNothingThisWeek() async throws {
         func lineupAfter(_ injuries: [String: String]) async throws -> TradeWizardModel {
             let model = TradeWizardModel(context: try await context(injuries: injuries), relay: nil,
                                          secrets: InMemorySecretStore(), prefill: nil)
-            model.choose(goal: try rbWeek8(model))
-            model.choose(partner: try XCTUnwrap(model.partners.first))
-            model.toggleSending("wr_spare")
+            let bijan = try XCTUnwrap(model.search("Bijan Robinson").first)
+            model.target(bijan)
+            if !model.sending.contains("wr_spare") { model.toggleSending("wr_spare") }
             return model
         }
+        let matched = TradeWizardModel(context: try await context(injuries: ["9509": "Out"]), relay: nil,
+                                       secrets: InMemorySecretStore(), prefill: nil)
+        matched.choose(goal: try rbWeek8(matched))
+        XCTAssertFalse(matched.partners.contains { $0.theirOffer.contains { $0.id == "9509" } },
+                       "an Out player is never a suggested target")
         let healthy = try await lineupAfter([:])
         let hurt = try await lineupAfter(["9509": "Out"])
         XCTAssertEqual(healthy.receiving, ["9509"])
