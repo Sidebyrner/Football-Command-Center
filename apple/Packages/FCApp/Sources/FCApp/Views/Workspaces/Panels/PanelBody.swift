@@ -80,14 +80,17 @@ struct PanelBody: View {
 struct PanelScroll<Content: View>: View {
     @ViewBuilder let content: Content
     @Environment(\.workspaceStaticWidth) private var staticWidth
+    @Environment(\.panelInline) private var inline
 
     var body: some View {
         let stack = VStack(alignment: .leading, spacing: 8) {
             content
         }
-        .padding(10)
+        .padding(inline ? 0 : 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        if staticWidth != nil {
+        if inline {
+            stack
+        } else if staticWidth != nil {
             stack.frame(minHeight: 0, maxHeight: .infinity, alignment: .top).clipped()
         } else {
             ScrollView(.vertical) { stack }

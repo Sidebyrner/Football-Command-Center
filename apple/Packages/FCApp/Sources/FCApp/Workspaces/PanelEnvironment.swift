@@ -66,6 +66,10 @@ private struct StaticRenderKey: EnvironmentKey {
     static let defaultValue: CGFloat? = nil
 }
 
+private struct PanelInlineKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 private struct InPanelKey: EnvironmentKey {
     static let defaultValue = false
 }
@@ -96,6 +100,13 @@ extension EnvironmentValues {
     var workspaceStaticWidth: CGFloat? {
         get { self[StaticRenderKey.self] }
         set { self[StaticRenderKey.self] = newValue }
+    }
+
+    /// Panel content laid out as sections of a page (the phone's player page):
+    /// no scroll view of its own and no repeated player header.
+    var panelInline: Bool {
+        get { self[PanelInlineKey.self] }
+        set { self[PanelInlineKey.self] = newValue }
     }
 
     /// Set inside workspace panels, so a shared row view can pick its compact form.

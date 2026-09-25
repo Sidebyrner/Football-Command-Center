@@ -74,6 +74,33 @@ final class DemoLeagueUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Opponent"].waitForSelected(timeout: 5))
     }
 
+    /// Discover on a phone: the list renders, a player's page opens with his
+    /// trends and schedule, and nothing on either is wider than the phone.
+    func testDiscoverListsPlayersAndOpensAPlayersPage() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone, "the phone layout")
+        let app = launch(tab: "discover")
+        let row = app.descendants(matching: .any)["discover.row"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 30), "Discover never listed anyone")
+        assertNothingWiderThanTheWindow(app)
+        Self.snapshot("discover-list")
+        row.tap()
+        let page = app.descendants(matching: .any)["discover.page"].firstMatch
+        XCTAssertTrue(page.waitForExistence(timeout: 15), "the player page didn't open")
+        XCTAssertTrue(app.staticTexts["Trends"].waitForExistence(timeout: 10))
+        assertNothingWiderThanTheWindow(app)
+        Self.snapshot("discover-player")
+        page.swipeUp()
+        Self.snapshot("discover-player-2")
+        page.swipeUp()
+        Self.snapshot("discover-player-3")
+    }
+
+    /// Saves a screenshot when `FCC_SCREENSHOT_DIR` is set.
+    private static func snapshot(_ name: String) {
+        guard let dir = ProcessInfo.processInfo.environment["FCC_SCREENSHOT_DIR"] else { return }
+        try? XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(name).png"))
+    }
+
     func testEveryScreenRendersFromTheDemoLeague() throws {
         for (tab, marker) in [("myteam", "myteam.hero"), ("planning", "Planning"),
                               ("matchup", "matchup.row.0"), ("sitstart", "Proposed lineup")] {

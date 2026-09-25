@@ -58,6 +58,7 @@ public struct RootView: View {
 
         case dashboard = "My Team"
         case injuries = "Injuries"
+        case discovery = "Discover"
         case planning = "Planning"
         case waivers = "Waivers"
         case trades = "Trades"
@@ -75,6 +76,7 @@ public struct RootView: View {
             case .planning: return "calendar.badge.exclamationmark"
             case .dashboard: return "person.crop.square"
             case .injuries: return "cross.case"
+            case .discovery: return "binoculars"
             case .waivers: return "tray.and.arrow.down"
             case .trades: return "arrow.triangle.swap"
             case .idpStream: return "shield.lefthalf.filled"
@@ -91,7 +93,7 @@ public struct RootView: View {
             switch self {
             case .dashboard, .sitStart, .injuries: return .team
             case .matchup: return .week
-            case .planning, .waivers, .trades, .idpStream, .wrStream, .rbStream: return .market
+            case .planning, .waivers, .trades, .idpStream, .wrStream, .rbStream, .discovery: return .market
             case .settings: return .settings
             }
         }
@@ -255,6 +257,12 @@ public struct RootView: View {
         case .rbStream:
             if settingsModel.settings.isConfigured {
                 RBStreamView(model: services.rbStream)
+            } else {
+                needsSetup
+            }
+        case .discovery:
+            if settingsModel.settings.isConfigured {
+                DiscoverView(model: services.discovery, services: services)
             } else {
                 needsSetup
             }

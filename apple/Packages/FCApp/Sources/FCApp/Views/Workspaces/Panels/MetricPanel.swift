@@ -183,75 +183,9 @@ struct MetricPanel: View {
             }
             Spacer(minLength: 0)
         }
-        if !metric.applies(to: position) {
-            message("\(metric.label) doesn't apply to a \(position?.rawValue ?? "player like him").")
-        } else if let summary = index.summary(metric, playerID: id) {
-            headline(summary, position: position)
-            MetricChart(
-                series: [MetricChart.Series(id: id, name: context.playerName(id) ?? id,
-                                            color: group?.color ?? .accentColor,
-                                            points: Array(index.series(metric, playerID: id).suffix(lastN)))],
-                metric: metric,
-                reference: summary.positionAverage.map { ("\(position?.rawValue ?? "") avg", $0) }
-            )
-            PanelFootnote(text: metric.source + ".")
-        } else {
-            message("No \(metric.label.lowercased()) logged for him yet.")
-        }
+        MetricSummaryView(index: index, playerID: id, metric: metric, lastN: lastN, tint: group?.color ?? .accentColor)
     }
 
-    private func headline(_ summary: MetricSummary, position: Position?) -> some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline, spacing: 14) { headlineParts(summary, position: position) }
-            VStack(alignment: .leading, spacing: 6) { headlineParts(summary, position: position) }
-        }
-    }
-
-    @ViewBuilder
-    private func headlineParts(_ summary: MetricSummary, position: Position?) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text(metric.format(summary.seasonAverage))
-                    .font(.title.weight(.bold).monospacedDigit())
-                if !metric.unit.isEmpty {
-                    Text(metric.unit).font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            Text("per game · \(summary.games) game\(summary.games == 1 ? "" : "s")")
-                .font(.caption2).foregroundStyle(.secondary)
-        }
-        VStack(alignment: .leading, spacing: 2) {
-            if let last = summary.lastGame, let week = summary.lastWeek {
-                stat("Last game (W\(week))", metric.format(last))
-            }
-            if let three = summary.lastThreeAverage {
-                HStack(spacing: 4) {
-                    stat("Last 3", metric.format(three))
-                    if let trend = summary.trend, trend != 0 {
-                        Image(systemName: trend > 0 ? "arrow.up.right" : "arrow.down.right")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(trend > 0 ? Palette.start : Palette.sit)
-                    }
-                }
-            }
-        }
-        if let rank = summary.rank {
-            VStack(alignment: .leading, spacing: 0) {
-                Text("#\(rank)")
-                    .font(.headline.monospacedDigit())
-                    .foregroundStyle(rank <= max(3, summary.rankOf / 10) ? Palette.start : .primary)
-                Text("of \(summary.rankOf) \(position?.rawValue ?? "")s")
-                    .font(.caption2).foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private func stat(_ label: String, _ value: String) -> some View {
-        HStack(spacing: 4) {
-            Text(label).font(.caption2).foregroundStyle(.secondary)
-            Text(value).font(.caption.weight(.semibold).monospacedDigit())
-        }
-    }
 
     // MARK: Several players
 
@@ -407,5 +341,101 @@ struct MetricChart: View {
         .frame(height: height)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(metric.label) by week for \(series.map(\.name).joined(separator: ", "))")
+    }
+}
+
+
+/// One player on one metric: the headline numbers, rank at his position, and
+/// a chart against the position average. Shared by the Metric panel and the
+/// phone's player page.
+struct MetricSummaryView: View {
+    let index: PlayerMetricsIndex
+    let playerID: String
+    let metric: PlayerMetric
+    var lastN: Int = 6
+    var tint: Color = .accentColor
+
+    var body: some View {
+        let context = index.context
+        let id = playerID
+        let position = context.position(id)
+        VStack(alignment: .leading, spacing: 8) {
+            if !metric.applies(to: position) {
+                message("\(metric.label) doesn't apply to a \(position?.rawValue ?? "player like him").")
+            } else if let summary = index.summary(metric, playerID: id) {
+                headline(summary, position: position)
+                MetricChart(
+                    series: [MetricChart.Series(id: id, name: context.playerName(id) ?? id,
+                                                color: tint,
+                                                points: Array(index.series(metric, playerID: id).suffix(lastN)))],
+                    metric: metric,
+                    reference: summary.positionAverage.map { ("\(position?.rawValue ?? "") avg", $0) }
+                )
+                PanelFootnote(text: metric.source + ".")
+            } else {
+                message("No \(metric.label.lowercased()) logged for him yet.")
+            }
+        }
+    }
+
+    private func message(_ text: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, minHeight: 60)
+            .multilineTextAlignment(.center)
+    }
+
+    private func headline(_ summary: MetricSummary, position: Position?) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 14) { headlineParts(summary, position: position) }
+            VStack(alignment: .leading, spacing: 6) { headlineParts(summary, position: position) }
+        }
+    }
+
+    @ViewBuilder
+    private func headlineParts(_ summary: MetricSummary, position: Position?) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(metric.format(summary.seasonAverage))
+                    .font(.title.weight(.bold).monospacedDigit())
+                if !metric.unit.isEmpty {
+                    Text(metric.unit).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Text("per game · \(summary.games) game\(summary.games == 1 ? "" : "s")")
+                .font(.caption2).foregroundStyle(.secondary)
+        }
+        VStack(alignment: .leading, spacing: 2) {
+            if let last = summary.lastGame, let week = summary.lastWeek {
+                stat("Last game (W\(week))", metric.format(last))
+            }
+            if let three = summary.lastThreeAverage {
+                HStack(spacing: 4) {
+                    stat("Last 3", metric.format(three))
+                    if let trend = summary.trend, trend != 0 {
+                        Image(systemName: trend > 0 ? "arrow.up.right" : "arrow.down.right")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(trend > 0 ? Palette.start : Palette.sit)
+                    }
+                }
+            }
+        }
+        if let rank = summary.rank {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("#\(rank)")
+                    .font(.headline.monospacedDigit())
+                    .foregroundStyle(rank <= max(3, summary.rankOf / 10) ? Palette.start : .primary)
+                Text("of \(summary.rankOf) \(position?.rawValue ?? "")s")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func stat(_ label: String, _ value: String) -> some View {
+        HStack(spacing: 4) {
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+            Text(value).font(.caption.weight(.semibold).monospacedDigit())
+        }
     }
 }

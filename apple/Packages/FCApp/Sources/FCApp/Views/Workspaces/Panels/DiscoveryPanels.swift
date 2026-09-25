@@ -68,8 +68,13 @@ struct LinkedEmptyState: View {
 struct PanelPlayerHeader: View {
     @ObservedObject var card: PlayerCardModel
     var detail: String? = nil
+    @Environment(\.panelInline) private var inline
 
     var body: some View {
+        if !inline { header }
+    }
+
+    private var header: some View {
         HStack(spacing: 8) {
             PlayerAvatar(sleeperID: card.id, name: card.name, position: card.position, size: 30)
             VStack(alignment: .leading, spacing: 1) {
@@ -630,7 +635,10 @@ struct SchedulePanel: View {
     private func footnote(_ schedule: PlayerSchedule) -> String {
         var parts: [String] = []
         if let last = schedule.coveredWeeks.last {
-            parts.append("\(PlayerSchedule.linesLabel) through week \(last); later weeks have no line yet")
+            let final = schedule.weeks.last?.week ?? last
+            parts.append(last >= final
+                         ? "\(PlayerSchedule.linesLabel)"
+                         : "\(PlayerSchedule.linesLabel) through week \(last); later weeks have no line yet")
         } else {
             parts.append("No recorded lines for his remaining games yet")
         }

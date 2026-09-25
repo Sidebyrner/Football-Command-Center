@@ -97,9 +97,21 @@ public final class DiscoveryModel: ObservableObject {
             metrics = PlayerMetricsIndex(context: context)
             rowCache = [:]
             allRows = builder.acquirableRows(includeNoData: true)
+            fallBackToAValuedSort()
             applyFilters()
         } catch {
             errorMessage = String(describing: error)
+        }
+    }
+
+    /// A column nobody has a number for is a wall of dashes — projections
+    /// unreachable, or no Sleeper lines yet. Move to the first column that
+    /// values someone, as the Waiver Board does.
+    func fallBackToAValuedSort() {
+        guard case .column(let column) = sort, !allRows.isEmpty,
+              !allRows.contains(where: { $0.value(column) != nil }) else { return }
+        if let usable = WaiverSort.allCases.first(where: { c in allRows.contains { $0.value(c) != nil } }) {
+            sort = .column(usable)
         }
     }
 
