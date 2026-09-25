@@ -10,6 +10,8 @@ enum WorkspaceFixture {
     static let mahomes = "4046", ward = "12522", cook = "8138", bolton = "7648", kyren = "8150"
     static let goff = "3163", stafford = "421", gibbs = "9221", edmunds = "4968"
     static let prescott = "3294", hampton = "12507", purdy = "8183", henderson = "12529", jsn = "9488"
+    /// A free agent with no Sleeper line and no projection — the Waiver Board hides him, Discovery doesn't.
+    static let unknown = "99001"
 
     static func services() async throws -> (AppServices, URL) {
         let transport = await Harness.standardTransport()
@@ -44,7 +46,9 @@ enum WorkspaceFixture {
              "\(prescott)":{"full_name":"Dak Prescott","position":"QB","team":"DAL","active":true},
              "\(hampton)":{"full_name":"Omarion Hampton","position":"RB","team":"LAC","active":true},
              "\(henderson)":{"full_name":"TreVeyon Henderson","position":"RB","team":"NE","active":true},
-             "\(purdy)":{"full_name":"Brock Purdy","position":"QB","team":"SF","active":true}}
+             "\(purdy)":{"full_name":"Brock Purdy","position":"QB","team":"SF","active":true},
+             "\(unknown)":{"full_name":"Deep Sleeper","position":"RB","team":"NE","active":true,"age":22,"years_exp":0,
+                            "college":"Nowhere State","height":"70","weight":"201"}}
             """)
         try await transport.on("/stats/nfl/2026/1", fixture: "stats-2026-w2")
         try await transport.on("/stats/nfl/2026/2", fixture: "stats-2026-w2")

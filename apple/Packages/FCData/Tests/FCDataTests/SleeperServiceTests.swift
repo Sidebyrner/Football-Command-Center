@@ -220,9 +220,9 @@ final class PlayerIndexMaxAgeTests: XCTestCase {
 
     /// Backdates the cached index so its age can be controlled.
     private func age(_ cache: DiskCache, by seconds: TimeInterval) async throws {
-        let loaded = await cache.load(PlayerIndex.self, key: "sleeper-players-v3", allowingStale: true)
+        let loaded = await cache.load(PlayerIndex.self, key: "sleeper-players-v4", allowingStale: true)
         let hit = try XCTUnwrap(loaded)
-        try await cache.store(hit.value, key: "sleeper-players-v3", ttl: CacheTTL.players, now: Date().addingTimeInterval(-seconds))
+        try await cache.store(hit.value, key: "sleeper-players-v4", ttl: CacheTTL.players, now: Date().addingTimeInterval(-seconds))
     }
 
     func testAYoungCopyIsReusedOnAGameDay() async throws {

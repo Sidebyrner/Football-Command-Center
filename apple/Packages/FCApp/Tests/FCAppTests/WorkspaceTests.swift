@@ -193,6 +193,34 @@ final class LinkBusTests: XCTestCase {
         XCTAssertNil(bus.selection(for: .one))
     }
 
+    func testCompareListsArePerGroupAndCappedAtFour() {
+        let bus = LinkBus()
+        for id in ["a", "b", "c", "d"] { bus.publish(.addCompare(id), to: .one) }
+        var fired = 0
+        let token = bus.objectWillChange.sink { fired += 1 }
+        bus.publish(.addCompare("e"), to: .one)
+        bus.publish(.addCompare("a"), to: .one)
+        XCTAssertEqual(fired, 0, "over the cap and duplicates are no-ops")
+        token.cancel()
+        XCTAssertEqual(bus.compareList(for: .one), ["a", "b", "c", "d"])
+        XCTAssertFalse(bus.canAddToCompare(in: .one))
+        XCTAssertTrue(bus.canAddToCompare(in: .two))
+        XCTAssertFalse(bus.canAddToCompare(in: nil))
+        bus.publish(.removeCompare("b"), to: .one)
+        XCTAssertEqual(bus.compareList(for: .one), ["a", "c", "d"])
+        XCTAssertTrue(bus.isComparing("c", in: .one))
+        XCTAssertFalse(bus.isComparing("c", in: .two))
+        bus.publish(.player("p"), to: .one)
+        XCTAssertEqual(bus.compareList(for: .one).count, 3, "selecting a player leaves the compare list alone")
+        bus.publish(.clearCompare, to: .one)
+        XCTAssertTrue(bus.compareList(for: .one).isEmpty)
+        XCTAssertEqual(bus.selection(for: .one)?.playerID, "p")
+        bus.publish(.addCompare("x"), to: .one)
+        bus.clear(.one)
+        XCTAssertTrue(bus.compareList(for: .one).isEmpty)
+        XCTAssertNil(bus.selection(for: .one))
+    }
+
     func testRepublishingTheSameValueDoesNotNotify() {
         let bus = LinkBus()
         bus.publish(.player("p1"), to: .one)

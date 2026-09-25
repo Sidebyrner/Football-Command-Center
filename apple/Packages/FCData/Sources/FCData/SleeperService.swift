@@ -23,7 +23,7 @@ public actor SleeperService {
         // v2: carries injury detail and depth chart order. v3: depth chart
         // position, which IDP alignment needs. Bumped so an index cached
         // before those fields existed is not served without them.
-        static let players = "sleeper-players-v3"
+        static let players = "sleeper-players-v4"
         static let trendingAdds = "sleeper-trending-adds-v1"
         static let trendingDrops = "sleeper-trending-drops-v1"
         static func league(_ id: String) -> String { "sleeper-league-\(id)" }

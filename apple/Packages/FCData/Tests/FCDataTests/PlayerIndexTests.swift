@@ -112,6 +112,49 @@ final class PlayerIndexTests: XCTestCase {
         XCTAssertLessThan(encoded.count, Data(payload.utf8).count)
     }
 
+    /// Sleeper sends height as inches or feet-and-inches, and weight as a
+    /// string or a number, depending on the player.
+    func testBioFieldsDecodeWhateverShapeSleeperSends() throws {
+        let bio = """
+        {
+          "1": {"full_name":"A","position":"RB","team":"SF","active":true,"age":29,"years_exp":8,
+                "college":"Stanford","height":"71","weight":"205","birth_date":"1996-06-07","number":23},
+          "2": {"full_name":"B","position":"WR","team":"MIN","active":true,"height":"6'1\\"","weight":215,
+                "birth_date":"1999-06-16","years_exp":0},
+          "3": {"full_name":"C","position":"TE","team":"KC","active":true,"height":"","weight":null,"age":"31",
+                "depth_chart_order":"2"}
+        }
+        """
+        let now = ISO8601DateFormatter().date(from: "2026-09-25T12:00:00Z")!
+        let index = try PlayerIndex.build(fromSleeperPayload: Data(bio.utf8), now: now)
+        let a = try XCTUnwrap(index["1"])
+        XCTAssertEqual(a.age, 29)
+        XCTAssertEqual(a.yearsExperience, 8)
+        XCTAssertEqual(a.college, "Stanford")
+        XCTAssertEqual(a.heightInches, 71)
+        XCTAssertEqual(a.heightLabel, "5'11\"")
+        XCTAssertEqual(a.weightPounds, 205)
+        XCTAssertEqual(a.jerseyNumber, 23)
+        let b = try XCTUnwrap(index["2"])
+        XCTAssertEqual(b.heightInches, 73)
+        XCTAssertEqual(b.weightPounds, 215)
+        XCTAssertEqual(b.age, 27, "worked out from the birth date")
+        XCTAssertEqual(b.yearsExperience, 0)
+        let c = try XCTUnwrap(index["3"], "odd types on one player must not cost him")
+        XCTAssertNil(c.heightInches)
+        XCTAssertNil(c.weightPounds)
+        XCTAssertEqual(c.age, 31)
+        XCTAssertEqual(c.depthChartOrder, 2)
+    }
+
+    /// An index cached before the bio fields existed still decodes.
+    func testAnIndexCachedWithoutBioFieldsStillDecodes() throws {
+        let old = #"{"players":{"1":{"id":"1","name":"A","positionCode":"RB","active":true}},"builtAt":0}"#
+        let index = try JSONDecoder().decode(PlayerIndex.self, from: Data(old.utf8))
+        XCTAssertEqual(index["1"]?.name, "A")
+        XCTAssertNil(index["1"]?.age)
+    }
+
     func testTheIndexRoundTripsThroughTheCache() throws {
         let index = try index()
         let encoded = try JSONEncoder().encode(index)

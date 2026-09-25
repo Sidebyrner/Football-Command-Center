@@ -29,6 +29,18 @@ public struct IndexedPlayer: Codable, Hashable, Sendable {
     /// `WLB`. Finer than `positionCode`, which is often just `DB` or `DL`.
     public let depthChartPosition: String?
 
+    // Bio — all optional: Sleeper leaves them out for many players, and an
+    // index cached before they existed decodes without them.
+    public let age: Int?
+    /// 0 for a rookie.
+    public let yearsExperience: Int?
+    public let college: String?
+    public let heightInches: Int?
+    public let weightPounds: Int?
+    /// "1996-04-21", as Sleeper sends it.
+    public let birthDate: String?
+    public let jerseyNumber: Int?
+
     public init(
         id: String,
         name: String,
@@ -40,7 +52,14 @@ public struct IndexedPlayer: Codable, Hashable, Sendable {
         injuryNotes: String? = nil,
         depthChartOrder: Int? = nil,
         newsUpdated: Date? = nil,
-        depthChartPosition: String? = nil
+        depthChartPosition: String? = nil,
+        age: Int? = nil,
+        yearsExperience: Int? = nil,
+        college: String? = nil,
+        heightInches: Int? = nil,
+        weightPounds: Int? = nil,
+        birthDate: String? = nil,
+        jerseyNumber: Int? = nil
     ) {
         self.id = id
         self.name = name
@@ -53,6 +72,13 @@ public struct IndexedPlayer: Codable, Hashable, Sendable {
         self.depthChartOrder = depthChartOrder
         self.newsUpdated = newsUpdated
         self.depthChartPosition = depthChartPosition
+        self.age = age
+        self.yearsExperience = yearsExperience
+        self.college = college
+        self.heightInches = heightInches
+        self.weightPounds = weightPounds
+        self.birthDate = birthDate
+        self.jerseyNumber = jerseyNumber
     }
 
     /// An index cached before these fields existed decodes with them absent.
@@ -69,6 +95,19 @@ public struct IndexedPlayer: Codable, Hashable, Sendable {
         depthChartOrder = try container.decodeIfPresent(Int.self, forKey: .depthChartOrder)
         newsUpdated = try container.decodeIfPresent(Date.self, forKey: .newsUpdated)
         depthChartPosition = try container.decodeIfPresent(String.self, forKey: .depthChartPosition)
+        age = try container.decodeIfPresent(Int.self, forKey: .age)
+        yearsExperience = try container.decodeIfPresent(Int.self, forKey: .yearsExperience)
+        college = try container.decodeIfPresent(String.self, forKey: .college)
+        heightInches = try container.decodeIfPresent(Int.self, forKey: .heightInches)
+        weightPounds = try container.decodeIfPresent(Int.self, forKey: .weightPounds)
+        birthDate = try container.decodeIfPresent(String.self, forKey: .birthDate)
+        jerseyNumber = try container.decodeIfPresent(Int.self, forKey: .jerseyNumber)
+    }
+
+    /// `6'1"`, from inches.
+    public var heightLabel: String? {
+        guard let heightInches, heightInches > 0 else { return nil }
+        return "\(heightInches / 12)'\(heightInches % 12)\""
     }
 
     public var position: Position? { Position(sleeper: positionCode) }
@@ -159,7 +198,14 @@ public struct PlayerIndex: Codable, Hashable, Sendable {
                 injuryNotes: player.injuryNotes,
                 depthChartOrder: player.depthChartOrder,
                 newsUpdated: player.newsUpdated.map { Date(timeIntervalSince1970: $0 / 1_000) },
-                depthChartPosition: player.depthChartPosition
+                depthChartPosition: player.depthChartPosition,
+                age: player.age ?? RawSleeperPlayer.age(birthDate: player.birthDate, now: now),
+                yearsExperience: player.yearsExp,
+                college: player.college.flatMap { $0.isEmpty ? nil : $0 },
+                heightInches: RawSleeperPlayer.inches(player.height?.value),
+                weightPounds: player.weight?.value.flatMap { Int($0.trimmingCharacters(in: .whitespaces)) },
+                birthDate: player.birthDate,
+                jerseyNumber: player.number
             )
         }
         return PlayerIndex(players: trimmed, builtAt: now)
@@ -180,6 +226,13 @@ struct RawSleeperPlayer: Decodable {
     let depthChartOrder: Int?
     let newsUpdated: Double?
     let depthChartPosition: String?
+    let age: Int?
+    let yearsExp: Int?
+    let college: String?
+    let height: LenientString?
+    let weight: LenientString?
+    let birthDate: String?
+    let number: Int?
 
     enum CodingKeys: String, CodingKey {
         case fullName = "full_name"
@@ -192,6 +245,61 @@ struct RawSleeperPlayer: Decodable {
         case depthChartOrder = "depth_chart_order"
         case newsUpdated = "news_updated"
         case depthChartPosition = "depth_chart_position"
+        case age, college, height, weight, number
+        case yearsExp = "years_exp"
+        case birthDate = "birth_date"
+    }
+
+    /// One bad bio field must not cost the player, so each is decoded on its own.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        func string(_ key: CodingKeys) -> String? { (try? c.decodeIfPresent(String.self, forKey: key)) ?? nil }
+        func int(_ key: CodingKeys) -> Int? {
+            if let value = try? c.decodeIfPresent(Int.self, forKey: key) { return value }
+            return string(key).flatMap { Int($0) }
+        }
+        fullName = string(.fullName)
+        firstName = string(.firstName)
+        lastName = string(.lastName)
+        position = string(.position)
+        team = string(.team)
+        injuryStatus = string(.injuryStatus)
+        active = (try? c.decodeIfPresent(Bool.self, forKey: .active)) ?? nil
+        injuryBodyPart = string(.injuryBodyPart)
+        injuryNotes = string(.injuryNotes)
+        depthChartOrder = int(.depthChartOrder)
+        newsUpdated = (try? c.decodeIfPresent(Double.self, forKey: .newsUpdated)) ?? nil
+        depthChartPosition = string(.depthChartPosition)
+        age = int(.age)
+        yearsExp = int(.yearsExp)
+        college = string(.college)
+        height = (try? c.decodeIfPresent(LenientString.self, forKey: .height)) ?? nil
+        weight = (try? c.decodeIfPresent(LenientString.self, forKey: .weight)) ?? nil
+        birthDate = string(.birthDate)
+        number = int(.number)
+    }
+
+    /// Sleeper sends height as inches (`"73"`) for most players and as
+    /// feet-and-inches (`6'1"`) for some older records.
+    static func inches(_ raw: String?) -> Int? {
+        guard let raw = raw?.trimmingCharacters(in: .whitespaces), !raw.isEmpty else { return nil }
+        if let inches = Int(raw) { return inches > 0 ? inches : nil }
+        let digits = raw.split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }
+        guard digits.count >= 1 else { return nil }
+        return digits[0] * 12 + (digits.count > 1 ? digits[1] : 0)
+    }
+
+    /// Age from a birth date, when Sleeper has the date but not the age.
+    static func age(birthDate: String?, now: Date) -> Int? {
+        guard let birthDate else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let born = formatter.date(from: birthDate) else { return nil }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar.dateComponents([.year], from: born, to: now).year
     }
 
     /// Team defenses have no `full_name` and often no first/last name either —
@@ -204,5 +312,25 @@ struct RawSleeperPlayer: Decodable {
             return NFLTeams.name(abbreviation: id) ?? id
         }
         return nil
+    }
+}
+
+/// A field Sleeper sends as a string for some players and a number for others.
+struct LenientString: Decodable {
+    let value: String?
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            value = nil
+        } else if let string = try? container.decode(String.self) {
+            value = string
+        } else if let int = try? container.decode(Int.self) {
+            value = String(int)
+        } else if let double = try? container.decode(Double.self) {
+            value = String(Int(double.rounded()))
+        } else {
+            value = nil
+        }
     }
 }

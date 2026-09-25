@@ -71,9 +71,9 @@ final class GameDayFreshnessTests: XCTestCase {
 
         // Age the cached index by four hours.
         let cache = DiskCache(directory: made.cacheDirectory)
-        let hit = await cache.load(PlayerIndex.self, key: "sleeper-players-v3", allowingStale: true)
+        let hit = await cache.load(PlayerIndex.self, key: "sleeper-players-v4", allowingStale: true)
         let index = try XCTUnwrap(hit).value
-        try await cache.store(index, key: "sleeper-players-v3", ttl: CacheTTL.players, now: Date().addingTimeInterval(-4 * 60 * 60))
+        try await cache.store(index, key: "sleeper-players-v4", ttl: CacheTTL.players, now: Date().addingTimeInterval(-4 * 60 * 60))
 
         _ = try await loader.load(leagueID: "L1", userRosterID: 1, season: 2025, force: true)
         return await transport.requestedPaths().filter { $0.hasSuffix("/players/nfl") }.count

@@ -111,6 +111,8 @@ public struct WaiverRow: Hashable, Sendable, Identifiable {
     public var seasonPointsForSort: Double { seasonPointsPerGame ?? -.infinity }
     public var trendingForSort: Double { trendingAdds.map(Double.init) ?? -.infinity }
     public var availabilityLabel: String { availability.label }
+    /// At least one of the nine columns has a number.
+    public var hasAnyMeasure: Bool { WaiverSort.allCases.contains { value($0) != nil } }
 }
 
 /// One of your bench players as a drop.
@@ -419,10 +421,11 @@ struct RowBuilder {
         Set(context.template.starters.flatMap { $0.eligible })
     }
 
-    /// Free agents and rivals' bench players at positions the league starts,
-    /// keeping only those with at least one measure — a name with no number
-    /// on any column is not a candidate, it is noise.
-    func acquirableRows() -> [WaiverRow] {
+    /// Free agents and rivals' bench players at positions the league starts.
+    /// The Waiver Board keeps only those with at least one measure — a name
+    /// with no number on any column is not a candidate there, it is noise.
+    /// Discovery passes `includeNoData` and lists everyone.
+    func acquirableRows(includeNoData: Bool = false) -> [WaiverRow] {
         let positions = startablePositions
         var out: [WaiverRow] = []
         for player in context.players.activePlayers() {
@@ -433,10 +436,16 @@ struct RowBuilder {
             case .mine, .rivalStarter: continue
             }
             let row = self.row(for: player, position: position, availability: availability)
-            let hasAnyMeasure = WaiverSort.allCases.contains { row.value($0) != nil }
-            if hasAnyMeasure { out.append(row) }
+            if includeNoData || row.hasAnyMeasure { out.append(row) }
         }
         return out
+    }
+
+    /// Any player in the pool as a row, wherever he's rostered — Compare may
+    /// hold your own starters.
+    func row(id: String) -> WaiverRow? {
+        guard let player = context.players[id], let position = player.position else { return nil }
+        return row(for: player, position: position, availability: context.availability(ofSleeperID: id))
     }
 
     /// Your bench, as rows, with the IR eligibility a drop decision needs.

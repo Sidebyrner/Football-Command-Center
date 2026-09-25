@@ -14,6 +14,20 @@ public struct TeamGameLine: Hashable, Sendable {
     public let total: Double?
     /// Points this team is expected to score. `nil` unless both lines exist.
     public let impliedTotal: Double?
+
+    /// For a line from another source — a live odds feed. `spread` is in the
+    /// Odds API convention (negative = this team favored).
+    public init(team: String, opponent: String, isHome: Bool, kickoff: String?, time: String?,
+                spread: Double?, total: Double?, impliedTotal: Double?) {
+        self.team = team
+        self.opponent = opponent
+        self.isHome = isHome
+        self.kickoff = kickoff
+        self.time = time
+        self.spread = spread
+        self.total = total
+        self.impliedTotal = impliedTotal
+    }
 }
 
 /// Implied team totals from the schedule's **recorded** closing lines.

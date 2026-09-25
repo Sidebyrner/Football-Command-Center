@@ -29,6 +29,7 @@ public final class AppServices {
     public let wrStream: WRStreamScreenModel
     public let rbStream: RBStreamScreenModel
     public let trades: TradeDeskScreenModel
+    public let discovery: DiscoveryModel
 
     public let workspaces: WorkspaceStore
     public let linkBus: LinkBus
@@ -63,6 +64,7 @@ public final class AppServices {
         rbStream = RBStreamScreenModel(loader: loader)
         trades = TradeDeskScreenModel(loader: loader)
         trades.relayBaseURL = relayBaseURL
+        discovery = DiscoveryModel(loader: loader, sleeper: sleeper)
 
         workspaces = WorkspaceStore(persistence: workspacePersistence)
         linkBus = LinkBus()
@@ -90,7 +92,8 @@ public final class AppServices {
         async let wrStream: Void = wrStream.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let rbStream: Void = rbStream.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let trades: Void = trades.load(leagueID: leagueID, userRosterID: rosterID, force: force)
-        _ = await (dashboard, matchup, sitStart, planning, injuries, waivers, idpStream, wrStream, rbStream, trades)
+        async let discovery: Void = discovery.load(leagueID: leagueID, userRosterID: rosterID, force: force)
+        _ = await (dashboard, matchup, sitStart, planning, injuries, waivers, idpStream, wrStream, rbStream, trades, discovery)
     }
 
     /// A new relay address reaches every model that talks to it, and the
