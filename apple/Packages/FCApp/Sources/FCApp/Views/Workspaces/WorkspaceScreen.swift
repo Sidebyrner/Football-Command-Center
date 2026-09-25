@@ -215,6 +215,7 @@ struct PanelLibrarySheet: View {
         ("Market", [.waiverTargets, .tradePartners, .idpStream, .wrStream, .rbStream]),
         ("Season", [.byeWeeks, .standings, .news]),
         ("Discovery", [.discovery, .playerProfile, .playerNews, .gameLog, .trendChart, .schedule, .compare]),
+        ("Metrics", [.metric, .playerSearch]),
         ("Players", [.playerCard]),
     ]
 

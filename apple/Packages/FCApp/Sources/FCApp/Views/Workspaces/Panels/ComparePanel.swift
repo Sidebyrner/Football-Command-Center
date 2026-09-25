@@ -145,17 +145,8 @@ struct ComparePanel: View {
         .frame(maxWidth: 260)
     }
 
-    /// The best fuzzy matches for the add field, skipping anyone already compared.
     static func matches(_ needle: String, in context: LeagueContext, excluding: [String], limit: Int = 6) -> [IndexedPlayer] {
-        var scored: [(player: IndexedPlayer, score: Int)] = []
-        for player in context.players.activePlayers() where player.position != nil && !excluding.contains(player.id) {
-            let extra: [String] = player.team.map { [$0] } ?? []
-            if let score = FuzzyNameMatch.score(query: needle, name: player.name, extra: extra) {
-                scored.append((player, score))
-            }
-        }
-        scored.sort { a, b in a.score == b.score ? a.player.name < b.player.name : a.score > b.score }
-        return scored.prefix(limit).map(\.player)
+        PlayerLookup.matches(needle, in: context, excluding: excluding, limit: limit)
     }
 
     private func searchResults(context: LeagueContext) -> some View {

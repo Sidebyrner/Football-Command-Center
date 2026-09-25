@@ -23,6 +23,8 @@ public extension PanelKind {
         case .trendChart: return "Trend"
         case .schedule: return "Schedule & SoS"
         case .compare: return "Compare"
+        case .metric: return "Metric"
+        case .playerSearch: return "Player search"
         }
     }
 
@@ -37,7 +39,7 @@ public extension PanelKind {
         case .tradePartners: return .trades
         case .byeWeeks: return .planning
         case .discovery: return .waivers
-        case .playerProfile, .playerNews, .gameLog, .trendChart, .schedule, .compare: return nil
+        case .playerProfile, .playerNews, .gameLog, .trendChart, .schedule, .compare, .metric, .playerSearch: return nil
         case .idpStream: return .idpStream
         case .wrStream: return .wrStream
         case .rbStream: return .rbStream
@@ -59,6 +61,8 @@ public extension PanelKind {
         case .trendChart: return "chart.xyaxis.line"
         case .schedule: return "calendar"
         case .compare: return "person.2.crop.square.stack"
+        case .metric: return "chart.bar.xaxis"
+        case .playerSearch: return "magnifyingglass"
         default: return fullScreen?.systemImage ?? "square"
         }
     }
@@ -86,6 +90,8 @@ public extension PanelKind {
         case .trendChart: return "A chart of the linked player's points, snaps or targets by week."
         case .schedule: return "The linked player's remaining games, lines and how soft each defense is."
         case .compare: return "Two to four players side by side, with charts. ⌘-click players to add them."
+        case .metric: return "One stat — targets, snap share, xFP… — with its numbers and a chart, for one player or several."
+        case .playerSearch: return "A slim search: click to focus a player, ＋ to add him to the comparison."
         }
     }
 
@@ -106,6 +112,8 @@ public extension PanelKind {
         case .trendChart: return GridSize(w: 6, h: 4)
         case .schedule: return GridSize(w: 5, h: 5)
         case .compare: return GridSize(w: 8, h: 6)
+        case .metric: return GridSize(w: 4, h: 3)
+        case .playerSearch: return GridSize(w: 2, h: 7)
         }
     }
 
@@ -121,13 +129,16 @@ public extension PanelKind {
         case .playerNews: return GridSize(w: 3, h: 2)
         case .gameLog, .trendChart, .schedule: return GridSize(w: 4, h: 3)
         case .compare: return GridSize(w: 6, h: 4)
+        case .metric: return GridSize(w: 3, h: 2)
+        case .playerSearch: return GridSize(w: 2, h: 3)
         }
     }
 
     /// Panels that follow a linked selection.
     var consumesLink: Bool {
         switch self {
-        case .playerCard, .tradePartners, .playerProfile, .playerNews, .gameLog, .trendChart, .schedule, .compare:
+        case .playerCard, .tradePartners, .playerProfile, .playerNews, .gameLog, .trendChart, .schedule, .compare,
+             .metric, .playerSearch:
             return true
         default:
             return false
@@ -138,7 +149,7 @@ public extension PanelKind {
     var publishesLink: Bool {
         switch self {
         case .sitStart, .injuries, .waiverTargets, .tradePartners, .idpStream, .wrStream, .rbStream, .standings, .matchupScore,
-             .discovery, .compare:
+             .discovery, .compare, .metric, .playerSearch:
             return true
         case .lineupReadiness, .byeWeeks, .news, .playerCard, .playerProfile, .playerNews, .gameLog, .trendChart, .schedule:
             return false

@@ -15,9 +15,14 @@ public struct WorkspacePreset: Identifiable, Sendable {
 
 public enum WorkspacePresets {
     private static func panel(_ kind: PanelKind, _ x: Int, _ y: Int, _ w: Int, _ h: Int,
-                              link: LinkGroup? = nil, topN: Int? = nil) -> PanelPlacement {
+                              link: LinkGroup? = nil, topN: Int? = nil, extra: [String: String] = [:]) -> PanelPlacement {
         PanelPlacement(kind: kind, frame: GridRect(x: x, y: y, w: w, h: h), linkGroup: link,
-                       settings: PanelSettings(topN: topN))
+                       settings: PanelSettings(topN: topN, extra: extra))
+    }
+
+    private static func metric(_ metric: PlayerMetric, _ x: Int, _ y: Int, _ w: Int, _ h: Int,
+                               scope: MetricScope = .compare) -> PanelPlacement {
+        panel(.metric, x, y, w, h, link: .one, topN: 6, extra: ["metric": metric.rawValue, "scope": scope.rawValue])
     }
 
     /// Sunday: the score, whether the lineup is ready, and who's hurt.
@@ -70,7 +75,19 @@ public enum WorkspacePresets {
         ]
     }
 
-    public static let all: [WorkspacePreset] = [gameDay, waiverTuesday, tradeDesk, discovery]
+    /// Your own comparison board: a slim search, a metric per panel, and Compare.
+    public static let comparisonLab = WorkspacePreset(id: "comparison-lab", name: "Comparison lab", icon: "chart.bar.xaxis") {
+        [
+            panel(.playerSearch, 0, 0, 2, 10, link: .one, topN: 12),
+            metric(.fantasyPoints, 2, 0, 5, 4),
+            metric(.targets, 7, 0, 5, 4),
+            metric(.snapShare, 2, 4, 5, 3),
+            metric(.expectedPoints, 7, 4, 5, 3),
+            panel(.compare, 2, 7, 10, 5, link: .one, topN: 6),
+        ]
+    }
+
+    public static let all: [WorkspacePreset] = [gameDay, waiverTuesday, tradeDesk, discovery, comparisonLab]
 
     public static func preset(id: String) -> WorkspacePreset? {
         all.first { $0.id == id }

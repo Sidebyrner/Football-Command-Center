@@ -75,6 +75,9 @@ public enum PanelKind: String, Codable, CaseIterable, Hashable, Sendable, Identi
     case trendChart
     case schedule
     case compare
+    // Build-your-own comparison boards.
+    case metric
+    case playerSearch
 
     public var id: String { rawValue }
 }

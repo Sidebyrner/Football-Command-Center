@@ -184,8 +184,8 @@ final class WorkspaceStoreTests: XCTestCase {
     func testAFirstLaunchSeedsThePresetsAndSavesThem() throws {
         let persistence = FileWorkspacePersistence(directory: directory)
         let store = WorkspaceStore(persistence: persistence)
-        XCTAssertEqual(store.workspaces.map(\.name), ["Game day", "Waiver Tuesday", "Trade desk", "Discovery"])
-        XCTAssertEqual(try persistence.load()?.workspaces.count, 4)
+        XCTAssertEqual(store.workspaces.map(\.name), WorkspacePresets.all.map(\.name))
+        XCTAssertEqual(try persistence.load()?.workspaces.count, WorkspacePresets.all.count)
     }
 
     func testEditsSurviveARelaunch() throws {

@@ -35,6 +35,25 @@ private struct PanelCompareKey: EnvironmentKey {
     static let defaultValue = PanelCompareAction.none
 }
 
+/// Lets a panel change its own options from inside — a Metric panel's metric,
+/// scope and pinned players.
+struct PanelSettingsUpdate {
+    let settings: PanelSettings
+    let apply: (PanelSettings) -> Void
+
+    static let none = PanelSettingsUpdate(settings: .default, apply: { _ in })
+
+    func callAsFunction(_ change: (inout PanelSettings) -> Void) {
+        var next = settings
+        change(&next)
+        apply(next)
+    }
+}
+
+private struct PanelSettingsUpdateKey: EnvironmentKey {
+    static let defaultValue = PanelSettingsUpdate.none
+}
+
 private struct LinkPublishKey: EnvironmentKey {
     static let defaultValue = LinkPublishAction(group: nil) { _ in }
 }
@@ -55,6 +74,11 @@ extension EnvironmentValues {
     var linkPublish: LinkPublishAction {
         get { self[LinkPublishKey.self] }
         set { self[LinkPublishKey.self] = newValue }
+    }
+
+    var panelSettingsUpdate: PanelSettingsUpdate {
+        get { self[PanelSettingsUpdateKey.self] }
+        set { self[PanelSettingsUpdateKey.self] = newValue }
     }
 
     var panelCompare: PanelCompareAction {

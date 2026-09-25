@@ -56,6 +56,8 @@ public final class DiscoveryModel: ObservableObject {
     /// Defense-vs-position for this context, built once; the Schedule and
     /// Compare panels read it from here.
     @Published public private(set) var defense: DefenseLookup = .empty
+    /// Weekly metrics and leaderboards for the Metric panels, per context.
+    @Published public private(set) var metrics: PlayerMetricsIndex?
     @Published public private(set) var trendingUnavailable = false
 
     @Published public var sort: DiscoverySort = .column(.projected) { didSet { applyFilters() } }
@@ -92,6 +94,7 @@ public final class DiscoveryModel: ObservableObject {
             self.context = context
             self.builder = builder
             self.defense = defense
+            metrics = PlayerMetricsIndex(context: context)
             rowCache = [:]
             allRows = builder.acquirableRows(includeNoData: true)
             applyFilters()

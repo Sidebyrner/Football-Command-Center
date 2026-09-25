@@ -42,6 +42,7 @@ struct PanelHost: View {
                     if let group = placement.linkGroup { linkBus.publish(change, to: group) }
                 })
                 .environment(\.panelCompare, compareAction)
+                .environment(\.panelSettingsUpdate, PanelSettingsUpdate(settings: placement.settings, apply: actions.setSettings))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 // Unlocked, the content is inert so a drag always means "move".
                 .allowsHitTesting(!editing)
@@ -61,6 +62,14 @@ struct PanelHost: View {
         .accessibilityLabel(kind.title)
         .accessibilityIdentifier("workspace.panel.\(kind.rawValue)")
         .accessibilityActions { if editing { editingAccessibilityActions } }
+    }
+
+    /// A Metric panel is titled by its metric.
+    private var title: String {
+        if kind == .metric, let metric = placement.settings.extra["metric"].flatMap(PlayerMetric.init(rawValue:)) {
+            return metric.label
+        }
+        return kind.title
     }
 
     /// The link colour's compare list, for every row in this panel.
@@ -97,7 +106,7 @@ struct PanelHost: View {
                 .font(.subheadline)
                 .foregroundStyle(placement.linkGroup?.color ?? .secondary)
                 .frame(width: 18)
-            Text(kind.title)
+            Text(title)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
             Spacer(minLength: 4)
@@ -248,7 +257,7 @@ struct PanelOptionsMenu: View {
         case .injuries, .waiverTargets, .idpStream, .wrStream, .rbStream, .news, .standings, .tradePartners:
             return [3, 5, 8, 12]
         case .discovery: return [8, 12, 20, 40]
-        case .gameLog, .trendChart, .compare: return [4, 6, 8, 12]
+        case .gameLog, .trendChart, .compare, .metric: return [4, 6, 8, 12]
         case .playerNews: return [3, 5, 8]
         default:
             return nil
@@ -257,7 +266,7 @@ struct PanelOptionsMenu: View {
 
     private var rowsLabel: String {
         switch kind {
-        case .gameLog, .trendChart, .compare: return "Last games"
+        case .gameLog, .trendChart, .compare, .metric: return "Last games"
         default: return "Rows"
         }
     }

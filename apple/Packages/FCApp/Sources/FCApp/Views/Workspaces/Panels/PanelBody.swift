@@ -14,7 +14,8 @@ struct PanelBody: View {
         case .standings: return 12
         case .news: return 6
         case .discovery: return 12
-        case .gameLog, .trendChart, .compare: return 6
+        case .gameLog, .trendChart, .compare, .metric: return 6
+        case .playerSearch: return 12
         default: return 5
         }
     }
@@ -65,6 +66,10 @@ struct PanelBody: View {
             }
         case .compare:
             ComparePanel(services: services, discovery: services.discovery, rows: rows)
+        case .metric:
+            MetricPanel(services: services, discovery: services.discovery, settings: settings, lastN: rows)
+        case .playerSearch:
+            PlayerSearchPanel(services: services, rows: rows)
         }
     }
 }
