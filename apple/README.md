@@ -333,11 +333,11 @@ build yourself out of panels, the way a trading platform's desktop is built
 (Bloomberg Launchpad's pages of components, IBKR Mosaic's snap grid and colour
 linking, thinkorswim's gadget library and preset workspaces).
 
-- **Panels.** Thirteen compact views — lineup readiness, Sit/Start, matchup,
+- **Panels.** Twenty compact views — lineup readiness, Sit/Start, matchup,
   injuries, waiver targets, trade partners, byes, the three streams, news,
-  standings and a Player Card — each drawn from the *same* model its full
-  screen uses, so a panel never loads anything of its own. The arrow on a
-  panel's title bar opens the full screen.
+  standings, a Player Card, and the seven Discovery panels below — each drawn
+  from the *same* model its full screen uses, so a panel never loads anything
+  of its own. The arrow on a panel's title bar opens the full screen.
 - **Grid.** Twelve columns; rows of 96pt. Unlock (⌘E) to drag a panel by its
   title bar or resize it from the corner; a ghost shows where it lands, green
   when the spot is free and red when it isn't, and an overlapping drop snaps
@@ -346,7 +346,26 @@ linking, thinkorswim's gadget library and preset workspaces).
 - **Linking.** The dot on a title bar sets a link colour. Click a player in
   any panel of that colour and the Player Card panel shows him; the Trade
   partners panel offers "Trade for…" or "Offer…". Standings publishes a team.
-- **Library.** Three presets ship — Game day, Waiver Tuesday, Trade desk — and
+- **Discovery.** A list of *every* active free agent at the positions the
+  league starts — the Waiver Board's rows without its "has a number" filter —
+  searchable (typos forgiven), sortable on any board column, with rival
+  benches on a toggle. Click a player and the linked **Profile** (bio, status,
+  depth chart, bye, grade and situation chips), **Player news**, **Game log**
+  (last game and the last N), **Trend** chart (points with Rotowire's
+  projection dashed, or snaps, targets, xFP) and **Schedule & SoS** follow.
+  The schedule shows each remaining opponent with the **recorded closing
+  lines** from the nflverse schedule file — labelled as such, and usually
+  present only for the next week or two — and each defense's rank against his
+  position; strength of schedule is mean points allowed over the league
+  average. Live odds through the relay is a follow-up, with the hook in
+  `PlayerSchedule.build(liveLines:)`.
+- **Compare.** Each link colour keeps a compare list of up to four players.
+  ⌘-click a player in any panel of that colour (the row's menu on iPad), or
+  search in the Compare panel. It draws weekly points as overlaid lines,
+  per-game numbers as grouped bars, a table with the best value on each row
+  picked out (lower is better for opponent rank), and each player's range.
+- **Library.** Four presets ship — Game day, Waiver Tuesday, Trade desk,
+  Discovery — and
   workspaces can be added (empty or from a preset), renamed, given an icon,
   duplicated, reordered, reset to their preset, or deleted. ⌥⌘1–9 switch
   between them.
@@ -359,6 +378,8 @@ linking, thinkorswim's gadget library and preset workspaces).
   observed by the shell); `App/AppRouter` holds the sidebar selection and edit
   mode. `Workspaces/` is the model, store, presets, pure `WorkspaceGeometry`
   and `LinkBus`; `Views/Workspaces/` is the grid, panel chrome and panels.
+  `DiscoveryModel`, `PlayerSchedule` and `PlayerComparison` feed the
+  Discovery panels; the charts are Swift Charts.
   iPhone is untouched — the tab bar never shows a workspace.
 
 ### Known gaps
