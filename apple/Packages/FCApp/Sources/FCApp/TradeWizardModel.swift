@@ -528,6 +528,12 @@ public final class TradeWizardModel: ObservableObject {
     }
 
     /// Picks a goal. Choosing the goal already in progress keeps the deal.
+    /// The partners a goal would find, without choosing it — for a workspace
+    /// panel that previews needs while the Trades screen keeps its own place.
+    public func previewPartners(for goal: TradeGoal) -> [PartnerFit] {
+        buildPartners(for: goal)
+    }
+
     public func choose(goal: TradeGoal) {
         guard goal != self.goal else {
             step = .partner

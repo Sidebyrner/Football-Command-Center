@@ -8,38 +8,24 @@ import FCData
 /// gives the Mac a sidebar and iPad a column, while iPhone falls back to a tab
 /// bar — the four screens are list-shaped and adapt without a separate layout.
 public struct RootView: View {
-    /// The only model the shell itself reads — whether setup is complete, and the
-    /// accent colour — so it is the only one the shell observes.
+    /// The only models the shell itself reads — whether setup is complete and
+    /// the accent colour, and where the user is — so the only ones it observes.
     @StateObject private var settingsModel: SettingsModel
+    @StateObject private var router: AppRouter
     #if os(iOS)
     /// Feeds `ShellLayout.resolve` — an iPad in Slide Over or a narrow Split
     /// View reports compact here, and must fall back to the phone shell.
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #endif
 
-    // The screen models are *held* here but deliberately not observed. They were
-    // @StateObject, which re-rendered the whole tab view every time any screen
-    // published — and at launch four screens publish repeatedly while they load.
-    // Scrolling Matchup while Planning finished loading in the background meant
-    // Matchup was being rebuilt mid-scroll, the likeliest cause of the jitter
-    // reported on device. Each screen observes its own model instead.
-    @State private var planningModel: PlanningModel
-    @State private var dashboardModel: DashboardModel
-    @State private var matchupModel: MatchupModel
-    @State private var sitStartModel: SitStartModel
-    @State private var injuryModel: InjuryCenterModel
-    @State private var waiverModel: WaiverBoardModel
-    @State private var idpStreamModel: IDPStreamScreenModel
-    @State private var wrStreamModel: WRStreamScreenModel
-    @State private var rbStreamModel: RBStreamScreenModel
-    @State private var tradeModel: TradeDeskScreenModel
-    @State private var selection: Screen = .dashboard
-    /// The Player Card on screen, opened from any row's context menu.
-    @State private var playerCard: PlayerCardModel?
-    private let sleeper: SleeperService
-    @State private var hasLoaded = false
+    /// Every screen model, held but not observed — see `AppServices`.
+    @State private var services: AppServices
 
-    private let settingsStore: AppSettingsStore
+    public init(services: AppServices, router: AppRouter) {
+        _services = State(initialValue: services)
+        _settingsModel = StateObject(wrappedValue: services.settingsModel)
+        _router = StateObject(wrappedValue: router)
+    }
 
     /// - Parameter initialScreen: the tab to open on. The app passes a Debug-only
     ///   launch argument through here so screenshots and UI tests can open any
@@ -51,37 +37,14 @@ public struct RootView: View {
         initialScreen: Screen = .dashboard,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
-        self.settingsStore = settingsStore
-        self.sleeper = sleeper
-        _selection = State(initialValue: initialScreen)
-        _settingsModel = StateObject(
-            wrappedValue: SettingsModel(sleeper: sleeper, store: settingsStore)
+        self.init(
+            services: AppServices(sleeper: sleeper, staticData: staticData, settingsStore: settingsStore, now: now),
+            router: AppRouter(selection: .screen(initialScreen))
         )
-        let loader = LeagueContextLoader(sleeper: sleeper, staticData: staticData, now: now)
-        // The relay is optional and every call through it fails soft, so a
-        // missing base URL simply means the news section never appears (§0).
-        let relayBaseURL = settingsStore.load().relayBaseURL
-        let planning = PlanningModel(loader: loader, sleeper: sleeper)
-        planning.relayBaseURL = relayBaseURL
-        _planningModel = State(initialValue: planning)
-        let relay = relayBaseURL.map { RelayClient(baseURL: $0) }
-        _dashboardModel = State(
-            initialValue: DashboardModel(loader: loader, sleeper: sleeper, relay: relay)
-        )
-        _matchupModel = State(initialValue: MatchupModel(loader: loader, sleeper: sleeper))
-        _sitStartModel = State(initialValue: SitStartModel(loader: loader))
-        _injuryModel = State(initialValue: InjuryCenterModel(loader: loader, sleeper: sleeper))
-        _waiverModel = State(initialValue: WaiverBoardModel(loader: loader, sleeper: sleeper))
-        _idpStreamModel = State(initialValue: IDPStreamScreenModel(loader: loader))
-        _wrStreamModel = State(initialValue: WRStreamScreenModel(loader: loader))
-        _rbStreamModel = State(initialValue: RBStreamScreenModel(loader: loader))
-        let trades = TradeDeskScreenModel(loader: loader)
-        trades.relayBaseURL = relayBaseURL
-        _tradeModel = State(initialValue: trades)
     }
 
     /// The four screens of the first release (§7), plus Settings.
-    public enum Screen: String, CaseIterable, Identifiable, Hashable {
+    public enum Screen: String, CaseIterable, Identifiable, Hashable, Sendable {
         /// Parses a launch-argument value like `matchup` or `sitstart`.
         public init?(argument: String) {
             let wanted = argument.lowercased().filter(\.isLetter)
@@ -155,45 +118,31 @@ public struct RootView: View {
             #endif
         }
         .tint(settingsModel.settings.accentTheme.color)
-        .environment(\.openScreen, OpenScreenAction { screen in
-            selection = screen
+        .environment(\.appServices, services)
+        .environmentObject(services.linkBus)
+        .environment(\.openScreen, OpenScreenAction { [router] screen in
+            router.open(screen)
         })
-        .environment(\.openTrade, OpenTradeAction { [tradeModel] prefill in
-            selection = .trades
-            Task { await tradeModel.open(prefill) }
+        .environment(\.openTrade, OpenTradeAction { [router, services] prefill in
+            router.open(.trades)
+            Task { await services.trades.open(prefill) }
         })
-        .environment(\.openPlayerCard, OpenPlayerCardAction { id, context in
-            let store = settingsStore
-            playerCard = PlayerCardModel(
-                playerID: id,
-                context: context,
-                sleeper: sleeper,
-                weights: store.load().gradeWeights,
-                onWeightsChange: { weights in
-                    var settings = store.load()
-                    settings.gradeWeights = weights
-                    store.save(settings)
-                }
-            )
+        .environment(\.openPlayerCard, OpenPlayerCardAction { [router, services] id, context in
+            router.playerCard = services.playerCard(id, context: context)
         })
-        .sheet(item: $playerCard) { model in
+        .sheet(item: $router.playerCard) { model in
             PlayerCardSheet(model: model)
         }
-        .task { await loadIfConfigured() }
+        .task { await services.loadIfConfigured() }
         .onChange(of: settingsModel.settings.relayBaseURL) { _, url in
-            dashboardModel.setRelay(baseURL: url)
-            planningModel.relayBaseURL = url
-            tradeModel.relayBaseURL = url
-            guard let leagueID = settingsModel.settings.leagueID,
-                  let rosterID = settingsModel.settings.rosterID else { return }
-            Task { await dashboardModel.load(leagueID: leagueID, userRosterID: rosterID) }
+            services.setRelay(baseURL: url)
         }
     }
 
     // MARK: - Layouts
 
     private var phoneLayout: some View {
-        TabView(selection: $selection) {
+        TabView(selection: $router.phoneScreen) {
             ForEach(Screen.allCases) { screen in
                 NavigationStack {
                     view(for: screen)
@@ -204,39 +153,15 @@ public struct RootView: View {
         }
     }
 
-    /// `List(selection:)` takes an optional binding on iOS, while `TabView`
-    /// takes a plain one. This bridges the two without letting the sidebar
-    /// clear the selection and leave an empty detail pane.
-    private var sidebarSelection: Binding<Screen?> {
-        Binding(
-            get: { selection },
-            set: { newValue in if let newValue { selection = newValue } }
-        )
-    }
-
     private var splitLayout: some View {
         NavigationSplitView {
-            List(selection: sidebarSelection) {
-                ForEach(SidebarSection.allCases) { section in
-                    let screens = Screen.sidebarCases.filter { $0.section == section }
-                    if !screens.isEmpty {
-                        Section(section.rawValue) {
-                            ForEach(screens) { screen in
-                                NavigationLink(value: screen) {
-                                    Label(screen.rawValue, systemImage: screen.systemImage)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Command Center")
+            SidebarView(router: router, store: services.workspaces)
             #if os(macOS)
             .navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 260)
             #endif
         } detail: {
             NavigationStack {
-                view(for: selection)
+                detail(for: router.selection)
             }
             #if os(macOS)
             .frame(minWidth: 620)
@@ -248,12 +173,27 @@ public struct RootView: View {
     }
 
     @ViewBuilder
+    private func detail(for item: SidebarItem) -> some View {
+        switch item {
+        case .screen(let screen):
+            view(for: screen)
+        case .workspace(let id):
+            if settingsModel.settings.isConfigured {
+                WorkspaceScreen(workspaceID: id, store: services.workspaces, router: router, services: services)
+                    .id(id)
+            } else {
+                needsSetup
+            }
+        }
+    }
+
+    @ViewBuilder
     private func view(for screen: Screen) -> some View {
         switch screen {
         case .planning:
             if settingsModel.settings.isConfigured {
                 PlanningView(
-                    model: planningModel,
+                    model: services.planning,
                     introSeen: settingsModel.settings.hasSeenPlanningIntro,
                     onDismissIntro: { settingsModel.markPlanningIntroSeen() }
                 )
@@ -262,59 +202,59 @@ public struct RootView: View {
             }
         case .dashboard:
             if settingsModel.settings.isConfigured {
-                DashboardView(model: dashboardModel)
+                DashboardView(model: services.dashboard)
             } else {
                 needsSetup
             }
         case .settings:
             SettingsView(model: settingsModel) {
-                Task { await loadIfConfigured(force: true) }
+                Task { await services.loadIfConfigured(force: true) }
             }
         case .matchup:
             if settingsModel.settings.isConfigured {
-                MatchupView(model: matchupModel)
+                MatchupView(model: services.matchup)
             } else {
                 needsSetup
             }
         case .sitStart:
             if settingsModel.settings.isConfigured {
-                SitStartView(model: sitStartModel)
+                SitStartView(model: services.sitStart)
             } else {
                 needsSetup
             }
         case .injuries:
             if settingsModel.settings.isConfigured {
-                InjuryCenterView(model: injuryModel)
+                InjuryCenterView(model: services.injuries)
             } else {
                 needsSetup
             }
         case .waivers:
             if settingsModel.settings.isConfigured {
-                WaiverBoardView(model: waiverModel)
+                WaiverBoardView(model: services.waivers)
             } else {
                 needsSetup
             }
         case .trades:
             if settingsModel.settings.isConfigured {
-                TradeDeskScreen(screen: tradeModel)
+                TradeDeskScreen(screen: services.trades)
             } else {
                 needsSetup
             }
         case .idpStream:
             if settingsModel.settings.isConfigured {
-                IDPStreamView(model: idpStreamModel)
+                IDPStreamView(model: services.idpStream)
             } else {
                 needsSetup
             }
         case .wrStream:
             if settingsModel.settings.isConfigured {
-                WRStreamView(model: wrStreamModel)
+                WRStreamView(model: services.wrStream)
             } else {
                 needsSetup
             }
         case .rbStream:
             if settingsModel.settings.isConfigured {
-                RBStreamView(model: rbStreamModel)
+                RBStreamView(model: services.rbStream)
             } else {
                 needsSetup
             }
@@ -327,28 +267,7 @@ public struct RootView: View {
         } description: {
             Text("Add your Sleeper username in Settings to load your league.")
         } actions: {
-            Button("Open Settings") { selection = .settings }
+            Button("Open Settings") { router.open(.settings) }
         }
-    }
-
-    private func loadIfConfigured(force: Bool = false) async {
-        guard settingsModel.settings.isConfigured else { return }
-        guard force || !hasLoaded else { return }
-        guard let leagueID = settingsModel.settings.leagueID,
-              let rosterID = settingsModel.settings.rosterID else { return }
-        hasLoaded = true
-        // In parallel: they share one league context through the loader's memo,
-        // so this is one assembly, and no screen waits behind another.
-        async let dashboard: Void = dashboardModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
-        async let matchup: Void = matchupModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
-        async let sitStart: Void = sitStartModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
-        async let planning: Void = planningModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
-        async let injuries: Void = injuryModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
-        async let waivers: Void = waiverModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
-        async let idpStream: Void = idpStreamModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
-        async let wrStream: Void = wrStreamModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
-        async let rbStream: Void = rbStreamModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
-        async let trades: Void = tradeModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
-        _ = await (dashboard, matchup, sitStart, planning, injuries, waivers, idpStream, wrStream, rbStream, trades)
     }
 }

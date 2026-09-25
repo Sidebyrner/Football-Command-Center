@@ -35,6 +35,8 @@ public enum ShellLayout: Hashable, Sendable {
 public enum SidebarSection: String, CaseIterable, Hashable, Sendable, Identifiable {
     case team = "Team"
     case week = "This Week"
+    /// The user's own panel layouts. Holds no fixed screens.
+    case workspaces = "Workspaces"
     case market = "Market"
     case settings = "Settings"
 
