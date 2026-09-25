@@ -75,6 +75,7 @@ struct WorkspaceScreen: View {
                 } label: {
                     Label("Add panel", systemImage: "plus.rectangle.on.rectangle")
                 }
+                .accessibilityIdentifier("workspace.addPanel")
                 .help("Add a panel (⇧⌘A)")
             }
             Button {
@@ -87,6 +88,7 @@ struct WorkspaceScreen: View {
                 }
             }
             .help(router.workspaceEditing ? "Lock the layout (⌘E)" : "Unlock to move, resize and add panels (⌘E)")
+            .accessibilityIdentifier("workspace.edit")
             Menu {
                 Button {
                     withAnimation(Motion.snappy) {
@@ -266,6 +268,7 @@ struct PanelLibrarySheet: View {
             }
             .buttonStyle(.bordered)
             .accessibilityLabel("Add \(kind.title)")
+            .accessibilityIdentifier("library.add.\(kind.rawValue)")
         }
         .padding(.vertical, 4)
     }

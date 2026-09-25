@@ -58,6 +58,7 @@ struct PanelHost: View {
         .shadow(color: .black.opacity(0.05), radius: 4, y: 1)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(kind.title)
+        .accessibilityIdentifier("workspace.panel.\(kind.rawValue)")
         .accessibilityActions { if editing { editingAccessibilityActions } }
     }
 

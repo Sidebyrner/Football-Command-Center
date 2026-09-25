@@ -46,6 +46,7 @@ struct WorkspaceGridView: View {
         }
         .background(Palette.surface.opacity(0.6))
         .animation(Motion.snappy, value: editing)
+        .accessibilityIdentifier("workspace.grid")
     }
 
     private func canvas(width: CGFloat) -> some View {

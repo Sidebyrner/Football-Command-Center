@@ -175,7 +175,7 @@ belongs to `FCApp`. The service layer it needs is here and ready: `user(username
 
 Step 3. The SwiftUI layer, kept as a **library** rather than living in the app
 target so that every view model is reachable from `swift test` without booting a
-simulator. The app target is 40 lines: build three objects, hand them to
+simulator. The app target is small: build the services and the router, hand them to
 `RootView`.
 
 | File | What it owns |
@@ -190,7 +190,9 @@ simulator. The app target is 40 lines: build three objects, hand them to
 | `MatchupModel.swift` | both starting lineups this week, row by row |
 | `SitStartModel.swift` | the optimizer, one named basis at a time |
 | `Freshness.swift` | turning a `Provenance` into the words the UI shows |
-| `Views/` | `RootView`, `PlanningView`, `SettingsView`, freshness chrome |
+| `App/` | `AppServices` (every model, built once), `AppRouter` (where the user is) |
+| `Workspaces/` | the panel grid model, store, presets, geometry and link bus |
+| `Views/` | `RootView`, the screens, `Workspaces/` panels, freshness chrome |
 
 ### What is built
 
@@ -324,6 +326,41 @@ real data. Weeks 3 to 6 are deliberately left unscripted, which also exercises
 
 Sleeper responses come from a stub; nothing in the suite touches the network.
 
+### Workspaces (Mac and iPad)
+
+The desktop shell has a **Workspaces** section in the sidebar: dashboards you
+build yourself out of panels, the way a trading platform's desktop is built
+(Bloomberg Launchpad's pages of components, IBKR Mosaic's snap grid and colour
+linking, thinkorswim's gadget library and preset workspaces).
+
+- **Panels.** Thirteen compact views — lineup readiness, Sit/Start, matchup,
+  injuries, waiver targets, trade partners, byes, the three streams, news,
+  standings and a Player Card — each drawn from the *same* model its full
+  screen uses, so a panel never loads anything of its own. The arrow on a
+  panel's title bar opens the full screen.
+- **Grid.** Twelve columns; rows of 96pt. Unlock (⌘E) to drag a panel by its
+  title bar or resize it from the corner; a ghost shows where it lands, green
+  when the spot is free and red when it isn't, and an overlapping drop snaps
+  back. Nothing is ever pushed out of the way. Add panels from the library
+  (⇧⌘A); "Tidy up" slides everything up.
+- **Linking.** The dot on a title bar sets a link colour. Click a player in
+  any panel of that colour and the Player Card panel shows him; the Trade
+  partners panel offers "Trade for…" or "Offer…". Standings publishes a team.
+- **Library.** Three presets ship — Game day, Waiver Tuesday, Trade desk — and
+  workspaces can be added (empty or from a preset), renamed, given an icon,
+  duplicated, reordered, reset to their preset, or deleted. ⌥⌘1–9 switch
+  between them.
+- **Storage.** `Application Support/FantasyCommandCenter/Workspaces/library.json`,
+  never `AppSettings`: a bad decode can't cost the league selection. Unknown
+  panel kinds from a newer version are dropped, overlaps are repaired, and a
+  file that won't parse is set aside as `library.corrupt.json` before the
+  presets are reseeded. The demo league keeps its library in memory.
+- **Code.** `App/AppServices` holds the loader and every model (still not
+  observed by the shell); `App/AppRouter` holds the sidebar selection and edit
+  mode. `Workspaces/` is the model, store, presets, pure `WorkspaceGeometry`
+  and `LinkBus`; `Views/Workspaces/` is the grid, panel chrome and panels.
+  iPhone is untouched — the tab bar never shows a workspace.
+
 ### Known gaps
 
 - The static store runs **bundle-only**: `baseURL` is `nil` until the generated
@@ -353,6 +390,10 @@ accent. All of it is compiled out of Release.
 - **Matchup pages swipe and nothing drifts sideways** — pages Head-to-head → You
   → Opponent and back, checking that nothing straddles the window edge and the
   content returns exactly where it started. This guards the drift Connor saw.
+- **Workspaces on iPad** — opens the Game day preset (`-FCCTab
+  workspace:game-day`), checks its panels and the sidebar, unlocks, adds a
+  panel from the library and locks again, and switches to Waiver Tuesday.
+  Skipped on iPhone.
 - **Screenshot tour** — walks every screen and mode and saves images to
   `FCC_SCREENSHOT_DIR` (`TEST_RUNNER_FCC_SCREENSHOT_DIR=… xcodebuild test …`),
   optionally with `FCC_ACCENT`. Skipped when the variable isn't set.
