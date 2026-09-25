@@ -2,32 +2,8 @@ import Foundation
 import FCCore
 import FCData
 
-/// Where one piece of an IDP game context came from, so the screen can say so.
-public enum IDPContextSource: String, Codable, Hashable, Sendable {
-    /// The schedule file's recorded closing lines.
-    case schedule
-    /// Points Sleeper's own lines show the opponent allowing at this position.
-    case sleeperDvP
-    /// A neutral default because nothing was known.
-    case standard
-    /// Typed in on the context editor.
-    case manual
-    /// From an imported context file.
-    case imported
-
-    public var label: String {
-        switch self {
-        case .schedule: return "Schedule lines"
-        case .sleeperDvP: return "Sleeper DvP"
-        case .standard: return "Default"
-        case .manual: return "Edited"
-        case .imported: return "Imported"
-        }
-    }
-}
-
 /// One NFL team's game environment this week, from its defense's side.
-public struct IDPTeamContext: Codable, Hashable, Sendable, Identifiable {
+public struct IDPTeamContext: StreamTeamContext {
     /// nflverse team code.
     public var team: String
     /// nflverse code of the offense this defense faces.
@@ -41,11 +17,12 @@ public struct IDPTeamContext: Codable, Hashable, Sendable, Identifiable {
     public var dvpGames: Int
     /// Opponent pass-protection leakiness; 1.0 is average.
     public var oppSackEnv: Double
-    public var linesSource: IDPContextSource
-    public var dvpSource: IDPContextSource
-    public var sackSource: IDPContextSource
+    public var linesSource: StreamContextSource
+    public var dvpSource: StreamContextSource
+    public var sackSource: StreamContextSource
 
     public var id: String { team }
+    public var spread: Double { spreadDef }
 
     /// "@NYG" or "vs NYG".
     public var opponentLabel: String {
@@ -58,16 +35,16 @@ public struct IDPTeamContext: Codable, Hashable, Sendable, Identifiable {
 }
 
 /// A manual or imported change to one team's context. `nil` keeps the auto value.
-public struct IDPTeamOverride: Codable, Hashable, Sendable {
+public struct IDPTeamOverride: StreamOverride {
     public var spreadDef: Double?
     public var total: Double?
     public var dvpPct: [Position: Double]?
     public var dvpGames: Int?
     public var oppSackEnv: Double?
-    public var source: IDPContextSource
+    public var source: StreamContextSource
 
     public init(spreadDef: Double? = nil, total: Double? = nil, dvpPct: [Position: Double]? = nil,
-                dvpGames: Int? = nil, oppSackEnv: Double? = nil, source: IDPContextSource = .manual) {
+                dvpGames: Int? = nil, oppSackEnv: Double? = nil, source: StreamContextSource = .manual) {
         self.spreadDef = spreadDef
         self.total = total
         self.dvpPct = dvpPct
@@ -82,15 +59,15 @@ public struct IDPTeamOverride: Codable, Hashable, Sendable {
 }
 
 /// A manual change to one player's inputs, keyed by Sleeper id.
-public struct IDPPlayerOverride: Codable, Hashable, Sendable {
+public struct IDPPlayerOverride: StreamOverride {
     public var position: IDPSubPosition?
     public var roleConf: Double?
-    public var practice: IDPPractice?
+    public var practice: StreamPractice?
     public var snapShareEst: Double?
     public var pressures: Double?
     public var notes: String?
 
-    public init(position: IDPSubPosition? = nil, roleConf: Double? = nil, practice: IDPPractice? = nil,
+    public init(position: IDPSubPosition? = nil, roleConf: Double? = nil, practice: StreamPractice? = nil,
                 snapShareEst: Double? = nil, pressures: Double? = nil, notes: String? = nil) {
         self.position = position
         self.roleConf = roleConf
@@ -106,22 +83,8 @@ public struct IDPPlayerOverride: Codable, Hashable, Sendable {
     }
 }
 
-/// Everything the user has changed for one week, persisted by `IDPStreamStore`.
-public struct IDPWeekOverrides: Codable, Hashable, Sendable {
-    public var teams: [String: IDPTeamOverride] = [:]
-    public var players: [String: IDPPlayerOverride] = [:]
-    /// The starter candidates are compared against; `nil` picks the weakest.
-    public var incumbentID: String?
-
-    public init(teams: [String: IDPTeamOverride] = [:], players: [String: IDPPlayerOverride] = [:],
-                incumbentID: String? = nil) {
-        self.teams = teams
-        self.players = players
-        self.incumbentID = incumbentID
-    }
-
-    public static let empty = IDPWeekOverrides()
-}
+/// Everything the user has changed for one week of IDP Stream.
+public typealias IDPWeekOverrides = StreamWeekOverrides<IDPTeamOverride, IDPPlayerOverride>
 
 // MARK: - Autofill
 
@@ -226,7 +189,7 @@ public enum IDPContextImport {
                 let change = IDPPlayerOverride(
                     position: (row["pos"] as? String).flatMap(IDPSubPosition.init(rawValue:)),
                     roleConf: number(row["roleConf"]),
-                    practice: (row["practice"] as? String).flatMap(IDPPractice.init(rawValue:)),
+                    practice: (row["practice"] as? String).flatMap(StreamPractice.init(rawValue:)),
                     snapShareEst: number(row["snapShareEst"]),
                     pressures: number(row["pressures"]),
                     notes: row["notes"] as? String
@@ -241,12 +204,5 @@ public enum IDPContextImport {
         (value as? NSNumber)?.doubleValue
     }
 
-    /// Merges an import over what is already stored: imported values win, and
-    /// nothing the import does not mention is touched.
-    public static func merge(_ incoming: IDPWeekOverrides, into existing: IDPWeekOverrides) -> IDPWeekOverrides {
-        var out = existing
-        for (team, change) in incoming.teams { out.teams[team] = change }
-        for (id, change) in incoming.players { out.players[id] = change }
-        return out
-    }
+
 }

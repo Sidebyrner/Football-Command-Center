@@ -30,6 +30,8 @@ public struct RootView: View {
     @State private var injuryModel: InjuryCenterModel
     @State private var waiverModel: WaiverBoardModel
     @State private var idpStreamModel: IDPStreamScreenModel
+    @State private var wrStreamModel: WRStreamScreenModel
+    @State private var rbStreamModel: RBStreamScreenModel
     @State private var selection: Screen = .dashboard
     /// The Player Card on screen, opened from any row's context menu.
     @State private var playerCard: PlayerCardModel?
@@ -70,6 +72,8 @@ public struct RootView: View {
         _injuryModel = State(initialValue: InjuryCenterModel(loader: loader, sleeper: sleeper))
         _waiverModel = State(initialValue: WaiverBoardModel(loader: loader, sleeper: sleeper))
         _idpStreamModel = State(initialValue: IDPStreamScreenModel(loader: loader))
+        _wrStreamModel = State(initialValue: WRStreamScreenModel(loader: loader))
+        _rbStreamModel = State(initialValue: RBStreamScreenModel(loader: loader))
     }
 
     /// The four screens of the first release (§7), plus Settings.
@@ -90,6 +94,8 @@ public struct RootView: View {
         case planning = "Planning"
         case waivers = "Waivers"
         case idpStream = "IDP Stream"
+        case wrStream = "WR Stream"
+        case rbStream = "RB Stream"
         case matchup = "Matchup"
         case sitStart = "Sit/Start"
         case settings = "Settings"
@@ -103,6 +109,8 @@ public struct RootView: View {
             case .injuries: return "cross.case"
             case .waivers: return "tray.and.arrow.down"
             case .idpStream: return "shield.lefthalf.filled"
+            case .wrStream: return "figure.american.football"
+            case .rbStream: return "figure.run"
             case .matchup: return "person.2"
             case .sitStart: return "arrow.left.arrow.right"
             case .settings: return "gearshape"
@@ -114,7 +122,7 @@ public struct RootView: View {
             switch self {
             case .dashboard, .sitStart, .injuries: return .team
             case .matchup: return .week
-            case .planning, .waivers, .idpStream: return .market
+            case .planning, .waivers, .idpStream, .wrStream, .rbStream: return .market
             case .settings: return .settings
             }
         }
@@ -281,6 +289,18 @@ public struct RootView: View {
             } else {
                 needsSetup
             }
+        case .wrStream:
+            if settingsModel.settings.isConfigured {
+                WRStreamView(model: wrStreamModel)
+            } else {
+                needsSetup
+            }
+        case .rbStream:
+            if settingsModel.settings.isConfigured {
+                RBStreamView(model: rbStreamModel)
+            } else {
+                needsSetup
+            }
         }
     }
 
@@ -309,6 +329,8 @@ public struct RootView: View {
         async let injuries: Void = injuryModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let waivers: Void = waiverModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let idpStream: Void = idpStreamModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
-        _ = await (dashboard, matchup, sitStart, planning, injuries, waivers, idpStream)
+        async let wrStream: Void = wrStreamModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
+        async let rbStream: Void = rbStreamModel.load(leagueID: leagueID, userRosterID: rosterID, force: force)
+        _ = await (dashboard, matchup, sitStart, planning, injuries, waivers, idpStream, wrStream, rbStream)
     }
 }

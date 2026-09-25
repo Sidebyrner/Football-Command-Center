@@ -1,0 +1,209 @@
+{
+  "meta": {
+    "title": "Week 3 (Sept 24–28, 2026) WR Stream Report — Connor's 8-team Sleeper league",
+    "as_of": "2026-09-24 16:30 ET (Wednesday practice reports; Fox/Covers lines 9/23)",
+    "week": 3,
+    "season": 2026,
+    "notes": [
+      "Stats through Week 2 (two games). rec_fd = first-down receptions from FootballDB FD column (validated vs NFL.com 'Rec 1st').",
+      "spread_off is from the WR's OFFENSE perspective (+ = his team is the underdog → more passing).",
+      "dvp_pct = FootballDB standard-scoring WR points allowed per game vs the ~18.3/g league average (2 games → heavily shrunk, capped ±15%).",
+      "coverage_adj: >1 = opponent secondary injured / leaky; <1 = shadow corner / elite man coverage / bad QB situation for the WR.",
+      "Big-play bonuses are 0 here because the point values aren't confirmed yet — see README. A second run with illustrative 2/3/5 stacked bonuses is in the report.",
+      "Roster % = Yahoo/ESPN from FantasyPros, Yahoo, ClutchPoints etc. where found; 'available' must be checked in-league."
+    ]
+  },
+  "scoring": { "bonus_30_39": 0, "bonus_40": 0, "bonus_50": 0 },
+  "candidates": [
+    {
+      "name": "Denzel Boston", "team": "CLE", "role": "BOUNDARY", "opp": "vs CAR", "home": true,
+      "spread_off": 2.5, "total": 42.5, "team_pass_att": 52, "team_games": 2,
+      "tgt_share_last1": 0.233, "tgt_share_last3": 0.212, "route_share": 0.94, "role_conf": 0.85,
+      "stat_targets": 11, "rec": 7, "rec_yd": 154, "rec_fd": 5, "rec_td": 2, "rec_30p": 2, "rec_40p": 2, "rec_50p": 1, "adot": 16.1,
+      "dvp_pct": -15, "dvp_games": 2, "coverage_adj": 1.0, "practice": "none", "roster_pct": 0.31, "available": null,
+      "notes": "Rookie X with 52% of CLE air yards, aDOT 16.1, 94% routes. TDs of 46 and 55 yds — both clear the 40+ tier. 5 first downs on 7 catches. Low-volume passing game (52 att) and Panthers are a heavy-zone, middling WR matchup. Jeudy (1 tgt Wk2) is not a threat to the role.",
+      "sources": ["https://www.footballdb.com/teams/nfl/cleveland-browns/stats", "https://www.fantasypros.com/2026/09/fantasy-football-start-sit-lineup-advice-wide-receivers-week-3-2026/", "https://sports.yahoo.com/fantasy/article/fantasy-football-waiver-wire-pickups-week-3-adds-advice-targets-jonah-coleman-tre-tucker-bryce-young-155110347.html"],
+      "data_flags": ["Wk1 line conflicts across sources; used 4/2/59/1 (matches season totals)"]
+    },
+    {
+      "name": "Tre Tucker", "team": "LV", "role": "DEEP", "opp": "@NO", "home": false,
+      "spread_off": 3.25, "total": 43.5, "team_pass_att": 59, "team_games": 2,
+      "tgt_share_last1": 0.186, "tgt_share_last3": 0.186, "route_share": 0.81, "role_conf": 0.6,
+      "stat_targets": 11, "rec": 7, "rec_yd": 146, "rec_fd": 5, "rec_td": 1, "rec_30p": 1, "rec_40p": 1, "rec_50p": 0,
+      "dvp_pct": 12, "dvp_games": 2, "coverage_adj": 1.05, "practice": "none", "roster_pct": 0.29, "available": null,
+      "notes": "119 yds/TD in Wk2 on a 42-yd play; 3 total YAC yards all season = pure air-yards receiver. FantasyPros calls it 'smoke and mirrors' (44th route win rate). Brock Bowers likely back next week → target competition. Saints allow 6th-most FPts/target to WRs.",
+      "sources": ["https://www.playerprofiler.com/article/week-two-usage-report/", "https://www.forbes.com/sites/mikebarner/2026/09/22/fantasy-football-week-3-waiver-wire-5-best-pickups/"],
+      "data_flags": ["Wk2 targets 7 (four sources) vs 5 (PlayerProfiler) — used 7"]
+    },
+    {
+      "name": "Rashod Bateman", "team": "BAL", "role": "BOUNDARY", "opp": "@DAL", "home": false,
+      "spread_off": -3.5, "total": 52.5, "team_pass_att": 56, "team_games": 2,
+      "tgt_share_last1": 0.31, "tgt_share_last3": 0.18, "route_share": 0.95, "role_conf": 0.5,
+      "stat_targets": 10, "rec": 7, "rec_yd": 88, "rec_fd": 3, "rec_td": 1, "rec_30p": 0, "rec_40p": 0, "rec_50p": 0,
+      "dvp_pct": -7, "dvp_games": 2, "coverage_adj": 1.15, "practice": "none", "roster_pct": 0.17, "available": null,
+      "notes": "9 tgt / 7-88-1 in Wk2 with Zay Flowers out. Flowers (hamstring) DNP Wed, listed Questionable — if he plays, Bateman's ceiling collapses (role_conf 0.5 reflects that). Cowboys secondary is shredded (Durant, Hooker, Locke all DNP) and it's the week's highest total (52.5). Only 3 of 7 catches went for first downs.",
+      "sources": ["https://www.footballdb.com/statistics/nfl/player-stats/receiving/2026/regular-season", "https://www.fantasylife.com/articles/fantasy/fantasy-football-takeaways-parker-washington-leads-week-3-utiliz", "https://www.nfl.com/injuries/"],
+      "data_flags": ["Wk1 usage derived (1 tgt, 0 rec)"]
+    },
+    {
+      "name": "Adonai Mitchell", "team": "NYJ", "role": "BOUNDARY", "opp": "@DET", "home": false,
+      "spread_off": 6.5, "total": 47.5, "team_pass_att": 65, "team_games": 2,
+      "tgt_share_last1": 0.33, "tgt_share_last3": 0.23, "route_share": 0.81, "role_conf": 0.8,
+      "stat_targets": 15, "rec": 9, "rec_yd": 123, "rec_fd": 7, "rec_td": 0, "rec_30p": 1, "rec_40p": 1, "rec_50p": 0, "adot": 14.8,
+      "dvp_pct": 45, "dvp_games": 2, "coverage_adj": 1.15, "practice": "none", "roster_pct": 0.16, "available": null,
+      "notes": "12 targets / 178 air yards (3rd in NFL) in Wk2; 7 first downs on 9 catches. Jets WR room is gutted (Cooper IR, Patrick IR, Smith ACL) so the role is locked. Lions have allowed the most first downs in the NFL and are missing Branch AND Kerby Joseph. 6.5-pt dog = pass volume. Catch rate 50% Wk2 is the drag.",
+      "sources": ["https://www.fantasylife.com/articles/fantasy/nfl-air-yards-report-for-week-3-fantasy-football-jaylen-waddle", "https://www.clutchff.com/blog/week-2-usage-risers", "https://www.footballdb.com/statistics/nfl/player-stats/receiving/2026/regular-season"],
+      "data_flags": []
+    },
+    {
+      "name": "Matthew Golden", "team": "GB", "role": "BOUNDARY", "opp": "vs ATL (TNF)", "home": true,
+      "spread_off": -5.0, "total": 43.5, "team_pass_att": 71, "team_games": 2,
+      "tgt_share_last1": 0.20, "tgt_share_last3": 0.254, "route_share": 0.91, "role_conf": 0.8, "rz_share": 0.25,
+      "stat_targets": 18, "rec": 10, "rec_yd": 153, "rec_fd": 8, "rec_td": 0, "rec_30p": 1, "rec_40p": 1, "rec_50p": 0, "adot": 13,
+      "dvp_pct": -10, "dvp_games": 2, "coverage_adj": 1.1, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "TONIGHT. 8 first downs on 10 catches (80% — best in this pool) plus 3 red-zone targets and a league-high 61 PI yards drawn. Jayden Reed OUT (neck) locks in the target share. A.J. Terrell OUT for ATL. Only knock: 0 TDs so far and GB is a 5-pt favorite.",
+      "sources": ["https://www.fantasypros.com/2026/09/fantasy-football-start-sit-lineup-advice-wide-receivers-week-3-2026/", "https://www.footballdb.com/statistics/nfl/player-stats/receiving/2026/regular-season", "https://dknetwork.draftkings.com/2026/09/22/nfl-injury-report-week-3/"],
+      "data_flags": ["Wk2 line conflicts (6 tgt/4 rec vs 8 tgt/6 rec); season totals used", "rz_share estimated from '3 RZ targets'"]
+    },
+    {
+      "name": "Christian Watson", "team": "GB", "role": "ALPHA", "opp": "vs ATL (TNF)", "home": true,
+      "spread_off": -5.0, "total": 43.5, "team_pass_att": 71, "team_games": 2,
+      "tgt_share_last1": 0.333, "tgt_share_last3": 0.268, "route_share": 0.88, "role_conf": 0.8,
+      "stat_targets": 19, "rec": 10, "rec_yd": 188, "rec_fd": 7, "rec_td": 3, "rec_30p": 1, "rec_40p": 1, "rec_50p": 1, "adot": 14,
+      "dvp_pct": -10, "dvp_games": 2, "coverage_adj": 1.1, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "TONIGHT. 'Green Bay's clear #1' — 33% adjusted target share Wk2, 3 TDs incl. an 81-yarder. 18.8 yds/catch. With 3 TDs in two games he is very likely already rostered in an 8-teamer — check before assuming.",
+      "sources": ["https://www.fantasypros.com/2026/09/beyond-the-waiver-wire-fantasy-football-moves-to-make-week-3-2026/", "https://www.footballdb.com/statistics/nfl/player-stats/receiving/2026/regular-season"],
+      "data_flags": ["rostership not found — probably rostered"]
+    },
+    {
+      "name": "Dontayvion Wicks", "team": "PHI", "role": "BOUNDARY", "opp": "@CHI (MNF)", "home": false,
+      "spread_off": -4.5, "total": 41.5, "team_pass_att": 62, "team_games": 2,
+      "tgt_share_last1": 0.18, "tgt_share_last3": 0.161, "route_share": 0.64, "role_conf": 0.55, "rz_share": 0.2,
+      "stat_targets": 10, "rec": 7, "rec_yd": 147, "rec_fd": 7, "rec_td": 1, "rec_30p": 1, "rec_40p": 1, "rec_50p": 1, "adot": 15,
+      "dvp_pct": 1, "dvp_games": 2, "coverage_adj": 1.0, "practice": "none", "roster_pct": 0.28, "available": null,
+      "notes": "7 first downs on 7 catches, a 64-yarder, 2.72 YPRR (7th among WRs). The problem is snaps: route share fell 82% → 64% as Darius Cooper and rookie Makai Lemon ate into his role — PFF says the rotation 'could be permanent'. Bears play the most man coverage but allow the most yds/target. Monday night = latest info.",
+      "sources": ["https://www.rotowire.com/football/article/nfl-box-score-breakdown-week-2-recap-usage-stats-135781", "https://www.pff.com/news/nfl-week-2-recap-immediate-fantasy-football-takeaways-from-sundays-games", "https://www.footballdb.com/statistics/nfl/player-stats/receiving/2026/regular-season"],
+      "data_flags": []
+    },
+    {
+      "name": "Parker Washington", "team": "JAX", "role": "ALPHA", "opp": "vs NE", "home": true,
+      "spread_off": -2.75, "total": 45.0, "team_pass_att": 52, "team_games": 2,
+      "tgt_share_last1": 0.414, "tgt_share_last3": 0.346, "route_share": 0.90, "role_conf": 0.85,
+      "stat_targets": 18, "rec": 12, "rec_yd": 181, "rec_fd": 7, "rec_td": 1, "rec_30p": 1, "rec_40p": 0, "rec_50p": 0, "adot": 11,
+      "dvp_pct": -23, "dvp_games": 2, "coverage_adj": 1.0, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "38% target share (2nd in NFL), 134 air yds/gm (50% of team). Legit alpha usage in a low-volume offense (52 att). Only 9 YAC yards all season and 0 catches of 40+. Patriots allow the 11th-fewest WR points. Ranked WR10–12 by 4for4/Fantasy Life — almost certainly rostered.",
+      "sources": ["https://www.playerprofiler.com/article/week-two-usage-report/", "https://www.fantasylife.com/articles/fantasy/fantasy-football-takeaways-parker-washington-leads-week-3-utiliz"],
+      "data_flags": ["rostership not found — probably rostered"]
+    },
+    {
+      "name": "Malachi Fields", "team": "NYG", "role": "DEEP", "opp": "vs TEN", "home": true,
+      "spread_off": -2.5, "total": 40.0, "team_pass_att": 61, "team_games": 2,
+      "tgt_share_last1": 0.20, "tgt_share_last3": 0.164, "route_share": 0.82, "role_conf": 0.6,
+      "stat_targets": 10, "rec": 4, "rec_yd": 55, "rec_fd": 3, "rec_td": 0, "rec_30p": 0, "rec_40p": 0, "rec_50p": 0, "adot": 20,
+      "dvp_pct": 37, "dvp_games": 2, "coverage_adj": 1.1, "practice": "none", "roster_pct": 0.35, "available": null,
+      "notes": "Rookie with 120 air yards (38% share) on MNF and top-12 air yards among all WRs — but a 40% catch rate. QB change: Jaxson Dart out for the year → Jameis Winston, whose 'huck it' profile raises the deep-ball count. Titans allow the 8th-most WR points. Nabers Questionable (shoulder).",
+      "sources": ["https://www.rotowire.com/football/article/nfl-box-score-breakdown-giants-rams-recap-usage-stats-mnf-135940", "https://www.fantasyalarm.com/articles/nfl/fantasy-football-sleepers/fantasy-football-sleepers-week-3-breakout-players-start-stash-malachi-fields/195875"],
+      "data_flags": ["roster % listed as '<40% Yahoo' — 0.35 used"]
+    },
+    {
+      "name": "Romeo Doubs", "team": "NE", "role": "BOUNDARY", "opp": "@JAX", "home": false,
+      "spread_off": 2.75, "total": 45.0, "team_pass_att": 55, "team_games": 2,
+      "tgt_share_last1": 0.14, "tgt_share_last3": 0.127, "route_share": 0.69, "role_conf": 0.6,
+      "stat_targets": 7, "rec": 3, "rec_yd": 96, "rec_fd": 2, "rec_td": 0, "rec_30p": 1, "rec_40p": 1, "rec_50p": 1, "adot": 15,
+      "dvp_pct": -4, "dvp_games": 2, "coverage_adj": 1.0, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "A.J. Brown to IR (high ankle, through Wk6) → PFF: Doubs is the 'lead WR over the next few weeks'. Two drops in Wk1, then a 63-yarder in Wk2. Patriots have thrown only 55 times (Maye, 4 INT) — volume is the constraint.",
+      "sources": ["https://www.pff.com/news/nfl-week-2-recap-immediate-fantasy-football-takeaways-from-sundays-games", "https://www.rotowire.com/football/article/nfl-box-score-breakdown-week-1-recap-usage-stats-134247"],
+      "data_flags": ["Wk2 line derived from season totals"]
+    },
+    {
+      "name": "Xavier Hutchinson", "team": "HOU", "role": "BOUNDARY", "opp": "@IND", "home": false,
+      "spread_off": -2.5, "total": 42.5, "team_pass_att": 94, "team_games": 2,
+      "tgt_share_last1": 0.19, "tgt_share_last3": 0.16, "route_share": 0.78, "role_conf": 0.75,
+      "stat_targets": 15, "rec": 6, "rec_yd": 69, "rec_fd": 3, "rec_td": 0, "rec_30p": 0, "rec_40p": 0, "rec_50p": 0,
+      "dvp_pct": 58, "dvp_games": 2, "coverage_adj": 1.15, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "Volume play only: team-leading 78% route share in the NFL's pass-heaviest offense (94 att) with Nico Collins out again, against the Colts' 31st-ranked WR defense (Charvarius Ward DNP). But 4.6 yds/target and a 40% catch rate — 'he's just not very good' (FantasyPros). Model shrinks his conversion hard toward the prior; the matchup does the lifting.",
+      "sources": ["https://www.rotowire.com/football/article/nfl-box-score-breakdown-week-2-recap-usage-stats-135781", "https://www.footballdb.com/fantasy-football/points-allowed.html?pos=WR&key=48ca46aa7d721af4d58dccc0c249a1c4"],
+      "data_flags": []
+    },
+    {
+      "name": "Keon Coleman", "team": "BUF", "role": "BOUNDARY", "opp": "vs LAC", "home": true,
+      "spread_off": -7.25, "total": 50.5, "team_pass_att": 60, "team_games": 2,
+      "tgt_share_last1": 0.20, "tgt_share_last3": 0.117, "route_share": 0.68, "role_conf": 0.5,
+      "stat_targets": 7, "rec": 7, "rec_yd": 64, "rec_fd": 4, "rec_td": 0, "rec_30p": 0, "rec_40p": 0, "rec_50p": 0,
+      "dvp_pct": 37, "dvp_games": 2, "coverage_adj": 1.1, "practice": "DNP", "roster_pct": 0.30, "available": null,
+      "notes": "DNP Wed (ankle), Questionable — and DJ Moore (AC joint) is trending toward returning, which would shrink Coleman's role back to 50% snaps. FantasyPros: 'fool's gold'. Chargers secondary is missing Derwin James. Too many ifs.",
+      "sources": ["https://www.nfl.com/injuries/", "https://www.rotowire.com/football/article/nfl-box-score-breakdown-week-2-recap-usage-stats-135781"],
+      "data_flags": []
+    },
+    {
+      "name": "Devaughn Vele", "team": "NO", "role": "SLOT", "opp": "vs LV", "home": true,
+      "spread_off": -3.25, "total": 43.5, "team_pass_att": 90, "team_games": 2,
+      "tgt_share_last1": 0.194, "tgt_share_last3": 0.178, "route_share": 0.85, "role_conf": 0.85, "rz_share": 0.2,
+      "stat_targets": 16, "rec": 12, "rec_yd": 133, "rec_fd": 6, "rec_td": 1, "rec_30p": 1, "rec_40p": 0, "rec_50p": 0,
+      "dvp_pct": -34, "dvp_games": 2, "coverage_adj": 1.0, "practice": "none", "roster_pct": 0.54, "available": null,
+      "notes": "Clear No. 2 in the NFL's 2nd-pass-heaviest offense (90 att). Possession profile: 75% catch rate but only 6 first downs on 12 catches and 11 yds/rec — the shape this scoring likes least. Raiders allow the 5th-fewest WR points. 54% rostered — may be gone.",
+      "sources": ["https://www.fantasypros.com/2026/09/fantasy-football-start-sit-lineup-advice-wide-receivers-week-3-2026/", "https://www.nfl.com/news/2026-nfl-fantasy-football-waiver-wire-week-3-broncos-rb-jonah-coleman-among-top-targets"],
+      "data_flags": []
+    },
+    {
+      "name": "Tyquan Thornton", "team": "KC", "role": "DEEP", "opp": "@MIA", "home": false,
+      "spread_off": -11.0, "total": 46.5, "team_pass_att": 74, "team_games": 2,
+      "tgt_share_last1": 0.11, "tgt_share_last3": 0.068, "route_share": 0.675, "role_conf": 0.5,
+      "stat_targets": 5, "rec": 4, "rec_yd": 86, "rec_fd": 2, "rec_td": 0, "rec_30p": 1, "rec_40p": 1, "rec_50p": 0, "adot": 20,
+      "dvp_pct": -34, "dvp_games": 2, "coverage_adj": 1.1, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "31% of KC's air yards in Wk2 on 4 targets (45-yd catch), 1 YAC yard all season — pure vertical lottery ticket. 11-pt favorite means fewer dropbacks. Dolphins have 'no sure starters' at CB but allow the 6th-fewest WR points.",
+      "sources": ["https://www.rotowire.com/football/article/nfl-box-score-breakdown-colts-chiefs-recap-usage-stats-snf-135746", "https://www.footballdb.com/statistics/nfl/player-stats/receiving/2026/regular-season"],
+      "data_flags": []
+    },
+    {
+      "name": "Ted Hurst", "team": "TB", "role": "DEEP", "opp": "vs MIN", "home": true,
+      "spread_off": 1.5, "total": 42.5, "team_pass_att": 62, "team_games": 2,
+      "tgt_share_last1": 0.23, "tgt_share_last3": 0.16, "route_share": 0.80, "role_conf": 0.6,
+      "stat_targets": 10, "rec": 5, "rec_yd": 63, "rec_fd": 3, "rec_td": 0, "rec_30p": 0, "rec_40p": 0, "rec_50p": 0, "adot": 19.6,
+      "dvp_pct": 34, "dvp_games": 2, "coverage_adj": 1.0, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "Rookie X led TB in targets Wk2 with 145 air yards (8th in NFL) and a 19.6 aDOT — but 4 YAC yards and 12.6 yds/rec say the deep balls aren't landing yet. Vikings play the least man coverage in the league (two-high 64%) — harder to hit deep.",
+      "sources": ["https://www.fantasylife.com/articles/fantasy/nfl-air-yards-report-for-week-3-fantasy-football-jaylen-waddle", "https://www.footballdb.com/statistics/nfl/player-stats/receiving/2026/regular-season"],
+      "data_flags": ["weekly yardage split not found"]
+    },
+    {
+      "name": "Kalif Raymond", "team": "CHI", "role": "SLOT", "opp": "vs PHI (MNF)", "home": true,
+      "spread_off": 4.5, "total": 41.5, "team_pass_att": 64, "team_games": 2,
+      "tgt_share_last1": 0.135, "tgt_share_last3": 0.22, "route_share": 0.72, "role_conf": 0.6,
+      "stat_targets": 14, "rec": 13, "rec_yd": 124, "rec_fd": 7, "rec_td": 0, "rec_30p": 0, "rec_40p": 0, "rec_50p": 0,
+      "dvp_pct": -4, "dvp_games": 2, "coverage_adj": 0.85, "practice": "none", "roster_pct": 0.10, "available": null,
+      "notes": "93% catch rate, 7 first downs on 13 catches — but Case Keenum is starting (Caleb Williams hamstring, Bagent concussion), the share fell to 13.5% in Wk2, and Cooper DeJean covers the slot for PHI. coverage_adj 0.85 reflects the QB downgrade.",
+      "sources": ["https://dknetwork.draftkings.com/2026/09/22/nfl-injury-report-week-3/", "https://www.rotowire.com/football/article/nfl-box-score-breakdown-week-2-recap-usage-stats-135781"],
+      "data_flags": []
+    },
+    {
+      "name": "Elic Ayomanor", "team": "TEN", "role": "DEEP", "opp": "@NYG", "home": false,
+      "spread_off": 2.5, "total": 40.0, "team_pass_att": 52, "team_games": 2,
+      "tgt_share_last1": 0.10, "tgt_share_last3": 0.115, "route_share": 0.52, "role_conf": 0.5,
+      "stat_targets": 6, "rec": 3, "rec_yd": 80, "rec_fd": 3, "rec_td": 1, "rec_30p": 1, "rec_40p": 1, "rec_50p": 0,
+      "dvp_pct": 31, "dvp_games": 2, "coverage_adj": 1.15, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "3-for-3 on first downs with a 41-yarder, but he rotates with Ridley (52% routes) in a 52-attempt offense. Giants secondary: Adebo OUT, Banks Q, five more CBs out. Efficiency + matchup, no volume.",
+      "sources": ["https://www.rotowire.com/football/article/nfl-box-score-breakdown-week-2-recap-usage-stats-135781", "https://www.footballguys.com/injuries/weekly-report"],
+      "data_flags": ["Wk2 targets 3 (RotoWire) vs 2 (FantasyPros)"]
+    },
+    {
+      "name": "Laquon Treadwell", "team": "IND", "role": "BOUNDARY", "opp": "vs HOU", "home": true,
+      "spread_off": 2.5, "total": 42.5, "team_pass_att": 62, "team_games": 2,
+      "tgt_share_last1": 0.09, "tgt_share_last3": 0.065, "route_share": 0.76, "role_conf": 0.5,
+      "stat_targets": 4, "rec": 3, "rec_yd": 61, "rec_fd": 1, "rec_td": 0, "rec_30p": 1, "rec_40p": 1, "rec_50p": 0,
+      "dvp_pct": 58, "dvp_games": 2, "coverage_adj": 1.0, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "Absorbed Alec Pierce's snaps (Pierce OUT indefinitely, heel) — 76% routes, 48-yd OT catch. Texans allow the most WR points in the league. Four career-2026 targets: the model is almost entirely prior here.",
+      "sources": ["https://www.rotowire.com/football/article/nfl-box-score-breakdown-colts-chiefs-recap-usage-stats-snf-135746", "https://www.4for4.com/2026/w3/pat-mayos-week-3-fantasy-football-rankings-2026-stats-sits-sleepers-busts"],
+      "data_flags": []
+    },
+    {
+      "name": "Joshua Palmer", "team": "BUF", "role": "DEEP", "opp": "vs LAC", "home": true,
+      "spread_off": -7.25, "total": 50.5, "team_pass_att": 60, "team_games": 2,
+      "tgt_share_last1": 0.07, "tgt_share_last3": 0.083, "route_share": 0.45, "role_conf": 0.5,
+      "stat_targets": 5, "rec": 2, "rec_yd": 77, "rec_fd": 2, "rec_td": 2, "rec_30p": 2, "rec_40p": 2, "rec_50p": 0, "adot": 31,
+      "dvp_pct": 37, "dvp_games": 2, "coverage_adj": 1.1, "practice": "none", "roster_pct": null, "available": null,
+      "notes": "Two catches, both 43-yd TDs. 38% snaps in Wk2. This is what a pure bonus-tier lottery ticket looks like — the model's TD/big-play shrinkage is doing its job here.",
+      "sources": ["https://www.footballdb.com/statistics/nfl/player-stats/receiving/2026/regular-season", "https://www.rotowire.com/football/article/nfl-box-score-breakdown-week-2-recap-usage-stats-135781"],
+      "data_flags": []
+    }
+  ]
+}

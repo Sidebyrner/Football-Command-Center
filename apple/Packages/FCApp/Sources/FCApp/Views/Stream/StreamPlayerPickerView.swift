@@ -1,12 +1,15 @@
 import SwiftUI
 import FCCore
 
-/// Search every defender in the pool — yours, rivals', free agents — to set
-/// the starter to beat or add to a comparison.
-struct IDPPlayerPickerView: View {
-    enum Mode { case incumbent, compare }
+/// Which list the picker adds to.
+enum StreamPickerMode { case incumbent, compare }
 
-    @ObservedObject var model: IDPStreamScreenModel
+/// Search every player in the stream's pool — yours, rivals', free agents — to
+/// set the starter to beat or add to a comparison.
+struct StreamPlayerPickerView<Kind: StreamKind>: View {
+    typealias Mode = StreamPickerMode
+
+    @ObservedObject var model: StreamScreenModel<Kind>
     let mode: Mode
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
@@ -15,29 +18,29 @@ struct IDPPlayerPickerView: View {
         List {
             if query.trimmingCharacters(in: .whitespaces).isEmpty {
                 Section {
-                    rows(model.searchDefenders(""))
+                    rows(model.searchPlayers(""))
                 } header: {
-                    Text("Top projected defenders")
+                    Text("Top projected \(Kind.playerNoun)s")
                 } footer: {
-                    Text("Search to find anyone else, including rivals' players and backups below the stream list's snap floor.")
+                    Text("Search to find anyone else, including rivals' players and backups below the stream list's usage floor.")
                 }
             } else {
-                let results = model.searchDefenders(query)
+                let results = model.searchPlayers(query)
                 if results.isEmpty {
-                    Text("No defender matches “\(query)”.").foregroundStyle(.secondary)
+                    Text("No \(Kind.playerNoun) matches “\(query)”.").foregroundStyle(.secondary)
                 } else {
                     rows(results)
                 }
             }
         }
-        .searchable(text: $query, prompt: "Defender name")
+        .searchable(text: $query, prompt: "Name or team")
         .navigationTitle(mode == .incumbent ? "Starter to beat" : "Add to compare")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
         }
     }
 
-    private func rows(_ players: [IDPPickerRow]) -> some View {
+    private func rows(_ players: [StreamPickerRow]) -> some View {
         ForEach(players) { player in
             Button {
                 Task {
@@ -53,7 +56,7 @@ struct IDPPlayerPickerView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 6) {
                             Text(player.name).font(.subheadline.weight(.medium))
-                            PositionChip(position: player.platform, label: player.alignment?.label)
+                            PositionChip(position: player.platform, label: player.roleLabel)
                         }
                         Text([player.team, player.availability.label].compactMap { $0 }.joined(separator: " · "))
                             .font(.caption2)

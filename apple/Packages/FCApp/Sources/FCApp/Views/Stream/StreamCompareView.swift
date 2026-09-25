@@ -1,15 +1,45 @@
 import SwiftUI
 import FCCore
 
-/// Two to four defenders side by side: a verdict first, then the range of
-/// outcomes, where the points come from, the game each plays, recent form and
-/// every head-to-head. The best value on each row is tinted.
+/// One completed game in a compare cell: "14.2 pts" over "Wk 2 v IND · 100% · 7 tkl".
+struct StreamGameCell: Hashable {
+    let title: String
+    let detail: String
+}
+
+/// One row of the comparison table.
+enum StreamCompareRow {
+    /// Numbers, best tinted.
+    case metric(String, [Double], format: (Double) -> String = StreamFormat.one)
+    case text(String, [String])
+}
+
+struct StreamCompareSection {
+    let title: String
+    let rows: [StreamCompareRow]
+}
+
+/// What a stream puts in its comparison beyond the shared verdict, range,
+/// recent games and head-to-head.
+struct StreamCompareSpec<Kind: StreamKind> {
+    /// Projection-specific sections (stat line, points by stat, game factors).
+    var sections: (StreamScreenModel<Kind>, [Kind.Projection]) -> [StreamCompareSection]
+    /// Extra pills on each phone card, after E[pts]/floor/ceiling.
+    var cardPills: (Kind.Projection) -> [StreamPill]
+    var breakdown: (StreamScreenModel<Kind>, Kind.Projection) -> [StreamStatPoints]
+    var recentGames: (StreamScreenModel<Kind>, String) -> [StreamGameCell]
+}
+
+/// Two to four players side by side: a verdict first, then the range of
+/// outcomes, the stream's own sections, recent form and every head-to-head.
+/// The best value on each row is tinted.
 ///
 /// Wide windows get a table whose player headers stay pinned while scrolling
 /// and whose columns share the width, so nothing scrolls sideways. A phone gets
 /// one card per player instead.
-struct IDPCompareView: View {
-    @ObservedObject var model: IDPStreamScreenModel
+struct StreamCompareView<Kind: StreamKind>: View {
+    @ObservedObject var model: StreamScreenModel<Kind>
+    let spec: StreamCompareSpec<Kind>
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openPlayerCard) private var openPlayerCard
     #if os(iOS)
@@ -35,7 +65,7 @@ struct IDPCompareView: View {
                         if let verdict = comparison.verdict {
                             verdictCard(verdict, comparison)
                         } else {
-                            Text("Add another defender to get a verdict and head-to-head odds.")
+                            Text("Add another \(Kind.playerNoun) to get a verdict and head-to-head odds.")
                                 .font(.footnote).foregroundStyle(.secondary)
                                 .card()
                         }
@@ -55,13 +85,13 @@ struct IDPCompareView: View {
                     ContentUnavailableView(
                         "Nobody to compare",
                         systemImage: "person.2.slash",
-                        description: Text("Add defenders from the list, or search for anyone.")
+                        description: Text("Add \(Kind.playerNoun)s from the list, or search for anyone.")
                     )
                     .padding(.top, 60)
                 }
             }
         }
-        .navigationTitle("Compare defenders")
+        .navigationTitle("Compare \(Kind.playerNoun)s")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Clear", role: .destructive) { model.clearCompare() }
@@ -78,7 +108,7 @@ struct IDPCompareView: View {
             ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
         }
         .sheet(isPresented: $adding) {
-            NavigationStack { IDPPlayerPickerView(model: model, mode: .compare) }
+            NavigationStack { StreamPlayerPickerView(model: model, mode: .compare) }
                 #if os(macOS)
                 .frame(minWidth: 460, minHeight: 520)
                 #endif
@@ -87,9 +117,9 @@ struct IDPCompareView: View {
 
     // MARK: - Verdict
 
-    private func verdictCard(_ verdict: IDPComparisonVerdict, _ comparison: IDPComparison) -> some View {
+    private func verdictCard(_ verdict: StreamVerdict, _ comparison: StreamComparison<Kind.Projection>) -> some View {
         let leader = comparison.players[verdict.leader]
-        let runnerUp = shortName(comparison.players[verdict.runnerUp].name)
+        let runnerUp = StreamFormat.shortName(comparison.players[verdict.runnerUp].name)
         let headline: String
         let tint: Color
         switch verdict.confidence {
@@ -98,11 +128,11 @@ struct IDPCompareView: View {
         case .tossUp: headline = "Toss-up — \(leader.name) by a nose"; tint = Palette.caution
         }
         let odds = verdict.odds
-            .map { "beats \(shortName(comparison.players[$0.index].name)) \(pct($0.pBeats))" }
+            .map { "beats \(StreamFormat.shortName(comparison.players[$0.index].name)) \(StreamFormat.pct($0.pBeats))" }
             .joined(separator: ", ")
         let margin = verdict.margin >= 0
-            ? "+\(num(verdict.margin)) pts over \(runnerUp)"
-            : "\(num(-verdict.margin)) pts below \(runnerUp)'s projection, but the steadier bet"
+            ? "+\(StreamFormat.one(verdict.margin)) pts over \(runnerUp)"
+            : "\(StreamFormat.one(-verdict.margin)) pts below \(runnerUp)'s projection, but the steadier bet"
         return HStack(alignment: .top, spacing: 12) {
             PlayerAvatar(sleeperID: leader.playerID, name: leader.name, position: leader.platform, size: 40)
             VStack(alignment: .leading, spacing: 4) {
@@ -122,7 +152,7 @@ struct IDPCompareView: View {
 
     /// Floor to ceiling on one shared scale, the dot at expected points — the
     /// spread of outcomes the head-to-head odds come from.
-    private func rangeBars(_ comparison: IDPComparison) -> some View {
+    private func rangeBars(_ comparison: StreamComparison<Kind.Projection>) -> some View {
         let top = max(comparison.players.map(\.ceilingP75).max() ?? 1, 1) * 1.08
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -132,7 +162,7 @@ struct IDPCompareView: View {
             }
             ForEach(comparison.players) { p in
                 HStack(spacing: 10) {
-                    Text(shortName(p.name))
+                    Text(StreamFormat.shortName(p.name))
                         .font(.caption.weight(.medium))
                         .lineLimit(1)
                         .frame(width: 90, alignment: .leading)
@@ -153,7 +183,7 @@ struct IDPCompareView: View {
                         .frame(height: 14)
                     }
                     .frame(height: 14)
-                    Text("\(num(p.floorP25)) · \(num(p.expPts)) · \(num(p.ceilingP75))")
+                    Text("\(StreamFormat.one(p.floorP25)) · \(StreamFormat.one(p.expPts)) · \(StreamFormat.one(p.ceilingP75))")
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
                         .frame(width: 118, alignment: .trailing)
@@ -165,48 +195,22 @@ struct IDPCompareView: View {
 
     // MARK: - Wide table
 
-    private func table(_ comparison: IDPComparison, width: CGFloat) -> some View {
+    private func table(_ comparison: StreamComparison<Kind.Projection>, width: CGFloat) -> some View {
         let players = comparison.players
         let column = max((width - labelWidth - 28) / CGFloat(max(players.count, 1)), 110)
+        let sections = [projectionSection(players)] + spec.sections(model, players) + [gameSection(players)]
+        let games = players.map { p in p.playerID.map { spec.recentGames(model, $0) } ?? [] }
         return LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
             Section {
                 VStack(alignment: .leading, spacing: 6) {
-                    group("Projection")
-                    metric("E[pts]", players, column) { $0.expPts }
-                    metric("Utility", players, column) { $0.utility }
-                    metric("P(plays)", players, column, format: pct) { $0.pPlay }
-                    metric("Snaps", players, column, format: whole) { $0.expSnaps }
-                    metric("Snap share", players, column, format: pct) { $0.snapShare }
-
-                    group("Expected stat line")
-                    metric("Solo", players, column) { $0.eSolo }
-                    metric("Assist", players, column) { $0.eAst }
-                    metric("Sack", players, column, format: two) { $0.eSack }
-                    metric("TFL", players, column, format: two) { $0.eTfl }
-                    metric("QB hit", players, column, format: two) { $0.eQbHit }
-                    metric("Pass def", players, column, format: two) { $0.ePd }
-
-                    group("Points by stat, if he plays")
-                    ForEach(statNames(players), id: \.self) { stat in
-                        metric(stat, players, column) { p in
-                            p.pointsBreakdown(scoring: model.scoring).first { $0.stat == stat }?.points ?? 0
+                    ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
+                        group(section.title)
+                        ForEach(Array(section.rows.enumerated()), id: \.offset) { _, row in
+                            rowView(row, column)
                         }
                     }
-
                     group("Recent games")
-                    recentRows(players, column)
-
-                    group("Game")
-                    text("Opponent", players, column) { $0.opponent }
-                    text("Spread", players, column) { p in model.teams[p.team].map { signed($0.spreadDef) } ?? "–" }
-                    text("Total", players, column) { p in model.teams[p.team].map { num($0.total) } ?? "–" }
-                    metric("Tackle matchup ×", players, column, format: three) { $0.tklMult }
-                    metric("Pass-pro ×", players, column, format: two) { $0.sackMult }
-                    metric("Role confidence", players, column, format: two) { $0.roleConf }
-                    text("Status", players, column) { $0.practice.label }
-                    text("Season IDP pts/g", players, column) { p in
-                        p.playerID.flatMap { model.context?.sleeperPointsPerGame($0) }.map { num($0) } ?? "–"
-                    }
+                    recentRows(games, column)
                 }
                 .padding(.top, 6)
             } header: {
@@ -221,7 +225,54 @@ struct IDPCompareView: View {
         .card(padding: 12)
     }
 
-    private func header(_ p: IDPProjection) -> some View {
+    private func projectionSection(_ players: [Kind.Projection]) -> StreamCompareSection {
+        StreamCompareSection(title: "Projection", rows: [
+            .metric("E[pts]", players.map(\.expPts)),
+            .metric("Utility", players.map(\.utility)),
+            .metric("P(plays)", players.map(\.pPlay), format: StreamFormat.pct),
+        ])
+    }
+
+    private func gameSection(_ players: [Kind.Projection]) -> StreamCompareSection {
+        StreamCompareSection(title: "Game", rows: [
+            .text("Opponent", players.map(\.opponent)),
+            .text("Spread", players.map { p in model.teams[p.team].map { StreamFormat.signed($0.spread) } ?? "–" }),
+            .text("Total", players.map { p in model.teams[p.team].map { StreamFormat.one($0.total) } ?? "–" }),
+            .metric("Role confidence", players.map(\.roleConf), format: StreamFormat.two),
+            .text("Status", players.map(\.practice.label)),
+            .text("Season pts/g", players.map { p in
+                p.playerID.flatMap { model.context?.sleeperPointsPerGame($0) }.map(StreamFormat.one) ?? "–"
+            }),
+        ])
+    }
+
+    @ViewBuilder
+    private func rowView(_ row: StreamCompareRow, _ column: CGFloat) -> some View {
+        switch row {
+        case let .metric(label, values, format):
+            let top = values.max()
+            let distinct = Set(values.map(format)).count > 1
+            HStack(spacing: 0) {
+                Text(label).font(.caption).foregroundStyle(.secondary).frame(width: labelWidth, alignment: .leading)
+                ForEach(Array(values.enumerated()), id: \.offset) { _, v in
+                    let best = distinct && v == top
+                    Text(format(v))
+                        .font(.subheadline.monospacedDigit().weight(best ? .semibold : .regular))
+                        .foregroundStyle(best ? Palette.start : Color.primary)
+                        .frame(width: column, alignment: .leading)
+                }
+            }
+        case let .text(label, values):
+            HStack(spacing: 0) {
+                Text(label).font(.caption).foregroundStyle(.secondary).frame(width: labelWidth, alignment: .leading)
+                ForEach(Array(values.enumerated()), id: \.offset) { _, value in
+                    Text(value).font(.subheadline).lineLimit(1).frame(width: column, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    private func header(_ p: Kind.Projection) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .top) {
                 PlayerAvatar(sleeperID: p.playerID, name: p.name, position: p.platform, size: 30)
@@ -230,7 +281,7 @@ struct IDPCompareView: View {
             }
             Text(p.name).font(.subheadline.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8)
             HStack(spacing: 4) {
-                PositionChip(position: p.platform, label: p.position.label)
+                PositionChip(position: p.platform, label: p.roleLabel)
                 Text("\(p.team) \(p.opponent)").font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             }
             ownership(p)
@@ -246,36 +297,7 @@ struct IDPCompareView: View {
             .padding(.top, 10)
     }
 
-    private func metric(_ label: String, _ players: [IDPProjection], _ column: CGFloat,
-                        format: @escaping (Double) -> String = { $0.formatted(.number.precision(.fractionLength(1))) },
-                        value: (IDPProjection) -> Double) -> some View {
-        let values = players.map(value)
-        let top = values.max()
-        let distinct = Set(values.map(format)).count > 1
-        return HStack(spacing: 0) {
-            Text(label).font(.caption).foregroundStyle(.secondary).frame(width: labelWidth, alignment: .leading)
-            ForEach(Array(values.enumerated()), id: \.offset) { _, v in
-                let best = distinct && v == top
-                Text(format(v))
-                    .font(.subheadline.monospacedDigit().weight(best ? .semibold : .regular))
-                    .foregroundStyle(best ? Palette.start : Color.primary)
-                    .frame(width: column, alignment: .leading)
-            }
-        }
-    }
-
-    private func text(_ label: String, _ players: [IDPProjection], _ column: CGFloat,
-                      value: @escaping (IDPProjection) -> String) -> some View {
-        HStack(spacing: 0) {
-            Text(label).font(.caption).foregroundStyle(.secondary).frame(width: labelWidth, alignment: .leading)
-            ForEach(players) { p in
-                Text(value(p)).font(.subheadline).lineLimit(1).frame(width: column, alignment: .leading)
-            }
-        }
-    }
-
-    private func recentRows(_ players: [IDPProjection], _ column: CGFloat) -> some View {
-        let games = players.map { p in p.playerID.map { model.recentGames($0) } ?? [] }
+    private func recentRows(_ games: [[StreamGameCell]], _ column: CGFloat) -> some View {
         let rows = games.map(\.count).max() ?? 0
         return VStack(alignment: .leading, spacing: 4) {
             if rows == 0 {
@@ -287,7 +309,14 @@ struct IDPCompareView: View {
                         .frame(width: labelWidth, alignment: .leading)
                     ForEach(games.indices, id: \.self) { j in
                         Group {
-                            if i < games[j].count { gameCell(games[j][i]) } else { Text("—").foregroundStyle(.tertiary) }
+                            if i < games[j].count {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(games[j][i].title).font(.subheadline.monospacedDigit().weight(.medium))
+                                    Text(games[j][i].detail).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                                }
+                            } else {
+                                Text("—").foregroundStyle(.tertiary)
+                            }
                         }
                         .frame(width: column, alignment: .leading)
                     }
@@ -296,36 +325,11 @@ struct IDPCompareView: View {
         }
     }
 
-    private func gameCell(_ g: IDPGameLine) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text("\(num(g.points)) pts")
-                .font(.subheadline.monospacedDigit().weight(.medium))
-            Text(gameDetail(g))
-                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-        }
-    }
-
-    private func gameDetail(_ g: IDPGameLine) -> String {
-        var parts = ["Wk \(g.week)" + (g.opponent.map { " v \($0)" } ?? "")]
-        if let share = g.snapShare { parts.append(pct(share)) }
-        parts.append("\(whole(g.tackles)) tkl")
-        if g.sacks > 0 { parts.append("\(num(g.sacks)) sk") }
-        return parts.joined(separator: " · ")
-    }
-
-    private func statNames(_ players: [IDPProjection]) -> [String] {
-        var seen: [String] = []
-        for p in players {
-            for part in p.pointsBreakdown(scoring: model.scoring) where !seen.contains(part.stat) { seen.append(part.stat) }
-        }
-        return seen
-    }
-
     // MARK: - Phone cards
 
-    private func stackedCards(_ comparison: IDPComparison) -> some View {
+    private func stackedCards(_ comparison: StreamComparison<Kind.Projection>) -> some View {
         let players = comparison.players
-        func tint(_ value: (IDPProjection) -> Double, _ p: IDPProjection) -> Color {
+        func tint(_ value: (Kind.Projection) -> Double, _ p: Kind.Projection) -> Color {
             let values = players.map(value)
             return Set(values).count > 1 && value(p) == values.max() ? Palette.start : .primary
         }
@@ -337,7 +341,7 @@ struct IDPCompareView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 6) {
                                 Text(p.name).font(.headline).lineLimit(1)
-                                PositionChip(position: p.platform, label: p.position.label)
+                                PositionChip(position: p.platform, label: p.roleLabel)
                             }
                             Text("\(p.team) \(p.opponent) · \(p.practice.label)").font(.caption).foregroundStyle(.secondary)
                             ownership(p)
@@ -345,22 +349,20 @@ struct IDPCompareView: View {
                         Spacer()
                         removeButton(p)
                     }
-                    HStack(spacing: 16) {
-                        StatPill(label: "E[pts]", value: num(p.expPts), tint: tint(\.expPts, p))
-                        StatPill(label: "floor", value: num(p.floorP25), tint: tint(\.floorP25, p))
-                        StatPill(label: "ceiling", value: num(p.ceilingP75), tint: tint(\.ceilingP75, p))
-                        StatPill(label: "snaps", value: whole(p.expSnaps))
-                        StatPill(label: "P(plays)", value: pct(p.pPlay))
-                    }
-                    Text(p.pointsBreakdown(scoring: model.scoring).prefix(4)
-                        .map { "\($0.stat) \(num($0.points))" }.joined(separator: " · "))
+                    StreamPillGrid(pills: [
+                        StreamPill(label: "E[pts]", value: StreamFormat.one(p.expPts), tint: tint(\.expPts, p)),
+                        StreamPill(label: "floor", value: StreamFormat.one(p.floorP25), tint: tint(\.floorP25, p)),
+                        StreamPill(label: "ceiling", value: StreamFormat.one(p.ceilingP75), tint: tint(\.ceilingP75, p)),
+                    ] + spec.cardPills(p))
+                    Text(spec.breakdown(model, p).prefix(4)
+                        .map { "\($0.stat) \(StreamFormat.one($0.points))" }.joined(separator: " · "))
                         .font(.caption).foregroundStyle(.secondary)
                     if let id = p.playerID {
-                        let games = model.recentGames(id)
+                        let games = spec.recentGames(model, id)
                         if !games.isEmpty {
                             VStack(alignment: .leading, spacing: 2) {
-                                ForEach(games, id: \.week) { g in
-                                    Text("\(num(g.points)) pts — \(gameDetail(g))").font(.caption2)
+                                ForEach(games, id: \.self) { g in
+                                    Text("\(g.title) — \(g.detail)").font(.caption2)
                                 }
                             }
                         }
@@ -375,7 +377,7 @@ struct IDPCompareView: View {
     // MARK: - Shared bits
 
     @ViewBuilder
-    private func ownership(_ p: IDPProjection) -> some View {
+    private func ownership(_ p: Kind.Projection) -> some View {
         if let id = p.playerID, let availability = model.context?.availability(ofSleeperID: id) {
             Text(availability.label)
                 .font(.caption2)
@@ -383,7 +385,7 @@ struct IDPCompareView: View {
         }
     }
 
-    private func removeButton(_ p: IDPProjection) -> some View {
+    private func removeButton(_ p: Kind.Projection) -> some View {
         Button {
             if let id = p.playerID { model.toggleCompare(id) }
         } label: {
@@ -393,7 +395,7 @@ struct IDPCompareView: View {
         .help("Remove from comparison")
     }
 
-    private func actions(_ p: IDPProjection) -> some View {
+    private func actions(_ p: Kind.Projection) -> some View {
         HStack(spacing: 6) {
             if model.report?.incumbent?.id == p.id {
                 Text("Starter to beat").font(.caption2.weight(.semibold)).foregroundStyle(Color.accentColor)
@@ -413,7 +415,7 @@ struct IDPCompareView: View {
 
     // MARK: - Head to head
 
-    private func headToHead(_ comparison: IDPComparison) -> some View {
+    private func headToHead(_ comparison: StreamComparison<Kind.Projection>) -> some View {
         let players = comparison.players
         let nameWidth: CGFloat = isCompact ? 70 : labelWidth
         return VStack(alignment: .leading, spacing: 8) {
@@ -424,16 +426,16 @@ struct IDPCompareView: View {
                 GridRow {
                     Color.clear.frame(width: nameWidth, height: 1)
                     ForEach(players) {
-                        Text(shortName($0.name)).font(.caption.weight(.semibold)).lineLimit(1).frame(maxWidth: .infinity)
+                        Text(StreamFormat.shortName($0.name)).font(.caption.weight(.semibold)).lineLimit(1).frame(maxWidth: .infinity)
                     }
                 }
                 ForEach(Array(players.enumerated()), id: \.element.id) { i, row in
                     GridRow {
-                        Text(shortName(row.name)).font(.caption).lineLimit(1)
+                        Text(StreamFormat.shortName(row.name)).font(.caption).lineLimit(1)
                             .frame(width: nameWidth, alignment: .leading)
                         ForEach(players.indices, id: \.self) { j in
                             if let p = comparison.headToHead[i][j] {
-                                Text(pct(p))
+                                Text(StreamFormat.pct(p))
                                     .font(.subheadline.monospacedDigit().weight(p >= 0.5 ? .semibold : .regular))
                                     .foregroundStyle(p >= 0.6 ? Palette.start : p <= 0.4 ? Palette.sit : Color.primary)
                                     .frame(maxWidth: .infinity)
@@ -449,7 +451,7 @@ struct IDPCompareView: View {
     }
 
     @ViewBuilder
-    private func flags(_ comparison: IDPComparison) -> some View {
+    private func flags(_ comparison: StreamComparison<Kind.Projection>) -> some View {
         let flagged = comparison.players.filter { !$0.flags.isEmpty }
         if !flagged.isEmpty {
             DisclosureGroup("Data flags") {
@@ -464,17 +466,4 @@ struct IDPCompareView: View {
             .font(.footnote)
         }
     }
-
-    // MARK: - Formatting
-
-    private func shortName(_ name: String) -> String {
-        let parts = name.split(separator: " ").filter { !["Jr.", "Sr.", "II", "III", "IV"].contains($0) }
-        return parts.last.map(String.init) ?? name
-    }
-    private func pct(_ x: Double) -> String { "\(Int((x * 100).rounded()))%" }
-    private func whole(_ x: Double) -> String { "\(Int(x.rounded()))" }
-    private func two(_ x: Double) -> String { x.formatted(.number.precision(.fractionLength(2))) }
-    private func three(_ x: Double) -> String { x.formatted(.number.precision(.fractionLength(3))) }
-    private func num(_ x: Double) -> String { x.formatted(.number.precision(.fractionLength(1))) }
-    private func signed(_ x: Double) -> String { (x > 0 ? "+" : "") + num(x) }
 }

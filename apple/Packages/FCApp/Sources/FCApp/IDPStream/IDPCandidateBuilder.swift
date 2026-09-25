@@ -97,7 +97,7 @@ struct IDPCandidateBuilder {
 
         // Game context; a team with no game is on bye.
         let game = teams[team]
-        var practice = override?.practice ?? practiceStatus(player)
+        var practice = override?.practice ?? StreamPracticeMapper.status(player, context: context)
         if game == nil {
             practice = .OUT
             flags.append("bye week")
@@ -146,31 +146,5 @@ struct IDPCandidateBuilder {
             dataFlags: flags,
             playerID: player.id
         )
-    }
-
-    /// The official report first — a game designation outranks a practice
-    /// line — then Sleeper's own injury tag.
-    private func practiceStatus(_ player: IndexedPlayer) -> IDPPractice {
-        if let report = context.practiceReport(sleeperID: player.id) {
-            switch report.designation {
-            case .out: return .OUT
-            case .doubtful: return .D
-            case .questionable: return .Q
-            case nil: break
-            }
-            switch report.practice {
-            case .didNotParticipate: return .DNP
-            case .limited: return .LP
-            case .full: return .FP
-            case nil: break
-            }
-        }
-        switch player.injuryStatus?.lowercased() {
-        case "ir", "pup", "pup-r", "nfi", "nfi-r": return .IR
-        case "out", "sus", "cov": return .OUT
-        case "doubtful": return .D
-        case "questionable": return .Q
-        default: return .none
-        }
     }
 }

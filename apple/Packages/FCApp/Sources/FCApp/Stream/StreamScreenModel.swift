@@ -2,48 +2,52 @@ import Foundation
 import FCCore
 import FCData
 
-/// IDP Stream — is there a defender on waivers with a better one-week outlook
-/// than the one I am starting, and how sure should I be?
+/// A weekly stream screen — is there a player on waivers with a better
+/// one-week outlook than the one I am starting, and how sure should I be?
 ///
-/// Every free-agent defender with a real role is projected under the league's
-/// own scoring by `IDPStreamEngine`, compared with the chosen starter, and
-/// ranked. The game context is auto-filled and every piece of it can be edited.
+/// Every candidate with a real role is projected under the league's own
+/// scoring by the stream's engine, compared with the chosen starter, and
+/// ranked. The game context is auto-filled and every piece of it can be
+/// edited. `Kind` supplies what differs between streams (IDP, WR); everything
+/// here is shared.
 @MainActor
-public final class IDPStreamScreenModel: ObservableObject {
+public final class StreamScreenModel<Kind: StreamKind>: ObservableObject {
+    public typealias Overrides = StreamWeekOverrides<Kind.TeamOverride, Kind.PlayerOverride>
+
     @Published public private(set) var context: LeagueContext?
     @Published public private(set) var isLoading = false
     @Published public private(set) var errorMessage: String?
     @Published public private(set) var refreshCount = 0
-    @Published public private(set) var report: IDPStreamReport?
+    @Published public private(set) var report: StreamReport<Kind.Projection>?
     /// This week's teams with overrides applied, keyed by nflverse code.
-    @Published public private(set) var teams: [String: IDPTeamContext] = [:]
+    @Published public private(set) var teams: [String: Kind.Team] = [:]
     /// Auto-filled values before any override, for the editor's reset.
-    @Published public private(set) var autoTeams: [String: IDPTeamContext] = [:]
-    @Published public private(set) var overrides: IDPWeekOverrides = .empty
-    @Published public private(set) var scoring = IDPScoring()
+    @Published public private(set) var autoTeams: [String: Kind.Team] = [:]
+    @Published public private(set) var overrides: Overrides = .empty
+    @Published public private(set) var scoring: Kind.Scoring = Kind.emptyScoring
     @Published public private(set) var unmodelledScoringKeys: [String] = []
-    @Published public private(set) var snapshots: [IDPSnapshotSummary] = []
+    @Published public private(set) var snapshots: [StreamSnapshotSummary] = []
     @Published public private(set) var lastSnapshotAt: Date?
 
-    @Published public var risk: IDPRiskMode = .neutral { didSet { recompute() } }
+    @Published public var risk: StreamRiskMode = .neutral { didSet { recompute() } }
     @Published public var onlyAvailable = true { didSet { applyFilters() } }
     @Published public var positionFilter: Position? { didSet { applyFilters() } }
     @Published public var query = "" { didSet { applyFilters() } }
-    @Published public private(set) var rows: [IDPProjection] = []
-    /// Defenders picked for side-by-side comparison, in the order added.
+    @Published public private(set) var rows: [Kind.Projection] = []
+    /// Players picked for side-by-side comparison, in the order added.
     /// Session-only: a comparison is a question of the moment.
     @Published public private(set) var compareIDs: [String] = []
-    public static let compareLimit = 4
+    public static var compareLimit: Int { 4 }
 
-    private var candidates: [IDPCandidate] = []
+    private(set) var candidates: [Kind.Candidate] = []
     private var defense: DefenseLookup?
     private let loader: LeagueContextLoader
-    private let store: IDPStreamStore
+    private let store: StreamStore
     private var lastRequest: (leagueID: String, rosterID: Int, season: Int?)?
 
-    public init(loader: LeagueContextLoader, store: IDPStreamStore = IDPStreamStore()) {
+    public init(loader: LeagueContextLoader, store: StreamStore? = nil) {
         self.loader = loader
-        self.store = store
+        self.store = store ?? StreamStore(folder: Kind.storeFolder)
     }
 
     public func refresh() async {
@@ -66,8 +70,8 @@ public final class IDPStreamScreenModel: ObservableObject {
             )
             self.context = context
             let settings = context.league.scoringSettings ?? [:]
-            scoring = IDPScoring.from(sleeperSettings: settings)
-            unmodelledScoringKeys = IDPScoring.unmodelledKeys(sleeperSettings: settings)
+            scoring = Kind.scoring(sleeperSettings: settings)
+            unmodelledScoringKeys = Kind.unmodelledKeys(sleeperSettings: settings)
 
             let defense = await Task.detached(priority: .userInitiated) {
                 DefenseLookup.build(context: context)
@@ -82,10 +86,11 @@ public final class IDPStreamScreenModel: ObservableObject {
         }
     }
 
-    /// Whether the league starts any IDP at all.
-    public var leagueHasIDP: Bool {
+    /// Whether the league starts anyone at this stream's positions.
+    public var leagueStartsKind: Bool {
         guard let context else { return true }
-        return context.template.starters.contains { !$0.eligible.isDisjoint(with: Position.idp) }
+        let covered = Set(Kind.positions)
+        return context.template.starters.contains { !$0.eligible.isDisjoint(with: covered) }
     }
 
     // MARK: - Pipeline
@@ -93,19 +98,20 @@ public final class IDPStreamScreenModel: ObservableObject {
     /// Context → candidates → report. Cheap; runs again after every edit.
     private func rebuild() {
         guard let context, let defense else { return }
-        autoTeams = IDPContextAutofill.build(schedule: context.schedule, week: context.currentWeek, defense: defense.sleeper)
-        teams = IDPContextAutofill.apply(overrides.teams, to: autoTeams)
-        var builder = IDPCandidateBuilder(context: context, teams: teams, players: overrides.players)
-        builder.alwaysInclude = Set(compareIDs).union([overrides.incumbentID].compactMap { $0 })
-        candidates = builder.candidates()
+        autoTeams = Kind.autofill(context: context, defense: defense)
+        teams = Kind.apply(overrides.teams, to: autoTeams)
+        candidates = Kind.candidates(
+            context: context, teams: teams, players: overrides.players,
+            alwaysInclude: Set(compareIDs).union([overrides.incumbentID].compactMap { $0 })
+        )
         recompute()
     }
 
     /// Re-runs the engine on the candidates already built — risk or starter change.
     private func recompute() {
         guard context != nil else { return }
-        report = IDPStreamEngine.report(candidates: candidates, scoring: scoring,
-                                        incumbentID: incumbentID, risk: risk)
+        let projections = candidates.map { Kind.project($0, scoring: scoring, risk: risk) }
+        report = StreamDecision.report(projections: projections, incumbentID: incumbentID(among: projections))
         applyFilters()
     }
 
@@ -121,29 +127,33 @@ public final class IDPStreamScreenModel: ObservableObject {
 
     // MARK: - Starter
 
-    /// The user's rostered defenders, the choices for the starter to beat.
-    public var myDefenders: [IDPCandidate] {
+    /// The user's rostered players at this stream's positions, the first
+    /// choices for the starter to beat.
+    public var myPlayers: [Kind.Candidate] {
         guard let mine = context?.userTeam else { return [] }
         let ids = Set(mine.roster.map(\.id))
         return candidates.filter { $0.playerID.map(ids.contains) ?? false }
     }
 
-    /// The chosen starter, or by default the weakest IDP the user is starting
+    /// The chosen starter, or by default the weakest one the user is starting
     /// this week — the one a stream would replace.
     public var incumbentID: String? {
-        if let chosen = overrides.incumbentID, candidates.contains(where: { $0.id == chosen }) { return chosen }
+        incumbentID(among: candidates.map { Kind.project($0, scoring: scoring, risk: risk) })
+    }
+
+    private func incumbentID(among projections: [Kind.Projection]) -> String? {
+        if let chosen = overrides.incumbentID, projections.contains(where: { $0.id == chosen }) { return chosen }
         guard let mine = context?.userTeam else { return nil }
+        let rostered = Set(mine.roster.map(\.id))
         let starters = Set(mine.starterIDs)
-        let pool = myDefenders.filter { starters.contains($0.id) }
-        let options = pool.isEmpty ? myDefenders : pool
-        return options
-            .map { ($0.id, IDPStreamEngine.project($0, scoring: scoring, risk: risk).expPts) }
-            .min { $0.1 < $1.1 }?.0
+        let myProjections = projections.filter { $0.playerID.map(rostered.contains) ?? false }
+        let starting = myProjections.filter { starters.contains($0.id) }
+        return (starting.isEmpty ? myProjections : starting).min { $0.expPts < $1.expPts }?.id
     }
 
     public var incumbentIsDefault: Bool { overrides.incumbentID == nil }
 
-    /// Any defender can be the one to beat — yours, a rival's, a free agent.
+    /// Anyone can be the one to beat — yours, a rival's, a free agent.
     public func setIncumbent(_ id: String?) async {
         overrides.incumbentID = id
         await saveOverrides()
@@ -159,10 +169,11 @@ public final class IDPStreamScreenModel: ObservableObject {
 
     // MARK: - Finding players
 
-    /// Every IDP in the pool matching a search, for the any-player pickers.
-    /// An empty search lists the best projected defenders instead, so there is
-    /// something to browse before typing.
-    public func searchDefenders(_ query: String, limit: Int = 25) -> [IDPPickerRow] {
+    /// Every player at this stream's positions matching a search, for the
+    /// any-player pickers. Forgiving: typos, any word order, and team code or
+    /// name count. An empty search lists the best projected players instead,
+    /// so there is something to browse before typing.
+    public func searchPlayers(_ query: String, limit: Int = 25) -> [StreamPickerRow] {
         guard let context else { return [] }
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         let players: [IndexedPlayer]
@@ -170,8 +181,7 @@ public final class IDPStreamScreenModel: ObservableObject {
             let ranked = (report?.ranked ?? []) + [report?.incumbent].compactMap { $0 }
             players = ranked.sorted { $0.expPts > $1.expPts }.prefix(limit).compactMap { $0.playerID.flatMap { context.players[$0] } }
         } else {
-            // Forgiving: typos, any word order, and team code or name count.
-            let scored = idpPool.compactMap { player -> (IndexedPlayer, Int)? in
+            let scored = pool.compactMap { player -> (IndexedPlayer, Int)? in
                 let team = player.nflverseTeam
                 let extra = [team, NFLTeams.name(abbreviation: team)].compactMap { $0 }
                 return FuzzyNameMatch.score(query: trimmed, name: player.name, extra: extra).map { (player, $0) }
@@ -186,51 +196,30 @@ public final class IDPStreamScreenModel: ObservableObject {
                 .map(\.0)
         }
         return players.map { player in
-            IDPPickerRow(
+            StreamPickerRow(
                 id: player.id, name: player.name, team: player.nflverseTeam, platform: player.position,
-                alignment: IDPSubPosition.resolve(positionCode: player.positionCode, depthChartPosition: player.depthChartPosition)?.position,
+                roleLabel: projection(for: player.id)?.roleLabel ?? Kind.roleLabel(for: player),
                 availability: context.availability(ofSleeperID: player.id),
                 projected: projection(for: player.id)?.expPts
             )
         }
     }
 
-    /// Active defenders on an NFL team — the pool the pickers search.
-    private var idpPool: [IndexedPlayer] {
+    /// Active players at this stream's positions on an NFL team.
+    private var pool: [IndexedPlayer] {
         guard let context else { return [] }
-        return [Position.lb, .dl, .db].flatMap { context.players.players(at: $0) }.filter { $0.team != nil }
+        return Kind.positions.flatMap { context.players.players(at: $0) }.filter { $0.team != nil }
     }
 
-    /// His last few completed games from Sleeper's lines, newest first, scored
-    /// in this league — what he has actually been doing next to what he is
-    /// projected to do.
-    public func recentGames(_ id: String, limit: Int = 3) -> [IDPGameLine] {
+    /// His last few completed games, newest first, scored in this league.
+    public func recentGames(_ id: String, limit: Int = 3) -> [Kind.GameLine] {
         guard let context else { return [] }
-        let scoring = context.league.scoringSettings ?? [:]
-        return context.inSeason.weekStats.keys
-            .filter { $0 < context.currentWeek }
-            .sorted(by: >)
-            .compactMap { week -> IDPGameLine? in
-                guard let line = context.inSeason.weekStats[week]?[id] else { return nil }
-                let s = line.stats
-                let tackles = s["idp_tkl"] ?? ((s["idp_tkl_solo"] ?? 0) + (s["idp_tkl_ast"] ?? 0))
-                return IDPGameLine(
-                    week: week,
-                    opponent: line.opponent.flatMap { NFLTeams.nflverse($0) },
-                    points: line.score(scoring: scoring).points,
-                    snapShare: line.defensiveSnapShare,
-                    tackles: tackles,
-                    sacks: s["idp_sack"] ?? 0
-                )
-            }
-            .prefix(limit)
-            .map { $0 }
+        return Kind.recentGames(context: context, playerID: id, limit: limit)
     }
 
-    /// The current projection for any defender in the report, starter included.
-    public func projection(for id: String) -> IDPProjection? {
-        if report?.incumbent?.id == id { return report?.incumbent }
-        return report?.ranked.first { $0.id == id }
+    /// The current projection for any player in the report, starter included.
+    public func projection(for id: String) -> Kind.Projection? {
+        report?.projection(for: id)
     }
 
     // MARK: - Compare
@@ -239,8 +228,8 @@ public final class IDPStreamScreenModel: ObservableObject {
 
     public var canAddToCompare: Bool { compareIDs.count < Self.compareLimit }
 
-    /// Adds or removes a defender. Someone outside the stream list is
-    /// projected on the spot, so anyone in the pool can be compared.
+    /// Adds or removes a player. Someone outside the stream list is projected
+    /// on the spot, so anyone in the pool can be compared.
     public func toggleCompare(_ id: String) {
         if let index = compareIDs.firstIndex(of: id) {
             compareIDs.remove(at: index)
@@ -256,28 +245,28 @@ public final class IDPStreamScreenModel: ObservableObject {
         rebuild()
     }
 
-    /// The compared defenders, in the order added, with every head-to-head.
-    public var comparison: IDPComparison? {
+    /// The compared players, in the order added, with every head-to-head.
+    public var comparison: StreamComparison<Kind.Projection>? {
         let players = compareIDs.compactMap(projection(for:))
-        return players.isEmpty ? nil : IDPComparison(players: players)
+        return players.isEmpty ? nil : StreamComparison(players: players)
     }
 
     // MARK: - Editing context
 
-    public func setTeamOverride(_ change: IDPTeamOverride?, team: String) async {
+    public func setTeamOverride(_ change: Kind.TeamOverride?, team: String) async {
         if let change, !change.isEmpty { overrides.teams[team] = change } else { overrides.teams[team] = nil }
         await saveOverrides()
         rebuild()
     }
 
-    public func setPlayerOverride(_ change: IDPPlayerOverride?, playerID: String) async {
+    public func setPlayerOverride(_ change: Kind.PlayerOverride?, playerID: String) async {
         if let change, !change.isEmpty { overrides.players[playerID] = change } else { overrides.players[playerID] = nil }
         await saveOverrides()
         rebuild()
     }
 
     public func resetAllOverrides() async {
-        overrides = IDPWeekOverrides(incumbentID: overrides.incumbentID)
+        overrides = Overrides(incumbentID: overrides.incumbentID)
         await saveOverrides()
         rebuild()
     }
@@ -286,8 +275,8 @@ public final class IDPStreamScreenModel: ObservableObject {
     /// teams and players it changed.
     @discardableResult
     public func importContext(_ data: Data) async throws -> (teams: Int, players: Int) {
-        let incoming = try IDPContextImport.parse(data)
-        overrides = IDPContextImport.merge(incoming, into: overrides)
+        let incoming = try Kind.parseImport(data)
+        overrides = overrides.merging(incoming)
         await saveOverrides()
         rebuild()
         return (incoming.teams.count, incoming.players.count)
@@ -310,8 +299,8 @@ public final class IDPStreamScreenModel: ObservableObject {
         if let leagueID = lastRequest?.leagueID { snapshots = await store.snapshots(leagueID: leagueID) }
     }
 
-    public func loadSnapshot(id: String) async -> IDPStreamSnapshot? {
-        await store.snapshot(id: id)
+    public func loadSnapshot(id: String) async -> StreamSnapshot<Kind>? {
+        await store.snapshot(Kind.self, id: id)
     }
 
     public func deleteSnapshot(id: String) async {
@@ -336,9 +325,9 @@ public final class IDPStreamScreenModel: ObservableObject {
         guard let context, let report, let leagueID = lastRequest?.leagueID else { return }
         do {
             let saved = try await store.saveSnapshot(
-                leagueID: leagueID, season: context.scheduleSeason, week: context.currentWeek, asOf: context.now(),
-                risk: risk, scoring: scoring, teams: Array(teams.values), candidates: candidates,
-                report: report, pinned: pinned
+                Kind.self, leagueID: leagueID, season: context.scheduleSeason, week: context.currentWeek,
+                asOf: context.now(), risk: risk, scoring: scoring, teams: Array(teams.values),
+                candidates: candidates, report: report, pinned: pinned
             )
             lastSnapshotAt = saved.asOf
         } catch {
@@ -350,7 +339,7 @@ public final class IDPStreamScreenModel: ObservableObject {
 
     /// A FAAB range in dollars for a gain, or a plain claim verdict when the
     /// league does not bid.
-    public func bidLabel(_ row: IDPProjection) -> String? {
+    public func bidLabel(_ row: Kind.Projection) -> String? {
         guard let band = row.bidBand else { return nil }
         if let remaining = context?.leagueFacts.faabRemaining {
             return band.isSpend ? band.dollars(remaining: remaining) : "$0–1"
@@ -362,46 +351,20 @@ public final class IDPStreamScreenModel: ObservableObject {
         guard let context else { return [] }
         var notes: [String] = []
         let weeks = context.inSeason.weekStats.keys.filter { $0 < context.currentWeek }.sorted()
-        if weeks.isEmpty {
-            notes.append("No \(context.scheduleSeason) Sleeper stat lines yet — every defender is projected from position priors alone.")
+        if let first = weeks.first, let last = weeks.last {
+            notes.append("Stats: Sleeper weekly lines, weeks \(first)–\(last) of \(context.scheduleSeason).")
         } else {
-            notes.append("Stats: Sleeper weekly lines, weeks \(weeks.first!)–\(weeks.last!) of \(context.scheduleSeason).")
+            notes.append("No \(context.scheduleSeason) Sleeper stat lines yet — every \(Kind.playerNoun) is projected from priors alone.")
         }
         let lineless = teams.values.filter { $0.linesSource == .standard }.count
         if lineless > 0 {
             notes.append("\(lineless) teams have no recorded spread or total this week and use a neutral 0 / 45 — edit them in Game context.")
         }
-        if !teams.values.contains(where: { $0.dvpSource == .sleeperDvP }) {
-            notes.append("IDP matchup (points an offense allows to LB/DL/DB) needs \(DefenseVsPosition.defaultMinimumGames) games per offense before it is used, so it is neutral for now unless edited or imported.")
-        }
-        notes.append("Spread and total are recorded closing lines from the schedule file, not live odds. Opponent pass protection is neutral unless edited.")
+        notes += Kind.sourceNotes(teams: teams)
         if !unmodelledScoringKeys.isEmpty {
             notes.append("Your league also pays for \(unmodelledScoringKeys.joined(separator: ", ")); these are rare and not projected.")
         }
         notes.append("Priors and knobs are heuristic until backtested. Availability is read from your league's rosters.")
         return notes
     }
-}
-
-/// One row in the any-player pickers.
-public struct IDPPickerRow: Identifiable, Hashable, Sendable {
-    public let id: String
-    public let name: String
-    public let team: String?
-    public let platform: Position?
-    public let alignment: IDPSubPosition?
-    public let availability: Availability
-    /// `nil` until he has been projected this session.
-    public let projected: Double?
-}
-
-/// One completed game, for the comparison's recent-form rows.
-public struct IDPGameLine: Hashable, Sendable {
-    public let week: Int
-    public let opponent: String?
-    /// Scored in the league's own settings.
-    public let points: Double
-    public let snapShare: Double?
-    public let tackles: Double
-    public let sacks: Double
 }

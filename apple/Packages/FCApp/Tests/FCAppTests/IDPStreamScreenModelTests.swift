@@ -70,7 +70,7 @@ final class IDPStreamScreenModelTests: XCTestCase {
         let harness = Harness.make(transport: transport)
         cacheDirectory = harness.cacheDirectory
         let loader = LeagueContextLoader(sleeper: harness.sleeper, staticData: harness.staticData, now: TestClock.beforeKickoffs)
-        let model = IDPStreamScreenModel(loader: loader, store: IDPStreamStore(directory: storeDirectory))
+        let model = IDPStreamScreenModel(loader: loader, store: StreamStore(directory: storeDirectory))
         await model.load(leagueID: "L1", userRosterID: 1)
         return model
     }
@@ -82,7 +82,7 @@ final class IDPStreamScreenModelTests: XCTestCase {
     func testScoresInTheLeaguesOwnIDPScoring() async throws {
         let model = await model(try await transport())
         XCTAssertNil(model.errorMessage)
-        XCTAssertTrue(model.leagueHasIDP)
+        XCTAssertTrue(model.leagueStartsKind)
         XCTAssertEqual(model.scoring.solo, 2)
         XCTAssertEqual(model.scoring.ast, 1)
         XCTAssertEqual(model.scoring.qbHit, 0.5)
@@ -171,24 +171,24 @@ final class IDPStreamScreenModelTests: XCTestCase {
 
     func testSearchFindsDefendersAcrossRosters() async throws {
         let model = await model(try await transport())
-        let results = model.searchDefenders("johnson")
+        let results = model.searchPlayers("johnson")
         XCTAssertEqual(results.map(\.id), [Self.johnson])
         XCTAssertNil(results.first?.projected)
-        XCTAssertFalse(model.searchDefenders("starter").contains { $0.id == "qb1" }, "only defenders")
-        let browse = model.searchDefenders("")
+        XCTAssertFalse(model.searchPlayers("starter").contains { $0.id == "qb1" }, "only defenders")
+        let browse = model.searchPlayers("")
         XCTAssertFalse(browse.isEmpty)
         XCTAssertEqual(browse.compactMap(\.projected), browse.compactMap(\.projected).sorted(by: >))
     }
 
     func testSearchForgivesTyposWordOrderAndMatchesTeams() async throws {
         let model = await model(try await transport())
-        XCTAssertEqual(model.searchDefenders("Desjaun Jonson").first?.id, Self.johnson, "a typo in each word")
-        XCTAssertEqual(model.searchDefenders("bolten").first?.id, Self.bolton)
-        XCTAssertEqual(model.searchDefenders("curl rams").map(\.id), [Self.curl], "team name counts, any order")
-        XCTAssertEqual(model.searchDefenders("curl la").map(\.id), [Self.curl], "team code counts")
-        XCTAssertTrue(model.searchDefenders("curl chiefs").isEmpty)
+        XCTAssertEqual(model.searchPlayers("Desjaun Jonson").first?.id, Self.johnson, "a typo in each word")
+        XCTAssertEqual(model.searchPlayers("bolten").first?.id, Self.bolton)
+        XCTAssertEqual(model.searchPlayers("curl rams").map(\.id), [Self.curl], "team name counts, any order")
+        XCTAssertEqual(model.searchPlayers("curl la").map(\.id), [Self.curl], "team code counts")
+        XCTAssertTrue(model.searchPlayers("curl chiefs").isEmpty)
         // Every Giants defender, strongest projection first.
-        let giants = model.searchDefenders("giants")
+        let giants = model.searchPlayers("giants")
         XCTAssertTrue(giants.contains { $0.id == Self.carter })
         XCTAssertFalse(giants.contains { $0.id == Self.bolton })
     }

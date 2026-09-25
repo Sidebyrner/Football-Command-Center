@@ -88,59 +88,6 @@ public enum IDPSubPosition: String, Codable, CaseIterable, Sendable {
     }
 }
 
-/// Practice / game status, ordered roughly by how likely he is to play.
-public enum IDPPractice: String, Codable, CaseIterable, Sendable {
-    case none, FP, LP, DNP, Q, D, OUT, IR
-
-    /// P(plays) for each status.
-    public var playProbability: Double {
-        switch self {
-        case .none: return 0.97
-        case .FP: return 0.93
-        case .LP: return 0.80
-        case .DNP: return 0.55
-        case .Q: return 0.70
-        case .D: return 0.20
-        case .OUT, .IR: return 0
-        }
-    }
-
-    public var label: String {
-        switch self {
-        case .none: return "No report"
-        case .FP: return "Full"
-        case .LP: return "Limited"
-        case .DNP: return "DNP"
-        case .Q: return "Questionable"
-        case .D: return "Doubtful"
-        case .OUT: return "Out"
-        case .IR: return "IR"
-        }
-    }
-}
-
-/// How much to reward variance. Favored this week → floor; the underdog → ceiling.
-public enum IDPRiskMode: String, Codable, CaseIterable, Sendable {
-    case floor, neutral, ceiling
-
-    /// Multiplier on SD added to expected points to form utility.
-    public var sdWeight: Double {
-        switch self {
-        case .floor: return -0.5
-        case .neutral: return -0.2
-        case .ceiling: return 0.2
-        }
-    }
-
-    public var label: String {
-        switch self {
-        case .floor: return "Floor (favored)"
-        case .neutral: return "Neutral"
-        case .ceiling: return "Ceiling (underdog)"
-        }
-    }
-}
-
 // MARK: - Priors and knobs
 
 /// Per-defensive-snap priors for one sub-position.
@@ -190,6 +137,15 @@ public enum IDPStreamKnobs {
     public static let rolePriorWeight = 0.25
     /// Below this many snaps the conversion sample is flagged as thin.
     public static let thinSampleSnaps = 60.0
+
+    /// SD weight added to expected points to form utility, by risk setting.
+    public static func riskWeight(_ risk: StreamRiskMode) -> Double {
+        switch risk {
+        case .floor: return -0.5
+        case .neutral: return -0.2
+        case .ceiling: return 0.2
+        }
+    }
 }
 
 // MARK: - Scoring
@@ -295,7 +251,7 @@ public struct IDPCandidate: Codable, Identifiable, Sendable, Hashable {
     public var dvpPct: Double
     public var dvpGames: Int
     public var oppSackEnv: Double
-    public var practice: IDPPractice
+    public var practice: StreamPractice
     public var rosterPct: Double?
     public var available: Bool?
     public var notes: String
@@ -309,7 +265,7 @@ public struct IDPCandidate: Codable, Identifiable, Sendable, Hashable {
                 roleConf: Double = 0.7, statSnaps: Double = 0, solo: Double? = nil, ast: Double? = nil,
                 comb: Double? = nil, sacks: Double = 0, tfl: Double = 0, pd: Double = 0, int: Double = 0,
                 ff: Double = 0, qbHits: Double = 0, pressures: Double? = nil, dvpPct: Double = 0,
-                dvpGames: Int = 0, oppSackEnv: Double = 1, practice: IDPPractice = .none,
+                dvpGames: Int = 0, oppSackEnv: Double = 1, practice: StreamPractice = .none,
                 rosterPct: Double? = nil, available: Bool? = nil, notes: String = "",
                 sources: [String] = [], dataFlags: [String] = [], playerID: String? = nil) {
         self.name = name; self.team = team; self.position = position; self.opponent = opponent
@@ -362,7 +318,7 @@ public struct IDPCandidate: Codable, Identifiable, Sendable, Hashable {
             dvpPct: try c.decodeIfPresent(Double.self, forKey: .dvpPct) ?? 0,
             dvpGames: try c.decodeIfPresent(Int.self, forKey: .dvpGames) ?? 0,
             oppSackEnv: try c.decodeIfPresent(Double.self, forKey: .oppSackEnv) ?? 1,
-            practice: try c.decodeIfPresent(IDPPractice.self, forKey: .practice) ?? .none,
+            practice: try c.decodeIfPresent(StreamPractice.self, forKey: .practice) ?? .none,
             rosterPct: try c.decodeIfPresent(Double.self, forKey: .rosterPct),
             available: try c.decodeIfPresent(Bool.self, forKey: .available),
             notes: try c.decodeIfPresent(String.self, forKey: .notes) ?? "",
@@ -375,30 +331,7 @@ public struct IDPCandidate: Codable, Identifiable, Sendable, Hashable {
 
 // MARK: - Projection (output)
 
-/// A FAAB bid band as a share of budget, from the expected gain over the incumbent.
-public struct IDPBidBand: Codable, Sendable, Hashable {
-    public let lower: Double
-    public let upper: Double
-    public let label: String
-
-    public var isSpend: Bool { upper > 0.01 }
-
-    public static func forGain(_ gain: Double) -> IDPBidBand {
-        if gain < 1.5 { return IDPBidBand(lower: 0, upper: 0.01, label: "0–1% (don't spend)") }
-        if gain < 3.5 { return IDPBidBand(lower: 0.02, upper: 0.05, label: "2–5%") }
-        if gain < 6.0 { return IDPBidBand(lower: 0.06, upper: 0.10, label: "6–10%") }
-        return IDPBidBand(lower: 0.11, upper: 0.18, label: "11–18%")
-    }
-
-    /// Whole-dollar range against a remaining budget, e.g. "$6–10".
-    public func dollars(remaining: Int) -> String {
-        let lo = Int((Double(remaining) * lower).rounded(.down))
-        let hi = Int((Double(remaining) * upper).rounded(.up))
-        return lo == hi ? "$\(lo)" : "$\(lo)–\(hi)"
-    }
-}
-
-public struct IDPProjection: Codable, Identifiable, Sendable, Hashable {
+public struct IDPProjection: StreamProjection {
     public var id: String { playerID ?? name }
     public var name: String
     public var team: String
@@ -427,7 +360,7 @@ public struct IDPProjection: Codable, Identifiable, Sendable, Hashable {
     public var ceilingP75: Double
     public var utility: Double
     public var roleConf: Double
-    public var practice: IDPPractice
+    public var practice: StreamPractice
     public var rosterPct: Double?
     public var available: Bool?
     public var flags: [String]
@@ -436,108 +369,33 @@ public struct IDPProjection: Codable, Identifiable, Sendable, Hashable {
     public var explain: [String]
     public var pBeatIncumbent: Double?
     public var expGain: Double?
-    public var bidBand: IDPBidBand?
+    public var bidBand: StreamBidBand?
 
     public var platform: Position { position.platform }
+    public var roleLabel: String { position.label }
     public var expTackles: Double { eSolo + eAst }
 
     /// Expected count and points for each stat the league pays for, largest
     /// first. Sums to `meanIfPlays` — the projection if he plays.
-    public func pointsBreakdown(scoring: IDPScoring) -> [IDPStatPoints] {
+    public func pointsBreakdown(scoring: IDPScoring) -> [StreamStatPoints] {
         [
-            IDPStatPoints(stat: "Solo", count: eSolo, points: eSolo * scoring.solo),
-            IDPStatPoints(stat: "Assist", count: eAst, points: eAst * scoring.ast),
-            IDPStatPoints(stat: "Sack", count: eSack, points: eSack * scoring.sack),
-            IDPStatPoints(stat: "TFL", count: eTfl, points: eTfl * scoring.tfl),
-            IDPStatPoints(stat: "QB hit", count: eQbHit, points: eQbHit * scoring.qbHit),
-            IDPStatPoints(stat: "Pass def", count: ePd, points: ePd * scoring.pd),
-            IDPStatPoints(stat: "INT", count: eInt, points: eInt * scoring.int),
-            IDPStatPoints(stat: "FF", count: eFf, points: eFf * scoring.ff),
+            StreamStatPoints(stat: "Solo", count: eSolo, points: eSolo * scoring.solo),
+            StreamStatPoints(stat: "Assist", count: eAst, points: eAst * scoring.ast),
+            StreamStatPoints(stat: "Sack", count: eSack, points: eSack * scoring.sack),
+            StreamStatPoints(stat: "TFL", count: eTfl, points: eTfl * scoring.tfl),
+            StreamStatPoints(stat: "QB hit", count: eQbHit, points: eQbHit * scoring.qbHit),
+            StreamStatPoints(stat: "Pass def", count: ePd, points: ePd * scoring.pd),
+            StreamStatPoints(stat: "INT", count: eInt, points: eInt * scoring.int),
+            StreamStatPoints(stat: "FF", count: eFf, points: eFf * scoring.ff),
         ]
         .filter { $0.points != 0 }
         .sorted { $0.points > $1.points }
     }
 }
 
-public struct IDPStatPoints: Hashable, Sendable {
-    public let stat: String
-    public let count: Double
-    public let points: Double
-}
-
-/// Two to four defenders side by side, with every pairwise P(row beats column).
-public struct IDPComparison: Hashable, Sendable {
-    public let players: [IDPProjection]
-    /// `headToHead[i][j]` is P(players[i] outscores players[j]); `nil` on the diagonal.
-    public let headToHead: [[Double?]]
-
-    public init(players: [IDPProjection]) {
-        self.players = players
-        headToHead = players.indices.map { i in
-            players.indices.map { j in i == j ? nil : IDPStreamEngine.pBeat(players[i], players[j]) }
-        }
-    }
-
-    /// Who to start among the compared players, and how sure. `nil` with
-    /// fewer than two.
-    public var verdict: IDPComparisonVerdict? {
-        guard players.count > 1 else { return nil }
-        // The leader is the one with the best worst head-to-head, so a single
-        // high-variance projection cannot win on mean alone; ties go to E[pts].
-        let leader = players.indices.max { a, b in
-            let wa = worstHeadToHead(a), wb = worstHeadToHead(b)
-            return wa != wb ? wa < wb : players[a].expPts < players[b].expPts
-        }!
-        let others = players.indices.filter { $0 != leader }
-        let odds = others.map { (index: $0, pBeats: headToHead[leader][$0] ?? 0.5) }
-        let runnerUp = others.max { players[$0].expPts < players[$1].expPts }!
-        return IDPComparisonVerdict(
-            leader: leader,
-            odds: odds,
-            margin: players[leader].expPts - players[runnerUp].expPts,
-            runnerUp: runnerUp
-        )
-    }
-
-    private func worstHeadToHead(_ i: Int) -> Double {
-        headToHead[i].compactMap { $0 }.min() ?? 0.5
-    }
-}
-
-public struct IDPComparisonVerdict: Hashable, Sendable {
-    public struct Odds: Hashable, Sendable {
-        public let index: Int
-        public let pBeats: Double
-    }
-
-    /// Index into `IDPComparison.players`.
-    public let leader: Int
-    /// The leader's chance of outscoring each other player, in player order.
-    public let odds: [Odds]
-    /// Expected points over the next-best projection (can be negative when the
-    /// safer player is picked over a higher mean).
-    public let margin: Double
-    public let runnerUp: Int
-
-    init(leader: Int, odds: [(index: Int, pBeats: Double)], margin: Double, runnerUp: Int) {
-        self.leader = leader
-        self.odds = odds.map { Odds(index: $0.index, pBeats: $0.pBeats) }
-        self.margin = margin
-        self.runnerUp = runnerUp
-    }
-
-    /// How firm the call is, from the leader's closest head-to-head.
-    public var confidence: Confidence {
-        let closest = odds.map(\.pBeats).min() ?? 0.5
-        if closest >= 0.65 { return .clear }
-        if closest >= 0.55 { return .lean }
-        return .tossUp
-    }
-
-    public enum Confidence: String, Hashable, Sendable {
-        case clear, lean, tossUp
-    }
-}
+/// The shared decision-layer types, named for IDP call sites.
+public typealias IDPStreamReport = StreamReport<IDPProjection>
+public typealias IDPComparison = StreamComparison<IDPProjection>
 
 // MARK: - Engine
 
@@ -550,7 +408,6 @@ public enum IDPStreamEngine {
 
     static func clamp(_ x: Double, _ lo: Double, _ hi: Double) -> Double { max(lo, min(hi, x)) }
 
-    static func normalCDF(_ z: Double) -> Double { 0.5 * (1 + erf(z / 2.0.squareRoot())) }
 
     // Stage 1 — opportunity
 
@@ -631,7 +488,7 @@ public enum IDPStreamEngine {
 
     // Projection
 
-    public static func project(_ c: IDPCandidate, scoring: IDPScoring, risk: IDPRiskMode = .neutral) -> IDPProjection {
+    public static func project(_ c: IDPCandidate, scoring: IDPScoring, risk: StreamRiskMode = .neutral) -> IDPProjection {
         let prior = IDPStreamPriors.prior(for: c.position)
         let (plays, env) = expectedDefensivePlays(c)
         let share = projectedSnapShare(c)
@@ -664,7 +521,7 @@ public enum IDPStreamEngine {
         let z25 = 0.6745
         let floor = max(0, pPlay * (mean - z25 * sd))
         let ceiling = pPlay * (mean + z25 * sd)
-        let utility = expPts + risk.sdWeight * sd
+        let utility = expPts + IDPStreamKnobs.riskWeight(risk) * sd
 
         var flags = c.dataFlags
         if c.statSnaps < IDPStreamKnobs.thinSampleSnaps { flags.append("thin conversion sample") }
@@ -698,69 +555,16 @@ public enum IDPStreamEngine {
 
     private static func fmt(_ x: Double, _ places: Int) -> String { String(format: "%.\(places)f", x) }
 
-    // Decision layer
-
-    /// P(a outscores b), mixing over each player's play / no-play probability.
-    public static func pBeat(_ a: IDPProjection, _ b: IDPProjection) -> Double {
-        let da = [(a.pPlay, a.meanIfPlays, a.sdIfPlays), (1 - a.pPlay, 0.0, 0.01)]
-        let db = [(b.pPlay, b.meanIfPlays, b.sdIfPlays), (1 - b.pPlay, 0.0, 0.01)]
-        var total = 0.0
-        for (wa, ma, sa) in da {
-            for (wb, mb, sb) in db {
-                let spread = (sa * sa + sb * sb).squareRoot()
-                // Two certain outcomes (no scoring, so no variance): compare directly
-                // rather than divide by zero.
-                let win = spread > 0 ? normalCDF((ma - mb) / spread) : (ma > mb ? 1 : ma < mb ? 0 : 0.5)
-                total += wa * wb * win
-            }
-        }
-        return total
-    }
-
-    /// Adds the incumbent comparison and sorts by utility, best first.
-    public static func rank(_ projections: [IDPProjection], incumbent: IDPProjection?) -> [IDPProjection] {
-        var out = projections
-        if let incumbent {
-            for i in out.indices where out[i].id != incumbent.id {
-                let gain = out[i].expPts - incumbent.expPts
-                out[i].pBeatIncumbent = pBeat(out[i], incumbent)
-                out[i].expGain = gain
-                out[i].bidBand = .forGain(gain)
-            }
-        }
-        // Stable on ties so the order is reproducible.
-        return out.enumerated()
-            .sorted { $0.element.utility != $1.element.utility ? $0.element.utility > $1.element.utility : $0.offset < $1.offset }
-            .map(\.element)
-    }
-
     /// Projects, compares with the incumbent and ranks in one call.
     public static func report(candidates: [IDPCandidate], scoring: IDPScoring,
-                              incumbentID: String? = nil, risk: IDPRiskMode = .neutral,
+                              incumbentID: String? = nil, risk: StreamRiskMode = .neutral,
                               onlyAvailable: Bool = false) -> IDPStreamReport {
-        let projections = candidates.map { project($0, scoring: scoring, risk: risk) }
-        let incumbent = incumbentID.flatMap { id in projections.first { $0.id == id } }
-        var ranked = rank(projections, incumbent: incumbent)
-        if onlyAvailable {
-            ranked = ranked.filter { $0.available != false || $0.id == incumbent?.id }
-        }
-        let incumbentRow = incumbent.flatMap { inc in ranked.first { $0.id == inc.id } } ?? incumbent
-        return IDPStreamReport(ranked: ranked.filter { $0.id != incumbentRow?.id }, incumbent: incumbentRow)
-    }
-}
-
-public struct IDPStreamReport: Codable, Sendable, Hashable {
-    /// Every projected defender except the incumbent, best utility first.
-    public let ranked: [IDPProjection]
-    public let incumbent: IDPProjection?
-
-    public init(ranked: [IDPProjection], incumbent: IDPProjection?) {
-        self.ranked = ranked
-        self.incumbent = incumbent
+        StreamDecision.report(
+            projections: candidates.map { project($0, scoring: scoring, risk: risk) },
+            incumbentID: incumbentID, onlyAvailable: onlyAvailable
+        )
     }
 
-    public func ranked(at position: Position?) -> [IDPProjection] {
-        guard let position else { return ranked }
-        return ranked.filter { $0.platform == position }
-    }
+    /// Kept for call sites and tests written against the IDP engine.
+    public static func pBeat(_ a: IDPProjection, _ b: IDPProjection) -> Double { StreamDecision.pBeat(a, b) }
 }

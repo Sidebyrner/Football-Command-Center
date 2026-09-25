@@ -73,7 +73,7 @@ final class IDPStreamParityTests: XCTestCase {
 final class IDPStreamEngineTests: XCTestCase {
     private let scoring = IDPScoring(solo: 2, ast: 1, sack: 5, tfl: 2)
 
-    private func candidate(practice: IDPPractice = .none, statSnaps: Double = 0, dvpPct: Double = 0,
+    private func candidate(practice: StreamPractice = .none, statSnaps: Double = 0, dvpPct: Double = 0,
                            dvpGames: Int = 0) -> IDPCandidate {
         IDPCandidate(name: "Test LB", team: "TEN", position: .lb, opponent: "@NYG",
                      teamDefPlays: 124, teamGames: 2, snapShareLast1: 1, snapShareLast3: 1,
@@ -130,8 +130,8 @@ final class IDPStreamEngineTests: XCTestCase {
     }
 
     func testBidBandDollars() {
-        XCTAssertEqual(IDPBidBand.forGain(7).dollars(remaining: 100), "$11–18")
-        XCTAssertFalse(IDPBidBand.forGain(1).isSpend)
+        XCTAssertEqual(StreamBidBand.forGain(7).dollars(remaining: 100), "$11–18")
+        XCTAssertFalse(StreamBidBand.forGain(1).isSpend)
     }
 }
 
@@ -187,7 +187,7 @@ final class IDPStreamDegenerateTests: XCTestCase {
 final class IDPComparisonTests: XCTestCase {
     private let scoring = IDPScoring(solo: 2, ast: 1, sack: 5, tfl: 2, int: 5, ff: 3, qbHit: 0.5)
 
-    private func player(_ id: String, share: Double, practice: IDPPractice = .none) -> IDPProjection {
+    private func player(_ id: String, share: Double, practice: StreamPractice = .none) -> IDPProjection {
         let c = IDPCandidate(name: id, team: "KC", position: .edge, opponent: "@MIA", teamDefPlays: 130, teamGames: 2,
                              snapShareLast1: share, snapShareLast3: share, roleConf: 0.8, statSnaps: 120,
                              solo: 6, ast: 4, sacks: 1, tfl: 2, qbHits: 3, practice: practice, playerID: id)
@@ -215,7 +215,7 @@ final class IDPComparisonTests: XCTestCase {
     }
 }
 
-final class IDPComparisonVerdictTests: XCTestCase {
+final class StreamVerdictTests: XCTestCase {
     private let scoring = IDPScoring(solo: 2, ast: 1, sack: 5, tfl: 2)
 
     private func player(_ id: String, share: Double, roleConf: Double = 0.85) -> IDPProjection {

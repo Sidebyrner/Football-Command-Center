@@ -3,8 +3,8 @@ import FCCore
 
 /// Frozen runs, newest first. One a day is saved automatically; frozen ones
 /// are the Tuesday-night and Sunday-morning runs saved by hand.
-struct IDPSnapshotsView: View {
-    @ObservedObject var model: IDPStreamScreenModel
+struct StreamSnapshotsView<Kind: StreamKind>: View {
+    @ObservedObject var model: StreamScreenModel<Kind>
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -17,7 +17,7 @@ struct IDPSnapshotsView: View {
                 Section(key) {
                     ForEach(rows) { summary in
                         NavigationLink {
-                            IDPSnapshotDetailView(model: model, summary: summary)
+                            StreamSnapshotDetailView(model: model, summary: summary)
                         } label: {
                             HStack {
                                 Label(summary.asOf.formatted(date: .abbreviated, time: .shortened),
@@ -43,7 +43,7 @@ struct IDPSnapshotsView: View {
         }
     }
 
-    private var groupedWeeks: [(String, [IDPSnapshotSummary])] {
+    private var groupedWeeks: [(String, [StreamSnapshotSummary])] {
         let groups = Dictionary(grouping: model.snapshots) { "\($0.season) · Week \($0.week)" }
         return groups
             .map { ($0.key, $0.value.sorted { $0.asOf > $1.asOf }) }
@@ -52,10 +52,10 @@ struct IDPSnapshotsView: View {
 }
 
 /// A frozen run, read-only, exactly as it was on screen.
-struct IDPSnapshotDetailView: View {
-    @ObservedObject var model: IDPStreamScreenModel
-    let summary: IDPSnapshotSummary
-    @State private var snapshot: IDPStreamSnapshot?
+struct StreamSnapshotDetailView<Kind: StreamKind>: View {
+    @ObservedObject var model: StreamScreenModel<Kind>
+    let summary: StreamSnapshotSummary
+    @State private var snapshot: StreamSnapshot<Kind>?
     @State private var missing = false
 
     var body: some View {
@@ -72,7 +72,7 @@ struct IDPSnapshotDetailView: View {
                     ForEach(Array(snapshot.report.ranked.filter { $0.available != false }.prefix(30).enumerated()), id: \.element.id) { offset, row in
                         HStack {
                             Text("\(offset + 1)").font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(width: 22, alignment: .trailing)
-                            PositionChip(position: row.platform, label: row.position.label)
+                            PositionChip(position: row.platform, label: row.roleLabel)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(row.name).font(.subheadline.weight(.medium))
                                 Text("\(row.team) \(row.opponent)").font(.caption2).foregroundStyle(.secondary)
