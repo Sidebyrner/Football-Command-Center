@@ -4,9 +4,10 @@ import CoreGraphics
 /// The workspace grid's arithmetic, kept pure so snapping, collisions and
 /// auto-arrange are unit tested without a view.
 ///
-/// Collision policy is reject-and-snap-back: a move or resize that would
-/// overlap another panel, or leave the grid, is not committed. Nothing is ever
-/// pushed out of the way, so a layout only changes where the user put it.
+/// Collision policy is push-and-float, the Grafana/gridstack model: the panel
+/// being moved or resized goes exactly where it's put, anything in its way is
+/// pushed straight down just far enough to clear it, and everything floats
+/// back up to fill gaps. Nothing ever overlaps and nothing moves sideways.
 public enum WorkspaceGeometry {
     public static let columns = 12
     public static let rowHeight: CGFloat = 96
@@ -102,6 +103,73 @@ public enum WorkspaceGeometry {
         // Back in the caller's order, so identity and z-order don't shuffle.
         let byID = Dictionary(uniqueKeysWithValues: placed.map { ($0.id, $0) })
         return panels.compactMap { byID[$0.id] }
+    }
+
+    // MARK: - Push and float
+
+    /// The layout with one panel placed exactly at `rect`: every other panel,
+    /// in reading order, floats up as far as it can and is then pushed down
+    /// below anything it would overlap. Always collision-free.
+    public static func layout(_ panels: [PanelPlacement], pinning id: UUID, at rect: GridRect) -> [PanelPlacement] {
+        guard let pinned = panels.first(where: { $0.id == id }) else { return panels }
+        var moved = pinned
+        moved.frame = rect
+        var placed: [PanelPlacement] = [moved]
+        let others = panels.enumerated()
+            .filter { $0.element.id != id }
+            .sorted { ($0.element.frame.y, $0.element.frame.x, $0.offset) < ($1.element.frame.y, $1.element.frame.x, $1.offset) }
+            .map(\.element)
+        for var panel in others {
+            panel.frame = settled(panel.frame, among: placed)
+            placed.append(panel)
+        }
+        let byID = Dictionary(uniqueKeysWithValues: placed.map { ($0.id, $0) })
+        return panels.compactMap { byID[$0.id] }
+    }
+
+    /// `layout` with a panel that isn't on the grid yet — a drop from the tray.
+    public static func inserting(_ panel: PanelPlacement, at rect: GridRect, into panels: [PanelPlacement]) -> [PanelPlacement] {
+        var added = panel
+        added.frame = rect
+        return layout(panels + [added], pinning: added.id, at: rect)
+    }
+
+    /// Gravity after a drop: everything, the dropped panel included, floats up.
+    public static func settle(_ panels: [PanelPlacement]) -> [PanelPlacement] {
+        compacted(panels)
+    }
+
+    /// Floats a frame up as far as it's free, then pushes it down below any
+    /// panel it still overlaps.
+    private static func settled(_ frame: GridRect, among placed: [PanelPlacement]) -> GridRect {
+        var rect = frame
+        while rect.y > 0 {
+            var up = rect
+            up.y -= 1
+            guard !placed.contains(where: { $0.frame.intersects(up) }) else { break }
+            rect = up
+        }
+        while let blocker = placed.filter({ $0.frame.intersects(rect) }).max(by: { $0.frame.maxY < $1.frame.maxY }) {
+            rect.y = blocker.frame.maxY
+        }
+        return rect
+    }
+
+    /// The grid cell under a point in the canvas, clamped to the grid.
+    public static func cell(at point: CGPoint, cellWidth: CGFloat) -> (x: Int, y: Int) {
+        let x = Int((point.x / (cellWidth + gutter)).rounded(.down))
+        let y = Int((point.y / (rowHeight + gutter)).rounded(.down))
+        return (min(max(x, 0), columns - 1), max(y, 0))
+    }
+
+    /// Several new panels at their default sizes, each in the first free slot.
+    public static func appending(_ kinds: [PanelKind], into panels: [PanelPlacement],
+                                 link: (PanelKind) -> LinkGroup?) -> [PanelPlacement] {
+        var out = panels
+        for kind in kinds {
+            out.append(PanelPlacement(kind: kind, frame: firstFreeSlot(size: kind.defaultSize, in: out), linkGroup: link(kind)))
+        }
+        return out
     }
 
     public enum Issue: Hashable, Sendable {

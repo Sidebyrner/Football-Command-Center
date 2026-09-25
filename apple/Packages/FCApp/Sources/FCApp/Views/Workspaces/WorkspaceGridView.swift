@@ -3,9 +3,9 @@ import SwiftUI
 /// The workspace canvas: panels on a 12-column snap grid.
 ///
 /// Locked, it's a dashboard — the panels are live and nothing moves. Unlocked,
-/// each panel's title bar drags it and its corner resizes it; a ghost shows
-/// where it will land, green when the spot is free and red when it isn't, and
-/// a drop that would overlap snaps back.
+/// each panel's title bar drags it and its corner resizes it. The panel goes
+/// exactly where it's put: anything in the way slides down to make room while
+/// you drag, and everything floats back up to fill the gaps.
 struct WorkspaceGridView: View {
     let workspace: Workspace
     let editing: Bool
@@ -26,7 +26,9 @@ struct WorkspaceGridView: View {
         let origin: GridRect
         var translation: CGSize
         var candidate: GridRect
-        var isFree: Bool
+        /// Where every panel sits if the drag ended now — the others already
+        /// pushed out of the way.
+        var preview: [PanelPlacement]
     }
 
     @Environment(\.workspaceStaticWidth) private var staticWidth
@@ -60,7 +62,7 @@ struct WorkspaceGridView: View {
                 panelCell(panel, cellWidth: cellWidth)
             }
             if let drag {
-                ghost(drag, cellWidth: cellWidth)
+                ghost(drag.candidate, cellWidth: cellWidth)
             }
         }
         .frame(width: width, height: height, alignment: .topLeading)
@@ -70,9 +72,12 @@ struct WorkspaceGridView: View {
 
     // MARK: - Layout
 
+    /// The panels as drawn: the drag's preview while dragging.
+    private var shown: [PanelPlacement] { drag?.preview ?? workspace.panels }
+
     /// Room below the lowest panel while editing, so there's somewhere to drag to.
     private var rows: Int {
-        var rows = WorkspaceGeometry.rows(workspace.panels) + (editing ? 2 : 0)
+        var rows = WorkspaceGeometry.rows(shown) + (editing ? 2 : 0)
         if let drag { rows = max(rows, drag.candidate.maxY + 1) }
         return rows
     }
@@ -83,8 +88,11 @@ struct WorkspaceGridView: View {
 
     @ViewBuilder
     private func panelCell(_ panel: PanelPlacement, cellWidth: CGFloat) -> some View {
-        let frame = WorkspaceGeometry.frame(panel.frame, cellWidth: cellWidth)
         let active = drag?.id == panel.id ? drag : nil
+        // The dragged panel follows the pointer from where it started; the
+        // rest sit where the preview has pushed them.
+        let rect = active != nil ? panel.frame : (drag?.preview.first { $0.id == panel.id }?.frame ?? panel.frame)
+        let frame = WorkspaceGeometry.frame(rect, cellWidth: cellWidth)
         let size = liveSize(frame: frame, active: active, kind: panel.kind, cellWidth: cellWidth)
         PanelHost(
             placement: panel,
@@ -107,6 +115,8 @@ struct WorkspaceGridView: View {
             x: frame.minX + (active?.mode == .move ? active!.translation.width : 0),
             y: frame.minY + (active?.mode == .move ? active!.translation.height : 0)
         )
+        // Pushed panels glide; the one under the pointer tracks it exactly.
+        .animation(active != nil ? nil : .snappy(duration: 0.22), value: rect)
         .zIndex(active != nil ? 2 : 0)
         .shadow(color: .black.opacity(active != nil ? 0.18 : 0), radius: 16, y: 8)
     }
@@ -123,20 +133,20 @@ struct WorkspaceGridView: View {
         )
     }
 
-    private func ghost(_ drag: DragState, cellWidth: CGFloat) -> some View {
-        let frame = WorkspaceGeometry.frame(drag.candidate, cellWidth: cellWidth)
-        let tint = drag.isFree ? Palette.start : Palette.sit
+    /// Where the panel will land.
+    func ghost(_ rect: GridRect, cellWidth: CGFloat) -> some View {
+        let frame = WorkspaceGeometry.frame(rect, cellWidth: cellWidth)
         return RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .fill(tint.opacity(0.10))
+            .fill(Color.accentColor.opacity(0.10))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(tint.opacity(0.8), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                    .strokeBorder(Color.accentColor.opacity(0.8), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
             )
             .frame(width: frame.width, height: frame.height)
             .offset(x: frame.minX, y: frame.minY)
             .zIndex(1)
             .allowsHitTesting(false)
-            .animation(.snappy(duration: 0.14), value: drag.candidate)
+            .animation(.snappy(duration: 0.14), value: rect)
     }
 
     // MARK: - Editing
@@ -149,42 +159,48 @@ struct WorkspaceGridView: View {
         case .resize:
             candidate = WorkspaceGeometry.snappedResize(panel.frame, by: translation, cellWidth: cellWidth, min: panel.kind.minSize)
         }
-        let free = WorkspaceGeometry.isFree(candidate, in: workspace.panels, excluding: panel.id)
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            if drag?.id != panel.id { selectedPanelID = panel.id }
-            drag = DragState(id: panel.id, mode: mode, origin: panel.frame, translation: translation,
-                             candidate: candidate, isFree: free)
-        }
+        if drag?.id != panel.id { selectedPanelID = panel.id }
+        // The push is only worked out again when the snapped cell changes,
+        // not on every pointer move.
+        let preview = drag?.id == panel.id && drag?.candidate == candidate
+            ? drag!.preview
+            : WorkspaceGeometry.layout(workspace.panels, pinning: panel.id, at: candidate)
+        drag = DragState(id: panel.id, mode: mode, origin: panel.frame, translation: translation,
+                         candidate: candidate, preview: preview)
     }
 
     private func dragEnded() {
         guard let drag else { return }
         withAnimation(Motion.snappy) {
-            if drag.isFree, drag.candidate != drag.origin {
-                onUpdate { ws in ws.update(drag.id) { $0.frame = drag.candidate } }
+            if drag.candidate != drag.origin {
+                let settled = WorkspaceGeometry.settle(drag.preview)
+                onUpdate { ws in ws.panels = settled }
             }
             self.drag = nil
         }
     }
 
-    /// Keyboard and VoiceOver: move or resize by one cell, if the spot is free.
+    /// Keyboard and VoiceOver: move or resize by one cell, pushing whatever
+    /// is in the way.
     private func nudge(_ panel: PanelPlacement, dx: Int, dy: Int, dw: Int, dh: Int) {
         var rect = panel.frame
         rect.x += dx
         rect.y += dy
         rect.w = max(rect.w + dw, panel.kind.minSize.w)
         rect.h = max(rect.h + dh, panel.kind.minSize.h)
-        guard rect != panel.frame, WorkspaceGeometry.isFree(rect, in: workspace.panels, excluding: panel.id) else { return }
+        guard rect != panel.frame, WorkspaceGeometry.fits(rect) else { return }
+        let settled = WorkspaceGeometry.settle(WorkspaceGeometry.layout(workspace.panels, pinning: panel.id, at: rect))
         withAnimation(Motion.snappy) {
-            onUpdate { ws in ws.update(panel.id) { $0.frame = rect } }
+            onUpdate { ws in ws.panels = settled }
         }
     }
 
     private func remove(_ id: UUID) {
         withAnimation(Motion.snappy) {
-            onUpdate { ws in ws.panels.removeAll { $0.id == id } }
+            onUpdate { ws in
+                ws.panels.removeAll { $0.id == id }
+                ws.panels = WorkspaceGeometry.settle(ws.panels)
+            }
             if selectedPanelID == id { selectedPanelID = nil }
         }
     }

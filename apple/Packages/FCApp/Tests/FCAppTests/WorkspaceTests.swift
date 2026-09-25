@@ -56,6 +56,84 @@ final class WorkspaceGeometryTests: XCTestCase {
         XCTAssertEqual(WorkspaceGeometry.compacted(tidy), tidy, "idempotent")
     }
 
+    // MARK: Push and float
+
+    private func frame(_ panels: [PanelPlacement], _ panel: PanelPlacement) -> GridRect? {
+        panels.first { $0.id == panel.id }?.frame
+    }
+
+    func testWideningIntoANeighbourPushesItDownAndShrinkingFloatsItBack() {
+        let a = panel(0, 0, 6, 2)
+        let b = panel(6, 0, 6, 2)
+        let wide = WorkspaceGeometry.layout([a, b], pinning: a.id, at: GridRect(x: 0, y: 0, w: 8, h: 2))
+        XCTAssertEqual(frame(wide, a), GridRect(x: 0, y: 0, w: 8, h: 2), "the resized panel is exactly where it was put")
+        XCTAssertEqual(frame(wide, b), GridRect(x: 6, y: 2, w: 6, h: 2), "the neighbour slides straight down, keeping its column")
+        XCTAssertTrue(WorkspaceGeometry.validate(wide).isEmpty)
+
+        let narrowAgain = WorkspaceGeometry.layout(wide, pinning: a.id, at: GridRect(x: 0, y: 0, w: 6, h: 2))
+        XCTAssertEqual(frame(narrowAgain, b), GridRect(x: 6, y: 0, w: 6, h: 2), "room again, so it floats back up")
+    }
+
+    func testPushesChainDownTheColumn() {
+        let a = panel(0, 0, 4, 2)
+        let b = panel(0, 2, 4, 2)
+        let c = panel(0, 4, 4, 2)
+        let taller = WorkspaceGeometry.layout([a, b, c], pinning: a.id, at: GridRect(x: 0, y: 0, w: 4, h: 3))
+        XCTAssertEqual(frame(taller, b)?.y, 3)
+        XCTAssertEqual(frame(taller, c)?.y, 5)
+        XCTAssertTrue(WorkspaceGeometry.validate(taller).isEmpty)
+    }
+
+    func testMovingOntoAPanelSwapsThemVertically() {
+        let a = panel(0, 0, 6, 2)
+        let b = panel(0, 2, 6, 2)
+        let moved = WorkspaceGeometry.settle(WorkspaceGeometry.layout([a, b], pinning: b.id, at: GridRect(x: 0, y: 0, w: 6, h: 2)))
+        XCTAssertEqual(frame(moved, b)?.y, 0)
+        XCTAssertEqual(frame(moved, a)?.y, 2)
+    }
+
+    func testPanelsBesideTheChangeAreLeftAlone() {
+        let a = panel(0, 0, 4, 2)
+        let b = panel(4, 0, 4, 2)
+        let c = panel(8, 0, 4, 4)
+        let taller = WorkspaceGeometry.layout([a, b, c], pinning: a.id, at: GridRect(x: 0, y: 0, w: 4, h: 5))
+        XCTAssertEqual(frame(taller, b), b.frame)
+        XCTAssertEqual(frame(taller, c), c.frame)
+    }
+
+    func testAnyDragLeavesAValidLayoutAndSettlingIsStable() {
+        let panels = WorkspacePresets.discovery.panels()
+        for target in panels {
+            for rect in [GridRect(x: 0, y: 0, w: 12, h: 3), GridRect(x: 5, y: 2, w: 7, h: 6), GridRect(x: 8, y: 20, w: 4, h: 4)] {
+                let result = WorkspaceGeometry.settle(WorkspaceGeometry.layout(panels, pinning: target.id, at: rect))
+                XCTAssertEqual(WorkspaceGeometry.validate(result).filter { if case .belowMinimum = $0 { return false }; return true }, [])
+                XCTAssertEqual(WorkspaceGeometry.settle(result), result)
+                XCTAssertEqual(result.count, panels.count)
+            }
+        }
+    }
+
+    func testInsertingAndAppending() {
+        let a = panel(0, 0, 12, 2)
+        let new = PanelPlacement(kind: .news, frame: GridRect(x: 0, y: 0, w: 1, h: 1))
+        let inserted = WorkspaceGeometry.inserting(new, at: GridRect(x: 3, y: 0, w: 4, h: 2), into: [a])
+        XCTAssertEqual(frame(inserted, new), GridRect(x: 3, y: 0, w: 4, h: 2))
+        XCTAssertEqual(frame(inserted, a)?.y, 2, "the full-width panel moves down for the drop")
+
+        let appended = WorkspaceGeometry.appending([.news, .standings, .injuries], into: [a], link: { _ in .one })
+        XCTAssertEqual(appended.count, 4)
+        XCTAssertTrue(WorkspaceGeometry.validate(appended).isEmpty)
+        XCTAssertEqual(appended.last?.linkGroup, .one)
+    }
+
+    func testDropPointsMapToCells() {
+        let cell: CGFloat = 80   // pitch 92 across, 108 down
+        XCTAssertTrue(WorkspaceGeometry.cell(at: CGPoint(x: 0, y: 0), cellWidth: cell) == (0, 0))
+        XCTAssertTrue(WorkspaceGeometry.cell(at: CGPoint(x: 91, y: 107), cellWidth: cell) == (0, 0))
+        XCTAssertTrue(WorkspaceGeometry.cell(at: CGPoint(x: 92, y: 108), cellWidth: cell) == (1, 1))
+        XCTAssertTrue(WorkspaceGeometry.cell(at: CGPoint(x: 5_000, y: -40), cellWidth: cell) == (11, 0), "clamped to the grid")
+    }
+
     func testRepairFixesOverlapsSizesAndBounds() {
         let a = panel(0, 0, 2, 1, kind: .sitStart)   // below sitStart's 4x3 minimum
         let b = panel(1, 0, 4, 2)       // overlaps a
