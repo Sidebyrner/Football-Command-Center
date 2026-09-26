@@ -56,6 +56,8 @@ public struct RootView: View {
             self = match
         }
 
+        /// The iPhone's glanceable dashboard. The desktop has workspaces.
+        case board = "Board"
         case dashboard = "My Team"
         case injuries = "Injuries"
         case discovery = "Discover"
@@ -76,6 +78,7 @@ public struct RootView: View {
 
         var systemImage: String {
             switch self {
+            case .board: return "square.grid.2x2"
             case .planning: return "calendar.badge.exclamationmark"
             case .dashboard: return "person.crop.square"
             case .injuries: return "cross.case"
@@ -97,7 +100,7 @@ public struct RootView: View {
         /// Which sidebar group this screen sits under on desktop.
         var section: SidebarSection {
             switch self {
-            case .dashboard, .sitStart, .injuries: return .team
+            case .board, .dashboard, .sitStart, .injuries: return .team
             case .matchup: return .week
             case .planning, .waivers, .trades, .idpStream, .wrStream, .rbStream, .discovery, .qbStream, .dstStream, .kStream:
                 return .market
@@ -108,7 +111,7 @@ public struct RootView: View {
         /// Every screen except Settings, which becomes a `Settings` scene on
         /// macOS rather than a sidebar row — not yet built, so it stays here
         /// for now and is filtered only where noted.
-        static var sidebarCases: [Screen] { allCases }
+        static var sidebarCases: [Screen] { allCases.filter { $0 != .board } }
     }
 
     public var body: some View {
@@ -152,7 +155,7 @@ public struct RootView: View {
 
     // MARK: - Layouts
 
-    /// Five hubs — Team · Lineup · Injuries · Market · Streams — so nothing
+    /// Five hubs — Board · Team · Lineup · Market · Streams — so nothing
     /// hides under "More". Each hub switches its screens with a segment bar.
     private var phoneLayout: some View {
         TabView(selection: $router.phoneHub) {
@@ -169,8 +172,7 @@ public struct RootView: View {
     private func hubTab(_ hub: PhoneHub) -> some View {
         let content = PhoneHubView(hub: hub, router: router) { screen in view(for: screen) }
         switch hub {
-        case .injuries: InjuryHubBadge(model: services.injuries) { content }
-        case .lineup: LineupHubBadge(model: services.sitStart) { content }
+        case .lineup: LineupTabBadge(sitStart: services.sitStart, injuries: services.injuries) { content }
         default: content
         }
     }
@@ -212,6 +214,8 @@ public struct RootView: View {
     @ViewBuilder
     private func view(for screen: Screen) -> some View {
         switch screen {
+        case .board:
+            if settingsModel.settings.isConfigured { BoardView(services: services) } else { needsSetup }
         case .planning:
             if settingsModel.settings.isConfigured {
                 PlanningView(

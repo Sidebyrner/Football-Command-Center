@@ -44,7 +44,7 @@ final class Composition: ObservableObject {
 
     /// Debug-only `-FCCTab <screen>` opens a specific tab, and
     /// `-FCCTab workspace:<preset-id>` a workspace, for screenshots and UI
-    /// tests. Release builds always open on the Dashboard.
+    /// tests. Release builds open on the Board on iPhone, My Team elsewhere.
     static func initialSelection(in store: WorkspaceStore) -> SidebarItem {
         #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
@@ -60,7 +60,11 @@ final class Composition: ObservableObject {
             }
         }
         #endif
+        #if os(iOS)
+        return .screen(PhoneHub.launchScreen(isPhone: UIDevice.current.userInterfaceIdiom == .phone))
+        #else
         return .screen(.dashboard)
+        #endif
     }
 
     /// The app's clock. Debug-only `-FCCNow <ISO8601>` fixes it; the demo league

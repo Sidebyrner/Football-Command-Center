@@ -440,9 +440,11 @@ accent. All of it is compiled out of Release.
   panel from the library and locks again, adds two panels from the tray and
   two at once from the sheet, and switches to Waiver Tuesday.
   Skipped on iPhone.
-- **Hubs on iPhone** — five tabs and no More, segments switch and are
-  remembered, a deep link lands on its hub and segment, and Team's gear opens
-  Settings.
+- **Hubs on iPhone** — five tabs (Board first) and no More, segments switch
+  and are remembered, a deep link lands on its hub and segment (injuries in
+  Lineup), and Team's gear opens Settings.
+- **Board on iPhone** — the app opens on it, a tile opens its screen, and a
+  tile hidden in Edit stays hidden after a relaunch.
 - **Discover on iPhone** — the list renders, a player's page opens, and
   nothing on either is wider than the phone.
 - **Screenshot tour** — walks every screen and mode and saves images to
@@ -479,15 +481,33 @@ and iPad, and as workspace panels.
 
 ## iPhone layout
 
-Five tabs, so nothing hides under More: **Team** (My Team, with Settings on a
-gear), **Lineup** (Sit/Start · Matchup), **Injuries**, **Market** (Discover ·
-Waivers · Trades · Planning) and **Streams** (QB · RB · WR · K · D/ST · IDP). A segment bar
+Five tabs, so nothing hides under More: **Board** (where the app opens),
+**Team** (My Team, with Settings on a gear and a card back to the Board),
+**Lineup** (Sit/Start · Matchup · Injuries), **Market** (Discover · Waivers ·
+Trades · Planning) and **Streams** (QB · RB · WR · K · D/ST · IDP). A segment bar
 under the title switches a hub's screens; each segment keeps its own
 navigation stack and scroll position, and a hub reopens on the segment you
-left it on. Lineup's badge counts the changes Sit/Start recommends and
-Injuries' counts starters who can't play. `-FCCTab <screen>` deep links land
-on the right hub and segment. Mac and iPad keep one sidebar row per screen;
-a compact-width iPad uses the hubs.
+left it on. Lineup's badge counts the changes Sit/Start recommends plus the
+starters injury rules out. `-FCCTab <screen>` deep links land on the right
+hub and segment. Mac and iPad keep one sidebar row per screen (and no
+Board — they have workspaces); a compact-width iPad uses the hubs.
+
+**The Board** is the week at a glance as tiles: the live matchup score, your
+players' NFL games (quarter, clock, possession, red zone; before kickoff the
+channel, spread and wind), lineup readiness, injuries, the best stream at
+each position the league starts, the top pickup, standings, weekly scoring
+against the league average, byes and news. Each tile opens its screen. Edit
+shows, hides and reorders tiles (kept on the device, `board.layout.v1`);
+tiles added in a later version appear at the end.
+
+**Live game day.** Game states come from Sleeper's undocumented, keyless
+`/scores/nfl/regular/{season}/{week}` (score, quarter, clock, possession,
+down and distance, red zone, spread, pregame win chance), labelled as such
+and failing soft to matchup points alone. One loop at the root
+(`liveUpdates`) refreshes matchup points and game states every minute while
+a game may be on (kickoff to four hours after, until Sleeper calls the games
+final), sleeps until the next kickoff otherwise (at most 15 minutes), and
+pauses in the background.
 
 ## Look and feel
 

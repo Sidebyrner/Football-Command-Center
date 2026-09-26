@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		02B38396DF9CA4BBB01FFD0E /* BoardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE2C5C141C6F3BC6A6A93000 /* BoardUITests.swift */; };
 		0493E02E017351C43CBC13A2 /* injuries-2026.json in Resources */ = {isa = PBXBuildFile; fileRef = 088AEC83EA801C0A455B4F4A /* injuries-2026.json */; };
 		12B0C7F459B78B3CD6E94399 /* HubNavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF03C5063CED82E4244C8853 /* HubNavigationUITests.swift */; };
 		1C3F5ECE34B0CB7DD601206B /* cohorts.json in Resources */ = {isa = PBXBuildFile; fileRef = 4F855745678D2A4762309A3D /* cohorts.json */; };
@@ -62,6 +63,7 @@
 		9634B2AC4C70B005FE918E16 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A6FE8C13A6F8AF02B7647613 /* weekly-2025.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "weekly-2025.json"; sourceTree = "<group>"; };
 		A86246221C6E59445252612F /* adp.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = adp.json; sourceTree = "<group>"; };
+		AE2C5C141C6F3BC6A6A93000 /* BoardUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardUITests.swift; sourceTree = "<group>"; };
 		AFCA1C7440DE5256738B3BA2 /* FantasyCommandCenterUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FantasyCommandCenterUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6533B5F69B6D0F99518954D /* WorkspaceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceUITests.swift; sourceTree = "<group>"; };
 		BF03C5063CED82E4244C8853 /* HubNavigationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubNavigationUITests.swift; sourceTree = "<group>"; };
@@ -105,6 +107,7 @@
 		104A93882A03F7D710B5BB42 /* UITests */ = {
 			isa = PBXGroup;
 			children = (
+				AE2C5C141C6F3BC6A6A93000 /* BoardUITests.swift */,
 				FF3B83A38E8E6068E5D55025 /* DemoLeagueUITests.swift */,
 				BF03C5063CED82E4244C8853 /* HubNavigationUITests.swift */,
 				C2D50E50340F706FFFCAD60B /* ScreenshotTourUITests.swift */,
@@ -279,6 +282,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				02B38396DF9CA4BBB01FFD0E /* BoardUITests.swift in Sources */,
 				A183CDACF435D438576BAC5E /* DemoLeagueUITests.swift in Sources */,
 				12B0C7F459B78B3CD6E94399 /* HubNavigationUITests.swift in Sources */,
 				7553489B3FA2E48E186480E5 /* ScreenshotTourUITests.swift in Sources */,

@@ -8,7 +8,7 @@ struct ReadinessCard: View {
     var body: some View {
         Button(action: onFix) {
             HStack(spacing: 16) {
-                ring
+                ReadinessRing(readiness: readiness)
                 VStack(alignment: .leading, spacing: 4) {
                     if readiness.isAllClear {
                         Label("Lineup set", systemImage: "checkmark.seal.fill")
@@ -38,37 +38,6 @@ struct ReadinessCard: View {
         .accessibilityLabel(accessibilitySummary)
     }
 
-    private var ring: some View {
-        let segments: [(Int, Color)] = [
-            (readiness.ready, Palette.start),
-            (readiness.settled, Color.secondary.opacity(0.45)),
-            (readiness.caution, Palette.caution),
-            (readiness.problems, Palette.sit),
-        ]
-        let total = max(1, readiness.slots)
-        return ZStack {
-            Circle().stroke(Palette.surfaceRaised, lineWidth: 9)
-            ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
-                let start = segments.prefix(index).reduce(0) { $0 + $1.0 }
-                Circle()
-                    .trim(from: CGFloat(start) / CGFloat(total), to: CGFloat(start + segment.0) / CGFloat(total))
-                    .stroke(segment.1, style: StrokeStyle(lineWidth: 9, lineCap: .butt))
-                    .rotationEffect(.degrees(-90))
-            }
-            VStack(spacing: 0) {
-                Text("\(readiness.ready + readiness.settled)")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .contentTransition(.numericText())
-                Text("of \(readiness.slots)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .frame(width: 72, height: 72)
-        .motion(Motion.number, value: readiness)
-    }
-
     private var legend: some View {
         VStack(alignment: .leading, spacing: 2) {
             if readiness.problems > 0 {
@@ -93,5 +62,44 @@ struct ReadinessCard: View {
     private var accessibilitySummary: String {
         if readiness.isAllClear { return "Lineup set. Nothing to fix before kickoff." }
         return "\(readiness.ready + readiness.settled) of \(readiness.slots) slots set. \(readiness.problems) need fixing, \(readiness.caution) questionable. Opens Sit/Start."
+    }
+}
+
+/// The readiness counts as a segmented ring — ready, already kicked off,
+/// questionable, needing a fix — with the set count in the middle.
+struct ReadinessRing: View {
+    let readiness: LineupReadiness
+    var size: CGFloat = 72
+    var lineWidth: CGFloat = 9
+
+    var body: some View {
+        let segments: [(Int, Color)] = [
+            (readiness.ready, Palette.start),
+            (readiness.settled, Color.secondary.opacity(0.45)),
+            (readiness.caution, Palette.caution),
+            (readiness.problems, Palette.sit),
+        ]
+        let total = max(1, readiness.slots)
+        return ZStack {
+            Circle().stroke(Palette.surfaceRaised, lineWidth: lineWidth)
+            ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
+                let start = segments.prefix(index).reduce(0) { $0 + $1.0 }
+                Circle()
+                    .trim(from: CGFloat(start) / CGFloat(total), to: CGFloat(start + segment.0) / CGFloat(total))
+                    .stroke(segment.1, style: StrokeStyle(lineWidth: lineWidth, lineCap: .butt))
+                    .rotationEffect(.degrees(-90))
+            }
+            VStack(spacing: 0) {
+                Text("\(readiness.ready + readiness.settled)")
+                    .font(.system(size: size * 0.3, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                Text("of \(readiness.slots)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: size, height: size)
+        .motion(Motion.number, value: readiness)
     }
 }

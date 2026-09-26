@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 @testable import FCApp
 
 final class ShellLayoutTests: XCTestCase {
@@ -50,5 +51,25 @@ final class PhoneHubTests: XCTestCase {
         router.open(.settings)
         XCTAssertEqual(router.phoneHub, .team)
         XCTAssertEqual(router.segment(in: .lineup), .matchup, "settings doesn't disturb other hubs")
+    }
+
+    func testTheBoardComesFirstAndInjuriesLiveInLineup() {
+        XCTAssertEqual(PhoneHub.allCases.map(\.title), ["Board", "Team", "Lineup", "Market", "Streams"])
+        XCTAssertEqual(PhoneHub.lineup.screens, [.sitStart, .matchup, .injuries])
+        let router = AppRouter(selection: .screen(.injuries))
+        XCTAssertEqual(router.phoneHub, .lineup, "an injuries deep link lands in Lineup")
+        XCTAssertEqual(router.segment(in: .lineup), .injuries)
+    }
+
+    func testThePhoneOpensOnTheBoardAndTheDesktopNeverListsIt() {
+        XCTAssertEqual(PhoneHub.launchScreen(isPhone: true), .board)
+        XCTAssertEqual(PhoneHub.launchScreen(isPhone: false), .dashboard)
+        XCTAssertEqual(AppRouter(selection: .screen(.board)).phoneHub, .board)
+        XCTAssertFalse(RootView.Screen.sidebarCases.contains(.board))
+    }
+
+    func testTheLineupBadgeCountsSwapsAndStartersRuledOut() {
+        XCTAssertEqual(LineupTabBadge<EmptyView>.count(changes: 2, blocked: 1), 3)
+        XCTAssertEqual(LineupTabBadge<EmptyView>.count(changes: 0, blocked: 0), 0)
     }
 }

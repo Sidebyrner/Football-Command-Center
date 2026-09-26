@@ -18,6 +18,27 @@ public struct DashboardView: View {
         self.model = model
     }
 
+    /// The Board is the iPhone's dashboard tab; My Team links to it there.
+    static var showsBoardCard: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .phone
+        #else
+        false
+        #endif
+    }
+
+    /// "84.2–71.5 · 2 to fix", from what My Team already knows.
+    private var boardSummary: String {
+        var parts: [String] = []
+        if let week = model.thisWeek, let mine = week.myPoints, let theirs = week.opponentPoints, mine + theirs > 0 {
+            parts.append("\(StreamFormat.one(mine))–\(StreamFormat.one(theirs))")
+        }
+        if let readiness = model.readiness {
+            parts.append(readiness.problems > 0 ? "\(readiness.problems) to fix" : "lineup set")
+        }
+        return parts.isEmpty ? "Your week at a glance" : parts.joined(separator: " · ")
+    }
+
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
@@ -39,6 +60,9 @@ public struct DashboardView: View {
                     Group {
                         switch model.zoom {
                         case .thisWeek:
+                            if Self.showsBoardCard {
+                                BoardCard(summary: boardSummary) { openScreen(.board) }
+                            }
                             if let readiness = model.readiness {
                                 ReadinessCard(readiness: readiness) { openScreen(.sitStart) }
                             }
@@ -514,5 +538,33 @@ public struct DashboardView: View {
             .card()
             .motion(Motion.snappy, value: showAllMoves)
         }
+    }
+}
+
+/// A link from My Team to the Board tab.
+struct BoardCard: View {
+    let summary: String
+    let open: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            HStack(spacing: 12) {
+                Image(systemName: "square.grid.2x2.fill")
+                    .font(.title3)
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 36, height: 36)
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.accentColor.opacity(0.12)))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Board").font(.headline)
+                    Text(summary).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(PressableCardStyle())
+        .accessibilityIdentifier("myteam.board")
     }
 }

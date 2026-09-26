@@ -44,17 +44,19 @@ public enum SidebarSection: String, CaseIterable, Hashable, Sendable, Identifiab
 }
 
 /// The iPhone's five tabs. Each hub holds one or more screens, switched by a
-/// segment bar under the title; Settings opens from a gear on Team.
+/// segment bar under the title; Settings opens from a gear on Team. Five is
+/// the most a tab bar shows before iOS adds "More", so Injuries lives in
+/// Lineup beside the decisions it feeds.
 public enum PhoneHub: String, CaseIterable, Hashable, Sendable, Identifiable {
-    case team, lineup, injuries, market, streams
+    case board, team, lineup, market, streams
 
     public var id: String { rawValue }
 
     public var title: String {
         switch self {
+        case .board: return "Board"
         case .team: return "Team"
         case .lineup: return "Lineup"
-        case .injuries: return "Injuries"
         case .market: return "Market"
         case .streams: return "Streams"
         }
@@ -62,9 +64,9 @@ public enum PhoneHub: String, CaseIterable, Hashable, Sendable, Identifiable {
 
     public var systemImage: String {
         switch self {
+        case .board: return "square.grid.2x2"
         case .team: return "person.crop.square"
         case .lineup: return "arrow.left.arrow.right"
-        case .injuries: return "cross.case"
         case .market: return "binoculars"
         case .streams: return "figure.run"
         }
@@ -73,12 +75,18 @@ public enum PhoneHub: String, CaseIterable, Hashable, Sendable, Identifiable {
     /// The hub's segments, in bar order; the first is where it opens.
     public var screens: [RootView.Screen] {
         switch self {
+        case .board: return [.board]
         case .team: return [.dashboard]
-        case .lineup: return [.sitStart, .matchup]
-        case .injuries: return [.injuries]
+        case .lineup: return [.sitStart, .matchup, .injuries]
         case .market: return [.discovery, .waivers, .trades, .planning]
         case .streams: return [.qbStream, .rbStream, .wrStream, .kStream, .dstStream, .idpStream]
         }
+    }
+
+    /// Where the app opens: the Board on a phone, My Team everywhere else
+    /// (the desktop and iPad have workspaces instead of a Board).
+    public static func launchScreen(isPhone: Bool) -> RootView.Screen {
+        isPhone ? .board : .dashboard
     }
 
     /// Which hub a screen lives in. Settings sits behind Team's gear.

@@ -1,6 +1,6 @@
 import XCTest
 
-/// The iPhone's five hubs against the demo league: every tab is on the bar
+/// The iPhone's five hubs (Board · Team · Lineup · Market · Streams) against the demo league: every tab is on the bar
 /// (nothing under More), segments switch and are remembered, a deep link
 /// lands on its hub and segment, and Team's gear opens Settings.
 final class HubNavigationUITests: XCTestCase {
@@ -25,7 +25,7 @@ final class HubNavigationUITests: XCTestCase {
         let app = try launch("myteam")
         let bar = app.tabBars.firstMatch
         XCTAssertTrue(bar.waitForExistence(timeout: 30))
-        for title in ["Team", "Lineup", "Injuries", "Market", "Streams"] {
+        for title in ["Board", "Team", "Lineup", "Market", "Streams"] {
             XCTAssertTrue(bar.buttons[title].exists, "\(title) tab missing")
         }
         XCTAssertFalse(bar.buttons["More"].exists)
@@ -72,6 +72,15 @@ final class HubNavigationUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["Lineup"].isSelected)
         XCTAssertTrue(app.buttons["Matchup"].waitForExistence(timeout: 10))
         Self.snapshot("hub-lineup-matchup")
+    }
+
+    /// Injuries lives in Lineup now, beside the decisions it feeds.
+    func testAnInjuriesDeepLinkLandsInLineup() throws {
+        let app = try launch("injuries")
+        XCTAssertTrue(app.tabBars.buttons["Lineup"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.tabBars.buttons["Lineup"].isSelected)
+        XCTAssertTrue(app.navigationBars["Injuries"].waitForExistence(timeout: 10))
+        Self.snapshot("hub-lineup-injuries")
     }
 
     func testTheGearOnTeamOpensSettings() throws {
