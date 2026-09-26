@@ -297,20 +297,9 @@ struct TrendControls: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Menu {
-                ForEach(PlayerMetric.allCases) { option in
-                    Button {
-                        onChange { $0.extra["metric"] = option.rawValue }
-                    } label: {
-                        Label(option.label, systemImage: option == metric ? "checkmark" : option.systemImage)
-                    }
-                }
-            } label: {
-                chip(metric.label, systemImage: metric.systemImage)
+            MetricPicker(selection: metric, prominent: false) { option in
+                onChange { $0.extra["metric"] = option.rawValue }
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
             if showsScope { scopeMenu }
             if showsSmoothing { smoothingButton }
             Spacer(minLength: 0)

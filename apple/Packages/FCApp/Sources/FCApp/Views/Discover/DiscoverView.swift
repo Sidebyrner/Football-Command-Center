@@ -12,6 +12,7 @@ struct DiscoverView: View {
     @EnvironmentObject private var linkBus: LinkBus
     @State private var scope: Scope = .freeAgents
     @State private var comparing = false
+    @AppStorage("discover.compareCharts") private var compareCharts: String?
 
     enum Scope: String, CaseIterable, Hashable {
         case freeAgents = "Free agents"
@@ -178,6 +179,13 @@ struct DiscoverView: View {
         linkBus.publish(linkBus.isComparing(id, in: group) ? .removeCompare(id) : .addCompare(id), to: group)
     }
 
+    /// The compare sheet's charts, kept between launches like a panel's.
+    private var compareChartSettings: PanelSettingsUpdate {
+        var settings = PanelSettings.default
+        settings.extra["charts"] = compareCharts
+        return PanelSettingsUpdate(settings: settings) { next in compareCharts = next.extra["charts"] }
+    }
+
     private var compareSheet: some View {
         NavigationStack {
             ComparePanel(services: services, discovery: model, rows: 6)
@@ -185,6 +193,7 @@ struct DiscoverView: View {
                 .environment(\.linkPublish, LinkPublishAction(group: Self.compareGroup) { [linkBus] change in
                     linkBus.publish(change, to: Self.compareGroup)
                 })
+                .environment(\.panelSettingsUpdate, compareChartSettings)
                 .navigationTitle("Compare")
                 #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)

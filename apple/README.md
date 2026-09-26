@@ -372,8 +372,11 @@ linking, thinkorswim's gadget library and preset workspaces).
   `PlayerSchedule.build(liveLines:)`.
 - **Compare.** Each link colour keeps a compare list of up to four players.
   ⌘-click a player in any panel of that colour (the row's menu on iPad), or
-  search in the Compare panel. It draws any metric by week as overlaid lines,
-  per-game numbers as grouped bars, a table with the best value on each row
+  search in the Compare panel. Its charts are modular: each one's data pill
+  (metric and a chevron) opens a grouped picker of all fourteen metrics, its
+  ⋯ menu smooths it to a 3-game average, moves it or removes it, and the
+  dashed **Add chart** tile adds another (up to six, saved with the panel).
+  Below them sit per-game numbers as grouped bars, a table with the best value on each row
   picked out (lower is better for opponent rank), and each player's range.
 - **Metric panels and Player search.** A Metric panel shows one of fourteen
   stats (fantasy points, snap share, targets, target share, receptions,

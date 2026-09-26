@@ -84,3 +84,37 @@ public struct TrendComparison: Sendable {
         return PlayerMetric(rawValue: key)
     }
 }
+
+/// One chart on a Compare panel: a metric, raw or smoothed. A panel keeps its
+/// charts in order in `extra["charts"]` as `metric` or `metric:3`.
+public struct TrendChartSpec: Hashable, Sendable {
+    public var metric: PlayerMetric
+    /// 1 is raw; 3 is a 3-game rolling average.
+    public var smoothing: Int
+
+    public init(metric: PlayerMetric, smoothing: Int = 1) {
+        self.metric = metric
+        self.smoothing = smoothing
+    }
+
+    public static let maxCharts = 6
+    /// What a Compare panel shows before anyone picks: points by week.
+    public static let defaults = [TrendChartSpec(metric: .fantasyPoints)]
+
+    /// The stored list; unset is the default chart, empty is no charts.
+    public static func list(from stored: String?) -> [TrendChartSpec] {
+        guard let stored else { return defaults }
+        let specs = stored.split(separator: ",").compactMap { item -> TrendChartSpec? in
+            let parts = item.split(separator: ":")
+            guard let metric = parts.first.flatMap({ TrendComparison.metric(storedAs: String($0)) }) else { return nil }
+            let smoothing = parts.count > 1 && parts[1] == "3" ? 3 : 1
+            return TrendChartSpec(metric: metric, smoothing: smoothing)
+        }
+        return Array(specs.prefix(maxCharts))
+    }
+
+    public static func encode(_ specs: [TrendChartSpec]) -> String {
+        specs.prefix(maxCharts).map { $0.smoothing > 1 ? "\($0.metric.rawValue):\($0.smoothing)" : $0.metric.rawValue }
+            .joined(separator: ",")
+    }
+}

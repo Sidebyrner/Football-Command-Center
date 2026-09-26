@@ -84,4 +84,31 @@ final class TrendComparisonTests: XCTestCase {
         XCTAssertNil(TrendComparison.metric(storedAs: nil))
         XCTAssertNil(TrendComparison.metric(storedAs: "nonsense"))
     }
+
+    func testChartListRoundTripsInOrderWithSmoothing() {
+        let specs = [TrendChartSpec(metric: .targets), TrendChartSpec(metric: .snapShare, smoothing: 3),
+                     TrendChartSpec(metric: .fantasyPoints)]
+        let stored = TrendChartSpec.encode(specs)
+        XCTAssertEqual(stored, "targets,snapShare:3,fantasyPoints")
+        XCTAssertEqual(TrendChartSpec.list(from: stored), specs)
+    }
+
+    func testUnsetChartsIsPointsAndEmptyIsNone() {
+        XCTAssertEqual(TrendChartSpec.list(from: nil), [TrendChartSpec(metric: .fantasyPoints)])
+        XCTAssertEqual(TrendChartSpec.list(from: ""), [])
+        XCTAssertEqual(TrendChartSpec.encode([]), "")
+    }
+
+    func testChartListDropsUnknownsReadsOldKeysAndCapsAtSix() {
+        XCTAssertEqual(TrendChartSpec.list(from: "bogus,points:3,sacks"),
+                       [TrendChartSpec(metric: .fantasyPoints, smoothing: 3), TrendChartSpec(metric: .sacks)])
+        let many = Array(repeating: "targets", count: 9).joined(separator: ",")
+        XCTAssertEqual(TrendChartSpec.list(from: many).count, TrendChartSpec.maxCharts)
+    }
+
+    func testEveryMetricHasAPickerGroup() {
+        for group in PlayerMetric.Group.allCases {
+            XCTAssertFalse(PlayerMetric.allCases.filter { $0.group == group }.isEmpty, group.rawValue)
+        }
+    }
 }

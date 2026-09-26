@@ -19,9 +19,12 @@ struct ComparePanel: View {
     /// Bumped when the cards finish loading, so the comparison is rebuilt
     /// with their projections.
     @State private var loadedGeneration = 0
-    /// What the weekly lines chart plots.
-    @State private var metric: PlayerMetric = .fantasyPoints
+    @Environment(\.panelSettingsUpdate) private var update
+    /// Players hidden on every chart, from the legends.
     @State private var hidden: Set<String> = []
+
+    /// The panel's charts, in order.
+    private var charts: [TrendChartSpec] { TrendChartSpec.list(from: update.settings.extra["charts"]) }
 
     private var ids: [String] { linkBus.compareList(for: group) }
 
@@ -48,19 +51,18 @@ struct ComparePanel: View {
             if comparison.players.isEmpty {
                 emptyState(group)
             } else {
+                chartGrid(comparison)
                 ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 16) {
-                        trendBlock(comparison)
-                            .frame(minWidth: 320)
+                    HStack(alignment: .top, spacing: 12) {
                         chartBlock("Per game") { CompareBarsChart(comparison: comparison) }
-                            .frame(minWidth: 260)
+                            .frame(minWidth: 320)
+                        CompareMetricTable(comparison: comparison)
                     }
                     VStack(alignment: .leading, spacing: 12) {
-                        trendBlock(comparison)
                         chartBlock("Per game") { CompareBarsChart(comparison: comparison) }
+                        CompareMetricTable(comparison: comparison)
                     }
                 }
-                CompareMetricTable(comparison: comparison)
                 ranges(comparison)
             }
         }
@@ -192,35 +194,58 @@ struct ComparePanel: View {
         .padding(.vertical, 24)
     }
 
-    /// Weekly lines for any metric, from the metrics index once it's built;
-    /// fantasy points from the cards until then.
-    @ViewBuilder
-    private func trendBlock(_ comparison: PlayerComparison) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            TrendControls(metric: metric, scope: .compare, smoothing: 1, showsScope: false, showsSmoothing: false) { change in
-                var settings = PanelSettings()
-                settings.extra["metric"] = metric.rawValue
-                change(&settings)
-                if let next = TrendComparison.metric(storedAs: settings.extra["metric"]) {
-                    withAnimation(Motion.snappy) { metric = next }
-                }
-            }
-            if let index = discovery.metrics {
-                let trend = TrendComparison.build(index: index, metric: metric, compareIDs: ids, focusedID: nil,
-                                                  scope: .compare, lastN: rows)
-                if trend.lines.allSatisfy({ $0.points.isEmpty }) {
-                    Text("No \(metric.label.lowercased()) logged for these players.")
-                        .font(.caption).foregroundStyle(.secondary).frame(height: 170)
-                } else {
-                    TrendComparisonChart(comparison: trend, hidden: hidden, height: 170)
-                    TrendLegend(comparison: trend, hidden: $hidden)
-                }
-            } else {
-                CompareLinesChart(comparison: comparison)
+    // MARK: - Charts
+
+    private enum GridItemKind: Identifiable {
+        case chart(Int, TrendChartSpec)
+        case add
+        var id: String {
+            switch self {
+            case .chart(let i, _): return "chart-\(i)"
+            case .add: return "add"
             }
         }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.surface.opacity(0.7)))
+    }
+
+    /// The panel's charts, each with its own data picker, then a tile to add
+    /// another.
+    private func chartGrid(_ comparison: PlayerComparison) -> some View {
+        let specs = charts
+        let inUse = Set(specs.map(\.metric))
+        let positions = comparison.players.map(\.position)
+        var items = specs.enumerated().map { GridItemKind.chart($0.offset, $0.element) }
+        if specs.count < TrendChartSpec.maxCharts { items.append(.add) }
+        return AdaptiveCardGrid(items: items) { item in
+            switch item {
+            case .chart(let i, let spec):
+                CompareChartCard(
+                    spec: spec, trend: trend(spec), inUse: inUse,
+                    canMoveEarlier: i > 0, canMoveLater: i < specs.count - 1, hidden: $hidden,
+                    onChange: { next in edit { $0[i] = next } },
+                    onMove: { step in edit { $0.swapAt(i, i + step) } },
+                    onRemove: { edit { $0.remove(at: i) } }
+                )
+            case .add:
+                AddChartTile(inUse: inUse, positions: positions, remaining: TrendChartSpec.maxCharts - specs.count) { metric in
+                    edit { $0.append(TrendChartSpec(metric: metric)) }
+                }
+            }
+        }
+    }
+
+    private func trend(_ spec: TrendChartSpec) -> TrendComparison? {
+        discovery.metrics.map {
+            TrendComparison.build(index: $0, metric: spec.metric, compareIDs: ids, focusedID: nil,
+                                  scope: .compare, lastN: rows, smoothing: spec.smoothing)
+        }
+    }
+
+    private func edit(_ change: (inout [TrendChartSpec]) -> Void) {
+        var specs = charts
+        change(&specs)
+        withAnimation(Motion.snappy) {
+            update { $0.extra["charts"] = TrendChartSpec.encode(specs) }
+        }
     }
 
     private func chartBlock<Chart: View>(_ title: String, @ViewBuilder chart: () -> Chart) -> some View {
@@ -249,55 +274,6 @@ struct ComparePanel: View {
                 }
             }
             PanelFootnote(text: "Worst and best game this season; the dot is this week's projection, else his average.")
-        }
-    }
-}
-
-/// Weekly points, one line per player, over the shared weeks.
-struct CompareLinesChart: View {
-    let comparison: PlayerComparison
-
-    private struct Point: Identifiable {
-        let player: String
-        let week: Int
-        let points: Double
-        var id: String { "\(player)-\(week)" }
-    }
-
-    private var points: [Point] {
-        comparison.players.flatMap { player in
-            player.log.compactMap { week in week.points.map { Point(player: player.name, week: week.week, points: $0) } }
-        }
-    }
-
-    var body: some View {
-        let names = comparison.players.map(\.name)
-        let colors = comparison.players.map { ChartPalette.color($0.seriesIndex) }
-        let weeks = comparison.weeks
-        if points.isEmpty {
-            Text("No games logged yet.").font(.caption).foregroundStyle(.secondary).frame(height: 170)
-        } else {
-            Chart(points) { point in
-                LineMark(x: .value("Week", Double(point.week)), y: .value("Points", point.points))
-                    .foregroundStyle(by: .value("Player", point.player))
-                    .interpolationMethod(.monotone)
-                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                PointMark(x: .value("Week", Double(point.week)), y: .value("Points", point.points))
-                    .foregroundStyle(by: .value("Player", point.player))
-                    .symbolSize(24)
-            }
-            .chartForegroundStyleScale(domain: names, range: colors)
-            .chartLegend(position: .top, alignment: .leading, spacing: 6)
-            .chartXAxis {
-                AxisMarks(values: weeks.map(Double.init)) { value in
-                    AxisGridLine()
-                    AxisValueLabel { if let week = value.as(Double.self) { Text("W\(Int(week))") } }
-                }
-            }
-            .chartXScale(domain: ChartPalette.weekDomain(weeks))
-            .chartYAxis { AxisMarks(position: .leading) }
-            .frame(height: 170)
-            .accessibilityLabel("Points by week for \(names.joined(separator: ", "))")
         }
     }
 }
