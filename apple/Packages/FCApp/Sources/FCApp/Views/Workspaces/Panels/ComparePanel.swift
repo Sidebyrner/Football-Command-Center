@@ -19,6 +19,9 @@ struct ComparePanel: View {
     /// Bumped when the cards finish loading, so the comparison is rebuilt
     /// with their projections.
     @State private var loadedGeneration = 0
+    /// What the weekly lines chart plots.
+    @State private var metric: PlayerMetric = .fantasyPoints
+    @State private var hidden: Set<String> = []
 
     private var ids: [String] { linkBus.compareList(for: group) }
 
@@ -47,13 +50,13 @@ struct ComparePanel: View {
             } else {
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .top, spacing: 16) {
-                        chartBlock("Points by week") { CompareLinesChart(comparison: comparison) }
+                        trendBlock(comparison)
                             .frame(minWidth: 320)
                         chartBlock("Per game") { CompareBarsChart(comparison: comparison) }
                             .frame(minWidth: 260)
                     }
                     VStack(alignment: .leading, spacing: 12) {
-                        chartBlock("Points by week") { CompareLinesChart(comparison: comparison) }
+                        trendBlock(comparison)
                         chartBlock("Per game") { CompareBarsChart(comparison: comparison) }
                     }
                 }
@@ -187,6 +190,37 @@ struct ComparePanel: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
+    }
+
+    /// Weekly lines for any metric, from the metrics index once it's built;
+    /// fantasy points from the cards until then.
+    @ViewBuilder
+    private func trendBlock(_ comparison: PlayerComparison) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            TrendControls(metric: metric, scope: .compare, smoothing: 1, showsScope: false, showsSmoothing: false) { change in
+                var settings = PanelSettings()
+                settings.extra["metric"] = metric.rawValue
+                change(&settings)
+                if let next = TrendComparison.metric(storedAs: settings.extra["metric"]) {
+                    withAnimation(Motion.snappy) { metric = next }
+                }
+            }
+            if let index = discovery.metrics {
+                let trend = TrendComparison.build(index: index, metric: metric, compareIDs: ids, focusedID: nil,
+                                                  scope: .compare, lastN: rows)
+                if trend.lines.allSatisfy({ $0.points.isEmpty }) {
+                    Text("No \(metric.label.lowercased()) logged for these players.")
+                        .font(.caption).foregroundStyle(.secondary).frame(height: 170)
+                } else {
+                    TrendComparisonChart(comparison: trend, hidden: hidden, height: 170)
+                    TrendLegend(comparison: trend, hidden: $hidden)
+                }
+            } else {
+                CompareLinesChart(comparison: comparison)
+            }
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.surface.opacity(0.7)))
     }
 
     private func chartBlock<Chart: View>(_ title: String, @ViewBuilder chart: () -> Chart) -> some View {

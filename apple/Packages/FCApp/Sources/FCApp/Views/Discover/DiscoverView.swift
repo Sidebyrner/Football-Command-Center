@@ -289,6 +289,11 @@ private struct DiscoverPlayerPage: View {
     @ObservedObject var discovery: DiscoveryModel
     @EnvironmentObject private var linkBus: LinkBus
     @State private var metric: PlayerMetric = .fantasyPoints
+    /// Overlay the compare list's lines on his trend.
+    @State private var overlay = true
+    @State private var hidden: Set<String> = []
+
+    private var others: [String] { linkBus.compareList(for: DiscoverView.compareGroup).filter { $0 != card.id } }
 
     private var metrics: [PlayerMetric] { PlayerMetric.allCases.filter { $0.applies(to: card.position) } }
 
@@ -315,7 +320,26 @@ private struct DiscoverPlayerPage: View {
                         }
                     }
                     if let index = discovery.metrics {
-                        MetricSummaryView(index: index, playerID: card.id, metric: metric, lastN: 8)
+                        if !others.isEmpty {
+                            Toggle(isOn: $overlay.animation(Motion.snappy)) {
+                                Label("Overlay compare list (\(others.count))", systemImage: "person.2")
+                                    .font(.caption.weight(.semibold))
+                            }
+                            .toggleStyle(.switch)
+                            .controlSize(.mini)
+                            .accessibilityIdentifier("discover.trendOverlay")
+                        }
+                        if overlay, !others.isEmpty {
+                            let trend = TrendComparison.build(
+                                index: index, metric: metric, compareIDs: linkBus.compareList(for: DiscoverView.compareGroup),
+                                focusedID: card.id, scope: .compare, lastN: 8
+                            )
+                            TrendComparisonChart(comparison: trend, hidden: hidden, height: 200)
+                            TrendLegend(comparison: trend, hidden: $hidden)
+                            TrendSummaryTable(comparison: trend)
+                        } else {
+                            MetricSummaryView(index: index, playerID: card.id, metric: metric, lastN: 8)
+                        }
                     }
                 }
                 section("Schedule & strength of schedule", systemImage: "calendar") {

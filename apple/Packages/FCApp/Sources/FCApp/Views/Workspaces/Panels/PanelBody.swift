@@ -65,7 +65,7 @@ struct PanelBody: View {
         case .gameLog:
             LinkedCardGate(services: services) { card, _ in GameLogPanel(card: card, rows: rows) }
         case .trendChart:
-            LinkedCardGate(services: services) { card, _ in TrendChartPanel(card: card, settings: settings, rows: rows) }
+            TrendComparePanel(services: services, discovery: services.discovery, settings: settings, rows: rows)
         case .schedule:
             LinkedCardGate(services: services) { card, context in
                 SchedulePanel(card: card, context: context, discovery: services.discovery)

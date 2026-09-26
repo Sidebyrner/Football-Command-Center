@@ -279,7 +279,7 @@ struct PanelOptionsMenu: View {
         }
     }
 
-    private var metricChoices: [TrendMetric]? { kind == .trendChart ? TrendMetric.allCases : nil }
+    private var metricChoices: [PlayerMetric]? { kind == .trendChart ? PlayerMetric.allCases : nil }
     private var sortChoices: [DiscoverySort]? { kind == .discovery ? DiscoverySort.all : nil }
 
     var body: some View {
@@ -287,7 +287,7 @@ struct PanelOptionsMenu: View {
             Menu {
                 if let metricChoices {
                     Picker("Chart", selection: Binding(
-                        get: { settings.extra["metric"].flatMap(TrendMetric.init(rawValue:)) ?? .points },
+                        get: { TrendComparison.metric(storedAs: settings.extra["metric"]) ?? .fantasyPoints },
                         set: { var next = settings; next.extra["metric"] = $0.rawValue; onChange(next) }
                     )) {
                         ForEach(metricChoices) { Text($0.label).tag($0) }

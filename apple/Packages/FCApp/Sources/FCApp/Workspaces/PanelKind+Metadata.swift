@@ -96,7 +96,7 @@ public extension PanelKind {
         case .playerProfile: return "Bio, status, depth chart and grade for the linked player."
         case .playerNews: return "The latest on the linked player."
         case .gameLog: return "The linked player's last game and last few games."
-        case .trendChart: return "A chart of the linked player's points, snaps or targets by week."
+        case .trendChart: return "Weekly trend lines for everyone you're comparing plus the clicked player — any stat, raw or smoothed."
         case .schedule: return "The linked player's remaining games, lines and how soft each defense is."
         case .compare: return "Two to four players side by side, with charts. ⌘-click players to add them."
         case .metric: return "One stat — targets, snap share, xFP… — with its numbers and a chart, for one player or several."

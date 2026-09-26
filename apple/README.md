@@ -358,8 +358,12 @@ linking, thinkorswim's gadget library and preset workspaces).
   searchable (typos forgiven), sortable on any board column, with rival
   benches on a toggle. Click a player and the linked **Profile** (bio, status,
   depth chart, bye, grade and situation chips), **Player news**, **Game log**
-  (last game and the last N), **Trend** chart (points with Rotowire's
-  projection dashed, or snaps, targets, xFP) and **Schedule & SoS** follow.
+  (last game and the last N), **Trend** chart and **Schedule & SoS** follow.
+  The Trend chart overlays everyone in the link colour's compare list plus
+  the clicked player (heavier line) on any of the fourteen metrics, raw or as
+  a 3-game rolling average, with tap-to-hide legend chips and a table of
+  average, last three, trend and rank; one player alone gets his projection
+  dashed and his position's average as a rule.
   The schedule shows each remaining opponent with the **recorded closing
   lines** from the nflverse schedule file — labelled as such, and usually
   present only for the next week or two — and each defense's rank against his
@@ -368,7 +372,7 @@ linking, thinkorswim's gadget library and preset workspaces).
   `PlayerSchedule.build(liveLines:)`.
 - **Compare.** Each link colour keeps a compare list of up to four players.
   ⌘-click a player in any panel of that colour (the row's menu on iPad), or
-  search in the Compare panel. It draws weekly points as overlaid lines,
+  search in the Compare panel. It draws any metric by week as overlaid lines,
   per-game numbers as grouped bars, a table with the best value on each row
   picked out (lower is better for opponent rank), and each player's range.
 - **Metric panels and Player search.** A Metric panel shows one of fourteen
