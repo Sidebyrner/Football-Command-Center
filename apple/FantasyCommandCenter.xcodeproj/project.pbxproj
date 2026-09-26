@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0493E02E017351C43CBC13A2 /* injuries-2026.json in Resources */ = {isa = PBXBuildFile; fileRef = 088AEC83EA801C0A455B4F4A /* injuries-2026.json */; };
+		12B0C7F459B78B3CD6E94399 /* HubNavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF03C5063CED82E4244C8853 /* HubNavigationUITests.swift */; };
 		1C3F5ECE34B0CB7DD601206B /* cohorts.json in Resources */ = {isa = PBXBuildFile; fileRef = 4F855745678D2A4762309A3D /* cohorts.json */; };
 		219EB5EFBF7FE324297D0AEF /* weekly-2025.json in Resources */ = {isa = PBXBuildFile; fileRef = A6FE8C13A6F8AF02B7647613 /* weekly-2025.json */; };
 		22360523F04329AD4320AA45 /* weekly-index.json in Resources */ = {isa = PBXBuildFile; fileRef = 5497C6C0FD39CC8B938131A1 /* weekly-index.json */; };
@@ -63,6 +64,7 @@
 		A86246221C6E59445252612F /* adp.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = adp.json; sourceTree = "<group>"; };
 		AFCA1C7440DE5256738B3BA2 /* FantasyCommandCenterUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FantasyCommandCenterUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6533B5F69B6D0F99518954D /* WorkspaceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceUITests.swift; sourceTree = "<group>"; };
+		BF03C5063CED82E4244C8853 /* HubNavigationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubNavigationUITests.swift; sourceTree = "<group>"; };
 		C2D50E50340F706FFFCAD60B /* ScreenshotTourUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotTourUITests.swift; sourceTree = "<group>"; };
 		E41F6C0D2AA3EB8B785F9BB1 /* context-2026.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "context-2026.json"; sourceTree = "<group>"; };
 		FF3B83A38E8E6068E5D55025 /* DemoLeagueUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoLeagueUITests.swift; sourceTree = "<group>"; };
@@ -104,6 +106,7 @@
 			isa = PBXGroup;
 			children = (
 				FF3B83A38E8E6068E5D55025 /* DemoLeagueUITests.swift */,
+				BF03C5063CED82E4244C8853 /* HubNavigationUITests.swift */,
 				C2D50E50340F706FFFCAD60B /* ScreenshotTourUITests.swift */,
 				B6533B5F69B6D0F99518954D /* WorkspaceUITests.swift */,
 			);
@@ -277,6 +280,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A183CDACF435D438576BAC5E /* DemoLeagueUITests.swift in Sources */,
+				12B0C7F459B78B3CD6E94399 /* HubNavigationUITests.swift in Sources */,
 				7553489B3FA2E48E186480E5 /* ScreenshotTourUITests.swift in Sources */,
 				78AFA5EAACC96057F070A08E /* WorkspaceUITests.swift in Sources */,
 			);

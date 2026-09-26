@@ -42,3 +42,58 @@ public enum SidebarSection: String, CaseIterable, Hashable, Sendable, Identifiab
 
     public var id: String { rawValue }
 }
+
+/// The iPhone's five tabs. Each hub holds one or more screens, switched by a
+/// segment bar under the title; Settings opens from a gear on Team.
+public enum PhoneHub: String, CaseIterable, Hashable, Sendable, Identifiable {
+    case team, lineup, injuries, market, streams
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .team: return "Team"
+        case .lineup: return "Lineup"
+        case .injuries: return "Injuries"
+        case .market: return "Market"
+        case .streams: return "Streams"
+        }
+    }
+
+    public var systemImage: String {
+        switch self {
+        case .team: return "person.crop.square"
+        case .lineup: return "arrow.left.arrow.right"
+        case .injuries: return "cross.case"
+        case .market: return "binoculars"
+        case .streams: return "figure.run"
+        }
+    }
+
+    /// The hub's segments, in bar order; the first is where it opens.
+    public var screens: [RootView.Screen] {
+        switch self {
+        case .team: return [.dashboard]
+        case .lineup: return [.sitStart, .matchup]
+        case .injuries: return [.injuries]
+        case .market: return [.discovery, .waivers, .trades, .planning]
+        case .streams: return [.idpStream, .wrStream, .rbStream]
+        }
+    }
+
+    /// Which hub a screen lives in. Settings sits behind Team's gear.
+    public static func hub(for screen: RootView.Screen) -> PhoneHub {
+        if screen == .settings { return .team }
+        return allCases.first { $0.screens.contains(screen) } ?? .team
+    }
+
+    /// Short names for the segment bar.
+    public static func segmentLabel(_ screen: RootView.Screen) -> String {
+        switch screen {
+        case .idpStream: return "IDP"
+        case .wrStream: return "WR"
+        case .rbStream: return "RB"
+        default: return screen.rawValue
+        }
+    }
+}

@@ -24,7 +24,16 @@ public enum SidebarItem: Hashable, Sendable {
 /// observes this and the settings, nothing else.
 @MainActor
 public final class AppRouter: ObservableObject {
-    @Published public var selection: SidebarItem
+    @Published public var selection: SidebarItem {
+        didSet {
+            if let screen = selection.screen, screen != .settings {
+                hubSegments[PhoneHub.hub(for: screen)] = screen
+            }
+        }
+    }
+    /// The segment each phone hub was last on, so coming back to a hub
+    /// returns to where you were.
+    @Published public private(set) var hubSegments: [PhoneHub: RootView.Screen] = [:]
     /// The Player Card sheet, opened from any row's context menu.
     @Published public var playerCard: PlayerCardModel?
     /// Unlocked: panels show drag and resize handles. Locked by default, so a
@@ -39,6 +48,26 @@ public final class AppRouter: ObservableObject {
 
     public init(selection: SidebarItem = .screen(.dashboard)) {
         self.selection = selection
+        if let screen = selection.screen, screen != .settings {
+            hubSegments[PhoneHub.hub(for: screen)] = screen
+        }
+    }
+
+    /// The phone tab: the hub of the current screen. Choosing a hub goes to
+    /// its remembered segment, else its first.
+    public var phoneHub: PhoneHub {
+        get { PhoneHub.hub(for: phoneScreen) }
+        set {
+            guard newValue != phoneHub else { return }
+            selection = .screen(segment(in: newValue))
+        }
+    }
+
+    /// The segment a hub shows: the current screen if it's in the hub, else
+    /// the one it was last on, else its first.
+    public func segment(in hub: PhoneHub) -> RootView.Screen {
+        if let screen = selection.screen, hub.screens.contains(screen) { return screen }
+        return hubSegments[hub] ?? hub.screens[0]
     }
 
     public func open(_ screen: RootView.Screen) {

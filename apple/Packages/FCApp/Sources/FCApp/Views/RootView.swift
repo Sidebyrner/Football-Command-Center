@@ -143,15 +143,26 @@ public struct RootView: View {
 
     // MARK: - Layouts
 
+    /// Five hubs — Team · Lineup · Injuries · Market · Streams — so nothing
+    /// hides under "More". Each hub switches its screens with a segment bar.
     private var phoneLayout: some View {
-        TabView(selection: $router.phoneScreen) {
-            ForEach(Screen.allCases) { screen in
-                NavigationStack {
-                    view(for: screen)
-                }
-                .tabItem { Label(screen.rawValue, systemImage: screen.systemImage) }
-                .tag(screen)
+        TabView(selection: $router.phoneHub) {
+            ForEach(PhoneHub.allCases) { hub in
+                hubTab(hub)
+                    .tabItem { Label(hub.title, systemImage: hub.systemImage) }
+                    .tag(hub)
             }
+        }
+        .sensoryFeedback(.selection, trigger: router.phoneHub)
+    }
+
+    @ViewBuilder
+    private func hubTab(_ hub: PhoneHub) -> some View {
+        let content = PhoneHubView(hub: hub, router: router) { screen in view(for: screen) }
+        switch hub {
+        case .injuries: InjuryHubBadge(model: services.injuries) { content }
+        case .lineup: LineupHubBadge(model: services.sitStart) { content }
+        default: content
         }
     }
 

@@ -433,9 +433,26 @@ accent. All of it is compiled out of Release.
   panel from the library and locks again, adds two panels from the tray and
   two at once from the sheet, and switches to Waiver Tuesday.
   Skipped on iPhone.
+- **Hubs on iPhone** — five tabs and no More, segments switch and are
+  remembered, a deep link lands on its hub and segment, and Team's gear opens
+  Settings.
+- **Discover on iPhone** — the list renders, a player's page opens, and
+  nothing on either is wider than the phone.
 - **Screenshot tour** — walks every screen and mode and saves images to
   `FCC_SCREENSHOT_DIR` (`TEST_RUNNER_FCC_SCREENSHOT_DIR=… xcodebuild test …`),
   optionally with `FCC_ACCENT`. Skipped when the variable isn't set.
+
+## iPhone layout
+
+Five tabs, so nothing hides under More: **Team** (My Team, with Settings on a
+gear), **Lineup** (Sit/Start · Matchup), **Injuries**, **Market** (Discover ·
+Waivers · Trades · Planning) and **Streams** (IDP · WR · RB). A segment bar
+under the title switches a hub's screens; each segment keeps its own
+navigation stack and scroll position, and a hub reopens on the segment you
+left it on. Lineup's badge counts the changes Sit/Start recommends and
+Injuries' counts starters who can't play. `-FCCTab <screen>` deep links land
+on the right hub and segment. Mac and iPad keep one sidebar row per screen;
+a compact-width iPad uses the hubs.
 
 ## Look and feel
 
