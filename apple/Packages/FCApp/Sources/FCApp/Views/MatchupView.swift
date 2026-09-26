@@ -10,7 +10,6 @@ import FCData
 public struct MatchupView: View {
     @ObservedObject var model: MatchupModel
     @State private var selectedPair: PairedSlot?
-    @Environment(\.scenePhase) private var scenePhase
 
     public init(model: MatchupModel) {
         self.model = model
@@ -44,17 +43,8 @@ public struct MatchupView: View {
             }
         }
         .sensoryFeedback(.success, trigger: model.refreshCount)
-        // Live scores: poll once a minute while the screen is visible and the app
-        // active. liveTick() does nothing outside game windows, and the task is
-        // cancelled when the screen goes away or the app leaves the foreground.
-        .task(id: scenePhase) {
-            guard scenePhase == .active else { return }
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(60))
-                guard !Task.isCancelled else { break }
-                await model.liveTick()
-            }
-        }
+        // Live scores come from the app-wide poller (`liveUpdates` at the root),
+        // which ticks this model once a minute while a game is on.
         .navigationTitle("Matchup")
         #if os(iOS)
         // The pinned scoreboard is the headline here; a large title above it

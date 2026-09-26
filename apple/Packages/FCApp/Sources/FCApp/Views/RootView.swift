@@ -127,6 +127,8 @@ public struct RootView: View {
             #endif
         }
         .tint(settingsModel.settings.accentTheme.color)
+        // One loop keeps every live score current while the app is in front.
+        .liveUpdates(services)
         .environment(\.appServices, services)
         .environmentObject(services.linkBus)
         .environment(\.openScreen, OpenScreenAction { [router] screen in

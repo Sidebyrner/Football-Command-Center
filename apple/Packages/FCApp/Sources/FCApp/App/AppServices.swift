@@ -33,6 +33,8 @@ public final class AppServices {
     public let kStream: KStreamScreenModel
     public let trades: TradeDeskScreenModel
     public let discovery: DiscoveryModel
+    /// This week's NFL games with their live state.
+    public let gameDay: GameDayModel
 
     public let workspaces: WorkspaceStore
     public let linkBus: LinkBus
@@ -73,6 +75,7 @@ public final class AppServices {
         trades = TradeDeskScreenModel(loader: loader)
         trades.relayBaseURL = relayBaseURL
         discovery = DiscoveryModel(loader: loader, sleeper: sleeper)
+        gameDay = GameDayModel(loader: loader, sleeper: sleeper)
 
         workspaces = WorkspaceStore(persistence: workspacePersistence)
         linkBus = LinkBus()
@@ -104,8 +107,9 @@ public final class AppServices {
         async let qbStream: Void = qbStream.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let dstStream: Void = dstStream.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let kStream: Void = kStream.load(leagueID: leagueID, userRosterID: rosterID, force: force)
+        async let gameDay: Void = gameDay.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         _ = await (dashboard, matchup, sitStart, planning, injuries, waivers, idpStream, wrStream, rbStream, trades, discovery,
-                   qbStream, dstStream, kStream)
+                   qbStream, dstStream, kStream, gameDay)
     }
 
     /// A new relay address reaches every model that talks to it, and the

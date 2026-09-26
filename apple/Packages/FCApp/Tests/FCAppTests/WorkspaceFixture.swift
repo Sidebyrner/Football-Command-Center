@@ -13,6 +13,23 @@ enum WorkspaceFixture {
     /// A free agent with no Sleeper line and no projection — the Waiver Board hides him, Discovery doesn't.
     static let unknown = "99001"
 
+    /// Week 3 as Sleeper's scores route sends it: DET at LAR live in the third
+    /// (Sleeper spells the Rams `LAR`), BUF final, KC not yet kicked off.
+    static let scoresWeek3 = """
+        [{"game_id":"g1","week":3,"status":"in_progress","start_time":1790528400000,
+          "metadata":{"home_team":"LAR","away_team":"DET","home_score":17,"away_score":20,"quarter":"3","quarter_num":3,
+                      "time_remaining":"7:42","possession":"DET","down_and_distance":"3rd & 4","red_zone":"true",
+                      "yard_line":12,"is_in_progress":true,"is_over":false,"spread":{"LAR":2.5,"DET":-2.5}}},
+         {"game_id":"g2","week":3,"status":"complete","start_time":1790442000000,
+          "metadata":{"home_team":"BUF","away_team":"MIA","home_score":27,"away_score":10,"quarter":"F","quarter_num":4,
+                      "is_in_progress":false,"is_over":true}},
+         {"game_id":"g3","week":3,"status":"pre_game","start_time":1790640900000,
+          "metadata":{"home_team":"KC","away_team":"NYG","home_score":null,"away_score":null,"quarter":"","quarter_num":"",
+                      "is_in_progress":false,"is_over":false,"moneyline":{"KC":71.0,"NYG":33.0,"updated_at":1}}},
+         {"game_id":"g4","week":3,"status":"pre_game","start_time":1790640900000,
+          "metadata":{"home_team":"GB","away_team":"CHI","quarter":"","is_in_progress":false,"is_over":false}}]
+        """
+
     static func services() async throws -> (AppServices, URL) {
         let transport = await Harness.standardTransport()
         await transport.override("/state/nfl", json: #"{"week":3,"season":"2026","season_type":"regular"}"#)
@@ -53,6 +70,14 @@ enum WorkspaceFixture {
         try await transport.on("/stats/nfl/2026/1", fixture: "stats-2026-w2")
         try await transport.on("/stats/nfl/2026/2", fixture: "stats-2026-w2")
         try await transport.on("/projections/nfl/2026/3", fixture: "projections-2026-w3")
+        await transport.override("/scores/nfl/regular/2026/3", json: scoresWeek3)
+        // Starters in roster_positions order: QB, SUPER_FLEX, RB, WR, LB.
+        await transport.override("/league/L1/matchups/3", json: """
+            [{"roster_id":1,"matchup_id":1,"points":24.6,"starters":["\(mahomes)","\(kyren)","\(cook)","\(jsn)","\(bolton)"],
+              "players_points":{"\(cook)":24.6}},
+             {"roster_id":2,"matchup_id":1,"points":31.2,"starters":["\(goff)","\(stafford)","\(gibbs)","\(hampton)","\(edmunds)"],
+              "players_points":{"\(goff)":14.2,"\(stafford)":9.0,"\(gibbs)":8.0}}]
+            """)
         let harness = Harness.make(transport: transport)
         let settings = InMemorySettingsStore(AppSettings(sleeperUsername: "me", userID: "u1", leagueID: "L1", rosterID: 1))
         let services = AppServices(

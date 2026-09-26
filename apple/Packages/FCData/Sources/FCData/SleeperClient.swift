@@ -133,6 +133,14 @@ public struct SleeperClient: Sendable {
         )
     }
 
+    /// Every game in a week with its live state — score, quarter, clock,
+    /// possession — and the pregame line. Undocumented; games Sleeper can't
+    /// place are dropped rather than failing the week.
+    public func scores(season: Int, week: Int) async throws -> [SleeperGameScore] {
+        let wire: [SleeperGameScoreWire] = try await getInsights("/scores/nfl/regular/\(season)/\(week)")
+        return wire.compactMap(\.score)
+    }
+
     /// Recent news items for one player.
     public func playerNews(playerID: String, limit: Int = 5) async throws -> [SleeperPlayerNews] {
         try await getInsights("/players/nfl/\(escaped(playerID))/news?limit=\(limit)")

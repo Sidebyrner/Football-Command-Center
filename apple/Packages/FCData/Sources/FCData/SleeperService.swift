@@ -37,6 +37,7 @@ public actor SleeperService {
         static func draftPicks(_ id: String) -> String { "sleeper-picks-\(id)" }
         static func projections(_ season: Int, _ week: Int) -> String { "sleeper-projections-\(season)-\(week)-v1" }
         static func weekStats(_ season: Int, _ week: Int) -> String { "sleeper-weekstats-\(season)-\(week)-v1" }
+        static func scores(_ season: Int, _ week: Int) -> String { "sleeper-scores-\(season)-\(week)-v1" }
         static func news(_ playerID: String) -> String { "sleeper-news-\(playerID)-v1" }
         static func playerProjections(_ playerID: String, _ season: Int) -> String { "sleeper-player-proj-\(playerID)-\(season)-v1" }
     }
@@ -261,6 +262,14 @@ public actor SleeperService {
         let ttl = isCompleted ? CacheTTL.completedWeek : CacheTTL.currentWeekStats
         return try await through(key: Key.weekStats(season, week), ttl: ttl, force: force) {
             try await client.weekStats(season: season, week: week)
+        }
+    }
+
+    /// The week's games with their live state. On a one-minute TTL so a live
+    /// tick can ask freely; a finished week's scores simply stop changing.
+    public func scores(season: Int, week: Int, force: Bool = false) async throws -> Fetched<[SleeperGameScore]> {
+        try await through(key: Key.scores(season, week), ttl: CacheTTL.liveScores, force: force) {
+            try await client.scores(season: season, week: week)
         }
     }
 
