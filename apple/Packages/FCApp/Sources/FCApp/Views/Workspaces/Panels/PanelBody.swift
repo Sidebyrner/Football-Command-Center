@@ -44,6 +44,12 @@ struct PanelBody: View {
             StreamPanel(model: services.wrStream, spec: WRStreamView.spec, rows: rows)
         case .rbStream:
             StreamPanel(model: services.rbStream, spec: RBStreamView.spec, rows: rows)
+        case .qbStream:
+            StreamPanel(model: services.qbStream, spec: QBStreamView.spec, rows: rows)
+        case .dstStream:
+            StreamPanel(model: services.dstStream, spec: DSTStreamView.spec, rows: rows)
+        case .kStream:
+            StreamPanel(model: services.kStream, spec: KStreamView.spec, rows: rows)
         case .news:
             NewsPanel(model: services.dashboard, rows: rows)
         case .standings:

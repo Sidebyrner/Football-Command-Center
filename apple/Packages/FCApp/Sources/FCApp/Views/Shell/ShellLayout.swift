@@ -77,7 +77,7 @@ public enum PhoneHub: String, CaseIterable, Hashable, Sendable, Identifiable {
         case .lineup: return [.sitStart, .matchup]
         case .injuries: return [.injuries]
         case .market: return [.discovery, .waivers, .trades, .planning]
-        case .streams: return [.idpStream, .wrStream, .rbStream]
+        case .streams: return [.qbStream, .rbStream, .wrStream, .kStream, .dstStream, .idpStream]
         }
     }
 
@@ -93,6 +93,9 @@ public enum PhoneHub: String, CaseIterable, Hashable, Sendable, Identifiable {
         case .idpStream: return "IDP"
         case .wrStream: return "WR"
         case .rbStream: return "RB"
+        case .qbStream: return "QB"
+        case .dstStream: return "D/ST"
+        case .kStream: return "K"
         default: return screen.rawValue
         }
     }

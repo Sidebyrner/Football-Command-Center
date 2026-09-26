@@ -65,6 +65,9 @@ public struct RootView: View {
         case idpStream = "IDP Stream"
         case wrStream = "WR Stream"
         case rbStream = "RB Stream"
+        case qbStream = "QB Stream"
+        case dstStream = "D/ST Stream"
+        case kStream = "K Stream"
         case matchup = "Matchup"
         case sitStart = "Sit/Start"
         case settings = "Settings"
@@ -82,6 +85,9 @@ public struct RootView: View {
             case .idpStream: return "shield.lefthalf.filled"
             case .wrStream: return "figure.american.football"
             case .rbStream: return "figure.run"
+            case .qbStream: return "football"
+            case .dstStream: return "shield"
+            case .kStream: return "figure.australian.football"
             case .matchup: return "person.2"
             case .sitStart: return "arrow.left.arrow.right"
             case .settings: return "gearshape"
@@ -93,7 +99,8 @@ public struct RootView: View {
             switch self {
             case .dashboard, .sitStart, .injuries: return .team
             case .matchup: return .week
-            case .planning, .waivers, .trades, .idpStream, .wrStream, .rbStream, .discovery: return .market
+            case .planning, .waivers, .trades, .idpStream, .wrStream, .rbStream, .discovery, .qbStream, .dstStream, .kStream:
+                return .market
             case .settings: return .settings
             }
         }
@@ -277,6 +284,12 @@ public struct RootView: View {
             } else {
                 needsSetup
             }
+        case .qbStream:
+            if settingsModel.settings.isConfigured { QBStreamView(model: services.qbStream) } else { needsSetup }
+        case .dstStream:
+            if settingsModel.settings.isConfigured { DSTStreamView(model: services.dstStream) } else { needsSetup }
+        case .kStream:
+            if settingsModel.settings.isConfigured { KStreamView(model: services.kStream) } else { needsSetup }
         }
     }
 

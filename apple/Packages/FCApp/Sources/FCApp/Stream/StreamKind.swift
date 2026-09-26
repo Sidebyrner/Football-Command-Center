@@ -103,12 +103,23 @@ public protocol StreamKind {
     static func candidates(context: LeagueContext, teams: [String: Team],
                            players: [String: PlayerOverride], alwaysInclude: Set<String>) -> [Candidate]
     static func project(_ candidate: Candidate, scoring: Scoring, risk: StreamRiskMode) -> Projection
+    /// Streams with a rest-of-season layer rank by a horizon too.
+    static var usesHorizon: Bool { get }
+    static func project(_ candidate: Candidate, scoring: Scoring, risk: StreamRiskMode, horizon: StreamHorizon) -> Projection
     static func recentGames(context: LeagueContext, playerID: String, limit: Int) -> [GameLine]
     /// The finer role for a player not yet projected, for picker rows.
     static func roleLabel(for player: IndexedPlayer) -> String?
     static func parseImport(_ data: Data) throws -> StreamWeekOverrides<TeamOverride, PlayerOverride>
     /// Notes specific to this stream's sources, shown under the list.
     static func sourceNotes(teams: [String: Team]) -> [String]
+}
+
+public extension StreamKind {
+    static var usesHorizon: Bool { false }
+
+    static func project(_ candidate: Candidate, scoring: Scoring, risk: StreamRiskMode, horizon: StreamHorizon) -> Projection {
+        project(candidate, scoring: scoring, risk: risk)
+    }
 }
 
 // MARK: - Practice status

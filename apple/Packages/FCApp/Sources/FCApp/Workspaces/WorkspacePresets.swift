@@ -48,6 +48,9 @@ public enum WorkspacePresets {
             panel(.byeWeeks, 4, 5, 4, 2),
             panel(.injuries, 4, 7, 4, 2, link: .one),
             panel(.playerCard, 8, 5, 4, 4, link: .one),
+            panel(.qbStream, 0, 9, 4, 4, link: .one, topN: 5),
+            panel(.kStream, 4, 9, 4, 4, link: .one, topN: 5),
+            panel(.dstStream, 8, 9, 4, 4, link: .one, topN: 5),
         ]
     }
 

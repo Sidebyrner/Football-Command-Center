@@ -442,11 +442,39 @@ accent. All of it is compiled out of Release.
   `FCC_SCREENSHOT_DIR` (`TEST_RUNNER_FCC_SCREENSHOT_DIR=… xcodebuild test …`),
   optionally with `FCC_ACCENT`. Skipped when the variable isn't set.
 
+## QB, D/ST and K streams
+
+Three more stream screens on the shared stream layer, ported from the
+reference engines in the `fantasy-streams-integration_qb,def,k` bundle and
+pinned to their output (every player, every horizon, to 1e-6):
+
+- **QB** — per-dropback efficiency × dropbacks. With −1 per incompletion and
+  −1 per sack, completion, sack and INT rates carry the projection; the
+  opposing pass defense's rates are summed from Sleeper's lines of the QBs it
+  has faced.
+- **D/ST** — sacks and takeaways blend the defense's rate with the opposing
+  offense's giveaway rate; points allowed is an expected value over the tiers
+  around the opponent's implied total. A league with no D/ST scoring falls
+  back to Sleeper's defaults, flagged.
+- **K** — attempts follow the implied total and how often the offense stalls
+  into field goals; distances and make rates shrink to league norms; wind,
+  rain, a dome and Denver's altitude move them. There is no weather feed —
+  enter wind and rain in Game context.
+
+All three add a **rest-of-season layer**: a neutral per-game projection times
+the remaining opponents' generosity to the position (with venue factors for
+kickers), plus bye and playoff-week matchups. A **horizon** control — This
+week · Balanced · Rest of season — sets how much it counts in the ranking.
+Sleeper scores a play as the sum of every stat it records, so a pick-six
+costs `pass_int` and `pass_int_td`, and a made 50-yarder earns `fgm` and
+`fgm_50_59`. They sit in the Streams tab on iPhone, the Market sidebar on Mac
+and iPad, and as workspace panels.
+
 ## iPhone layout
 
 Five tabs, so nothing hides under More: **Team** (My Team, with Settings on a
 gear), **Lineup** (Sit/Start · Matchup), **Injuries**, **Market** (Discover ·
-Waivers · Trades · Planning) and **Streams** (IDP · WR · RB). A segment bar
+Waivers · Trades · Planning) and **Streams** (QB · RB · WR · K · D/ST · IDP). A segment bar
 under the title switches a hub's screens; each segment keeps its own
 navigation stack and scroll position, and a hub reopens on the segment you
 left it on. Lineup's badge counts the changes Sit/Start recommends and

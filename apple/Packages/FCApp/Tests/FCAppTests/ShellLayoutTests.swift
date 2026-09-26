@@ -35,7 +35,7 @@ final class PhoneHubTests: XCTestCase {
         let router = AppRouter(selection: .screen(.dashboard))
         XCTAssertEqual(router.phoneHub, .team)
         router.phoneHub = .streams
-        XCTAssertEqual(router.selection, .screen(.idpStream), "a hub opens on its first segment")
+        XCTAssertEqual(router.selection, .screen(PhoneHub.streams.screens[0]), "a hub opens on its first segment")
         router.open(.wrStream)
         router.phoneHub = .market
         XCTAssertEqual(router.selection, .screen(.discovery))

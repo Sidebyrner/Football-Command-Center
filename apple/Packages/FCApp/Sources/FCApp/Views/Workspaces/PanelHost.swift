@@ -254,7 +254,7 @@ struct PanelOptionsMenu: View {
 
     private var rowChoices: [Int]? {
         switch kind {
-        case .injuries, .waiverTargets, .idpStream, .wrStream, .rbStream, .news, .standings, .tradePartners:
+        case .injuries, .waiverTargets, .idpStream, .wrStream, .rbStream, .qbStream, .dstStream, .kStream, .news, .standings, .tradePartners:
             return [3, 5, 8, 12]
         case .discovery: return [8, 12, 20, 40]
         case .gameLog, .trendChart, .compare, .metric: return [4, 6, 8, 12]

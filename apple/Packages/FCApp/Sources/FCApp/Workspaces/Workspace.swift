@@ -64,6 +64,9 @@ public enum PanelKind: String, Codable, CaseIterable, Hashable, Sendable, Identi
     case idpStream
     case wrStream
     case rbStream
+    case qbStream
+    case dstStream
+    case kStream
     case news
     case standings
     case playerCard

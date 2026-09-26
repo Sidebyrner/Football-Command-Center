@@ -49,6 +49,23 @@ final class HubNavigationUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["WR Stream"].waitForExistence(timeout: 10), "Streams came back on WR")
     }
 
+    func testStreamsCoverEveryPositionIncludingQBDSTAndK() throws {
+        let app = try launch("qbstream")
+        let segments = app.descendants(matching: .any)["hub.segments"]
+        XCTAssertTrue(segments.waitForExistence(timeout: 30))
+        for label in ["QB", "RB", "WR", "K", "D/ST", "IDP"] {
+            XCTAssertTrue(segments.buttons[label].exists, "\(label) segment missing")
+        }
+        XCTAssertTrue(app.navigationBars["QB Stream"].waitForExistence(timeout: 10))
+        Self.snapshot("stream-qb")
+        segments.buttons["D/ST"].tap()
+        XCTAssertTrue(app.navigationBars["D/ST Stream"].waitForExistence(timeout: 10))
+        Self.snapshot("stream-dst")
+        segments.buttons["K"].tap()
+        XCTAssertTrue(app.navigationBars["K Stream"].waitForExistence(timeout: 10))
+        Self.snapshot("stream-k")
+    }
+
     func testADeepLinkLandsOnItsHubAndSegment() throws {
         let app = try launch("matchup")
         XCTAssertTrue(app.tabBars.buttons["Lineup"].waitForExistence(timeout: 30))

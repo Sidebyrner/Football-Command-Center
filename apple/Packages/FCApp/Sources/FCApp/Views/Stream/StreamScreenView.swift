@@ -96,6 +96,7 @@ struct StreamScreenView<Kind: StreamKind>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .motion(Motion.snappy, value: model.positionFilter)
             .motion(Motion.snappy, value: model.risk)
+            .motion(Motion.snappy, value: model.horizon)
         }
         .safeAreaInset(edge: .bottom) {
             if !model.compareIDs.isEmpty { compareTray }
@@ -284,6 +285,13 @@ struct StreamScreenView<Kind: StreamKind>: View {
             Text(riskHint)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            if Kind.usesHorizon {
+                SlidingPicker(options: StreamHorizon.allCases, selection: $model.horizon) { $0.label }
+                    .accessibilityLabel("Horizon")
+                Text(model.horizon.hint)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             HStack {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {

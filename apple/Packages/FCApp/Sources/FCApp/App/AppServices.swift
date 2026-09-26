@@ -28,6 +28,9 @@ public final class AppServices {
     public let idpStream: IDPStreamScreenModel
     public let wrStream: WRStreamScreenModel
     public let rbStream: RBStreamScreenModel
+    public let qbStream: QBStreamScreenModel
+    public let dstStream: DSTStreamScreenModel
+    public let kStream: KStreamScreenModel
     public let trades: TradeDeskScreenModel
     public let discovery: DiscoveryModel
 
@@ -62,6 +65,9 @@ public final class AppServices {
         idpStream = IDPStreamScreenModel(loader: loader)
         wrStream = WRStreamScreenModel(loader: loader)
         rbStream = RBStreamScreenModel(loader: loader)
+        qbStream = QBStreamScreenModel(loader: loader)
+        dstStream = DSTStreamScreenModel(loader: loader)
+        kStream = KStreamScreenModel(loader: loader)
         trades = TradeDeskScreenModel(loader: loader)
         trades.relayBaseURL = relayBaseURL
         discovery = DiscoveryModel(loader: loader, sleeper: sleeper)
@@ -93,7 +99,11 @@ public final class AppServices {
         async let rbStream: Void = rbStream.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let trades: Void = trades.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let discovery: Void = discovery.load(leagueID: leagueID, userRosterID: rosterID, force: force)
-        _ = await (dashboard, matchup, sitStart, planning, injuries, waivers, idpStream, wrStream, rbStream, trades, discovery)
+        async let qbStream: Void = qbStream.load(leagueID: leagueID, userRosterID: rosterID, force: force)
+        async let dstStream: Void = dstStream.load(leagueID: leagueID, userRosterID: rosterID, force: force)
+        async let kStream: Void = kStream.load(leagueID: leagueID, userRosterID: rosterID, force: force)
+        _ = await (dashboard, matchup, sitStart, planning, injuries, waivers, idpStream, wrStream, rbStream, trades, discovery,
+                   qbStream, dstStream, kStream)
     }
 
     /// A new relay address reaches every model that talks to it, and the

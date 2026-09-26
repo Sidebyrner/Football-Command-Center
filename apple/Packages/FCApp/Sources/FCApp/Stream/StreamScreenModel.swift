@@ -30,6 +30,8 @@ public final class StreamScreenModel<Kind: StreamKind>: ObservableObject {
     @Published public private(set) var lastSnapshotAt: Date?
 
     @Published public var risk: StreamRiskMode = .neutral { didSet { recompute() } }
+    /// How far ahead to rank, for streams with a rest-of-season layer.
+    @Published public var horizon: StreamHorizon = .balanced { didSet { recompute() } }
     @Published public var onlyAvailable = true { didSet { applyFilters() } }
     @Published public var positionFilter: Position? { didSet { applyFilters() } }
     @Published public var query = "" { didSet { applyFilters() } }
@@ -110,7 +112,7 @@ public final class StreamScreenModel<Kind: StreamKind>: ObservableObject {
     /// Re-runs the engine on the candidates already built — risk or starter change.
     private func recompute() {
         guard context != nil else { return }
-        let projections = candidates.map { Kind.project($0, scoring: scoring, risk: risk) }
+        let projections = candidates.map { Kind.project($0, scoring: scoring, risk: risk, horizon: horizon) }
         report = StreamDecision.report(projections: projections, incumbentID: incumbentID(among: projections))
         applyFilters()
     }
@@ -138,7 +140,7 @@ public final class StreamScreenModel<Kind: StreamKind>: ObservableObject {
     /// The chosen starter, or by default the weakest one the user is starting
     /// this week — the one a stream would replace.
     public var incumbentID: String? {
-        incumbentID(among: candidates.map { Kind.project($0, scoring: scoring, risk: risk) })
+        incumbentID(among: candidates.map { Kind.project($0, scoring: scoring, risk: risk, horizon: horizon) })
     }
 
     private func incumbentID(among projections: [Kind.Projection]) -> String? {
