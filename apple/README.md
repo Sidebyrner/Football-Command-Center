@@ -492,6 +492,12 @@ starters injury rules out. `-FCCTab <screen>` deep links land on the right
 hub and segment. Mac and iPad keep one sidebar row per screen (and no
 Board — they have workspaces); a compact-width iPad uses the hubs.
 
+**Lineup** opens with its three sections as status cards — Sit/Start ("1
+swap"), Matchup (the score, with a live dot), Injuries ("1 Q") — that are also
+the section switcher. Injuries is grouped: **Act now** (starters ruled out,
+with a link to swap them in Sit/Start), **Keep an eye on** (questionable
+starters and hurt bench players), **Fill-ins** and **Around the league**.
+
 **The Board** is the week at a glance as tiles: the live matchup score, your
 players' NFL games (quarter, clock, possession, red zone; before kickoff the
 channel, spread and wind), lineup readiness, injuries, the best stream at

@@ -19,7 +19,12 @@ struct PhoneHubView<Content: View>: View {
                         .safeAreaInset(edge: .top, spacing: 0) {
                             // Only the visible stack carries the bar, so there's
                             // one set of segment buttons on screen.
-                            if hub.screens.count > 1, shown { segmentBar }
+                            if shown, hub == .lineup {
+                                // Lineup's sections as status cards.
+                                LineupHubHeader(current: current) { router.open($0) }
+                            } else if hub.screens.count > 1, shown {
+                                segmentBar
+                            }
                         }
                 }
                 .opacity(shown ? 1 : 0)

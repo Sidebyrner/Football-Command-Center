@@ -12,6 +12,7 @@ import FCData
 public struct InjuryCenterView: View {
     @ObservedObject var model: InjuryCenterModel
     @State private var finding: InjuredPlayer?
+    @Environment(\.openScreen) private var openScreen
 
     public init(model: InjuryCenterModel) {
         self.model = model
@@ -56,31 +57,54 @@ public struct InjuryCenterView: View {
 
     @ViewBuilder
     private func rosterSection(context: LeagueContext) -> some View {
-        if model.roster.isEmpty {
-            Label("No injury signals on your roster this week.", systemImage: "checkmark.seal.fill")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Palette.start)
-                .card(fill: Palette.start.opacity(0.10))
-                .appear()
-        } else {
-            VStack(alignment: .leading, spacing: 10) {
-                SectionHeader(
-                    title: "Your roster",
-                    subtitle: "Sleeper's tag and the official practice report, worst first. Tap a player to find a fill.",
-                    systemImage: "cross.case.fill"
-                )
-                ForEach(Array(model.roster.enumerated()), id: \.element.id) { offset, player in
-                    Button {
-                        finding = player
-                    } label: {
-                        InjuredPlayerRow(player: player, news: model.news[player.id]?.first, now: context.now())
-                    }
-                    .buttonStyle(.plain)
-                    .playerCardMenu(player.id, context: context)
-                    .appear(index: offset)
-                    .scrollFade()
+        let groups = InjuryGroups(roster: model.roster, context: context)
+        VStack(alignment: .leading, spacing: 10) {
+            SectionHeader(
+                title: groups.actNow.isEmpty ? "Act now" : "Act now · \(groups.actNow.count)",
+                subtitle: "Starters ruled out this week. Tap one to find a fill.",
+                systemImage: "exclamationmark.octagon.fill"
+            )
+            if groups.actNow.isEmpty {
+                Label("All clear — no starter is ruled out.", systemImage: "checkmark.seal.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Palette.start)
+                    .card(fill: Palette.start.opacity(0.10))
+            } else {
+                rows(groups.actNow, context: context)
+                Button { openScreen(.sitStart) } label: {
+                    Label("Swap them out in Sit/Start", systemImage: "arrow.left.arrow.right")
+                        .font(.caption.weight(.semibold))
                 }
+                .buttonStyle(.borderless)
             }
+        }
+        .appear()
+        VStack(alignment: .leading, spacing: 10) {
+            SectionHeader(
+                title: groups.watch.isEmpty ? "Keep an eye on" : "Keep an eye on · \(groups.watch.count)",
+                subtitle: "Questionable starters and anyone hurt on your bench — Sleeper's tag and the practice report, worst first.",
+                systemImage: "eye"
+            )
+            if groups.watch.isEmpty {
+                Text("Nobody else carries an injury signal.")
+                    .font(.footnote).foregroundStyle(.secondary).card()
+            } else {
+                rows(groups.watch, context: context)
+            }
+        }
+    }
+
+    private func rows(_ players: [InjuredPlayer], context: LeagueContext) -> some View {
+        ForEach(Array(players.enumerated()), id: \.element.id) { offset, player in
+            Button {
+                finding = player
+            } label: {
+                InjuredPlayerRow(player: player, news: model.news[player.id]?.first, now: context.now())
+            }
+            .buttonStyle(.plain)
+            .playerCardMenu(player.id, context: context)
+            .appear(index: offset)
+            .scrollFade()
         }
     }
 
@@ -90,7 +114,7 @@ public struct InjuryCenterView: View {
     private var openingsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionHeader(
-                title: "Who benefits",
+                title: model.openings.isEmpty ? "Fill-ins" : "Fill-ins · \(model.openings.count)",
                 subtitle: "The next names on the official depth chart behind every injured player in the league, with last game's snap share and expected points.",
                 systemImage: "arrow.up.right.circle"
             )
@@ -118,7 +142,7 @@ public struct InjuryCenterView: View {
         if !model.rivalInjuries.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 SectionHeader(
-                    title: "Rivals' injured starters",
+                    title: "Around the league · \(model.rivalInjuries.count)",
                     subtitle: "A rival with a hole is a rival who will talk. Marked when you hold a spare at that position.",
                     systemImage: "person.2.badge.gearshape"
                 )
@@ -359,5 +383,26 @@ struct CandidateRow: View {
             }
         }
         .card()
+    }
+}
+
+/// The injured players on your roster, split by what they ask of you:
+/// starters ruled out need a move now; everyone else is worth watching.
+/// Worst-first order is kept within each group.
+struct InjuryGroups {
+    let actNow: [InjuredPlayer]
+    let watch: [InjuredPlayer]
+
+    init(roster: [InjuredPlayer], context: LeagueContext) {
+        var actNow: [InjuredPlayer] = [], watch: [InjuredPlayer] = []
+        for player in roster {
+            if player.isStarter, StartAvailability.of(player.id, context: context).blocksStart {
+                actNow.append(player)
+            } else {
+                watch.append(player)
+            }
+        }
+        self.actNow = actNow
+        self.watch = watch
     }
 }
