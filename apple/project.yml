@@ -57,6 +57,10 @@ targets:
         CFBundleVersion: "1"
         UILaunchScreen: {}
         ITSAppUsesNonExemptEncryption: false
+        # A personal relay on the home network or a tailnet can be plain http:
+        # .local and bare hostnames need this; numeric IPs aren't under ATS.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.connorbyrne.FantasyCommandCenter

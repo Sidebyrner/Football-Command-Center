@@ -202,6 +202,39 @@ final class SettingsModelTests: XCTestCase {
         model.setRelayURL(nil)
         XCTAssertNil(store.load().relayBaseURL)
     }
+
+    /// "100.77.38" is a Tailscale address missing a number: the system reads
+    /// it as a hostname, and plain http to it is blocked by ATS.
+    func testAnIncompleteIPIsRejectedWithWhy() {
+        let (model, store) = make(transport: StubTransport())
+        XCTAssertFalse(model.setRelayURL(text: "http://100.77.38:1234"))
+        XCTAssertNil(store.load().relayBaseURL)
+        XCTAssertTrue(model.relayError?.contains("four numbers") ?? false)
+        XCTAssertFalse(model.setRelayURL(text: "http://100.77.38.300:1234"))
+
+        XCTAssertTrue(model.setRelayURL(text: "http://100.77.38.12:1234"))
+        XCTAssertEqual(store.load().relayBaseURL?.port, 1234)
+        XCTAssertNil(model.relayError)
+    }
+
+    func testPlainHTTPOnlyToLocalAddresses() {
+        let (model, _) = make(transport: StubTransport())
+        XCTAssertTrue(model.setRelayURL(text: "http://mac-mini.local:1234"))
+        XCTAssertTrue(model.setRelayURL(text: "http://macmini:1234"), "bare hostnames are local")
+        XCTAssertFalse(model.setRelayURL(text: "http://relay.example.com"))
+        XCTAssertTrue(model.relayError?.contains("https") ?? false)
+        XCTAssertTrue(model.setRelayURL(text: "relay.example.com"), "no scheme becomes https")
+    }
+
+    func testASavedRelayThatCantWorkIsFlaggedAndNotUsed() {
+        let (model, _) = make(transport: StubTransport())
+        let bad = URL(string: "http://100.77.38:1234")!
+        model.setRelayURL(bad)
+        model.checkSavedRelay()
+        XCTAssertNotNil(model.relayError)
+        XCTAssertNil(SettingsModel.usableRelay(bad))
+        XCTAssertNotNil(SettingsModel.usableRelay(URL(string: "https://relay.example.com")!))
+    }
 }
 
 /// `AppSettings` persistence in its own right.

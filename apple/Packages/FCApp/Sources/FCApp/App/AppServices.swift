@@ -54,7 +54,9 @@ public final class AppServices {
         self.loader = loader
         // The relay is optional and every call through it fails soft, so a
         // missing base URL simply means the news section never appears (§0).
-        let relayBaseURL = settingsStore.load().relayBaseURL
+        // A saved address that can't work (an incomplete IP, plain http to a
+        // public name) isn't used; Settings says why.
+        let relayBaseURL = settingsStore.load().relayBaseURL.flatMap { SettingsModel.usableRelay($0) }
         planning = PlanningModel(loader: loader, sleeper: sleeper)
         planning.relayBaseURL = relayBaseURL
         dashboard = DashboardModel(loader: loader, sleeper: sleeper, relay: relayBaseURL.map { RelayClient(baseURL: $0) })

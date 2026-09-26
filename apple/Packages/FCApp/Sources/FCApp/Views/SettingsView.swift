@@ -108,7 +108,10 @@ public struct SettingsView: View {
                 .keyboardType(.URL)
                 #endif
                 .onSubmit { model.setRelayURL(text: relayText) }
-                .onAppear { relayText = model.settings.relayBaseURL?.absoluteString ?? "" }
+                .onAppear {
+                    relayText = model.settings.relayBaseURL?.absoluteString ?? ""
+                    model.checkSavedRelay()
+                }
             if let error = model.relayError {
                 Text(error).font(.footnote).foregroundStyle(Palette.sit)
             }

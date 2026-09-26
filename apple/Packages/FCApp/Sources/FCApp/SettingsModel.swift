@@ -168,9 +168,43 @@ public final class SettingsModel: ObservableObject {
             relayError = "That isn't a web address the relay could be reached at."
             return false
         }
+        if let problem = Self.relayHostProblem(host: host, scheme: scheme) {
+            relayError = problem
+            return false
+        }
         relayError = nil
         setRelayURL(url)
         return true
+    }
+
+    /// The saved relay address, or `nil` when it can't be reached as written.
+    static func usableRelay(_ url: URL) -> URL? {
+        guard let host = url.host, let scheme = url.scheme?.lowercased() else { return nil }
+        return relayHostProblem(host: host, scheme: scheme) == nil ? url : nil
+    }
+
+    /// Flags a saved relay address that can't work, for Settings to show.
+    public func checkSavedRelay() {
+        guard let url = settings.relayBaseURL, let host = url.host, let scheme = url.scheme?.lowercased() else { return }
+        relayError = Self.relayHostProblem(host: host, scheme: scheme)
+    }
+
+    /// Why a relay host can't work, or `nil`. A numeric host must be a whole
+    /// IPv4 address — "100.77.38" is a Tailscale address missing a number,
+    /// which the system reads as a hostname and never reaches. Plain http is
+    /// only allowed to IP addresses, `.local` names and bare hostnames; App
+    /// Transport Security blocks it to anything else.
+    static func relayHostProblem(host: String, scheme: String) -> String? {
+        let parts = host.split(separator: ".", omittingEmptySubsequences: false)
+        let numeric = host.allSatisfy { $0.isNumber || $0 == "." }
+        if numeric {
+            let valid = parts.count == 4 && parts.allSatisfy { Int($0).map { (0...255).contains($0) } ?? false }
+            return valid ? nil : "\(host) isn't a complete IP address — it needs four numbers, like 100.77.38.12."
+        }
+        if scheme == "http", !host.hasSuffix(".local"), host.contains("."), !host.contains(":") {
+            return "Plain http only works to an IP address or a .local name. Use https:// for \(host) (Tailscale can serve https with `tailscale serve`)."
+        }
+        return nil
     }
 
     public func setAccentTheme(_ theme: AccentTheme) {
