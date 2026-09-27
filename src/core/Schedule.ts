@@ -83,7 +83,7 @@ export function weekLines(schedule: ScheduleFile, week: number): Record<string, 
  * **distinct** teams among the starters. Teams with no line are named, not zeroed.
  */
 export function lineupEnvironment(teams: (string | undefined)[], lines: Record<string, TeamGameLine>) {
-  const distinct = new Set(teams.filter((t): t is string => !!t).map((t) => nflverseTeam(t) ?? t))
+  const distinct = new Set(teams.filter((t): t is string => t !== undefined).map((t) => nflverseTeam(t) ?? t))
   let total: number | undefined
   const missing: string[] = []
   for (const team of [...distinct].sort()) {
