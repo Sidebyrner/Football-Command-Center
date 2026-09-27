@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, Settings as SettingsIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { hubs, hubScreens, hubTitle, hubFor, segmentLabel, type Screen } from '@models/navigation/screens'
+import { hubs, hubScreens, hubTitle, hubFor, screenTitle, segmentLabel, toolScreens, type Screen } from '@models/navigation/screens'
 import { shortLabel, trailLabel, type Place } from '@models/navigation/NavigationHistory'
 import { useApp, useModel } from '@ui/app/AppContext'
 import { SegmentBar } from '@ui/components/Screen'
@@ -215,6 +215,20 @@ function Sidebar({ current: place }: { current: Place }) {
         {hub === 'lineup' && <WorkspaceSidebarSection currentID={place.kind === 'workspace' ? place.id : undefined} />}
         </Fragment>
       ))}
+      <div className="sidebar-group">
+        <div className="t-micro muted sidebar-heading">Tools</div>
+        {toolScreens.map((s) => {
+          const Icon = screenIcon[s]
+          const on = s === current
+          return (
+            <button key={s} type="button" className={`sidebar-row t-body${on ? ' sidebar-row-on' : ''}`}
+              aria-current={on ? 'page' : undefined} onClick={() => open(s)}>
+              <Icon size={17} color={on ? '#fff' : 'var(--hue-team)'} aria-hidden />
+              {screenTitle[s]}
+            </button>
+          )
+        })}
+      </div>
     </nav>
   )
 }

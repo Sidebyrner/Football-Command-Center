@@ -5,7 +5,7 @@ import { screenIcon } from '@ui/icons'
 import { Sparkles } from 'lucide-react'
 
 /** What each screen will answer once its engine is ported — Release 1. */
-const promise: Record<Screen, string> = {
+const promise: Partial<Record<Screen, string>> = {
   board: 'Your week at a glance: live score, your players’ games, readiness, injuries, the best streams and the top pickup.',
   dashboard: 'Record, rank and streak; what to fix before kickoff; standings, bench points and weekly scoring.',
   sitStart: 'The best lineup on the basis you choose, what each swap is worth, and where the measures disagree.',

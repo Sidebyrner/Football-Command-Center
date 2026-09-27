@@ -64,7 +64,7 @@ export function panelFullScreen(kind: PanelKind): Screen | undefined {
  * `navigation/screens.ts`, so kept here for the panels that borrow their
  * screen's symbol.
  */
-export const SCREEN_SYSTEM_IMAGE: Readonly<Record<Screen, string>> = {
+export const SCREEN_SYSTEM_IMAGE: Readonly<Partial<Record<Screen, string>>> = {
   board: 'square.grid.2x2',
   planning: 'calendar.badge.exclamationmark',
   dashboard: 'person.crop.square',
@@ -102,7 +102,7 @@ export function panelSystemImage(kind: PanelKind): string {
     case 'playerSearch': return 'magnifyingglass'
     default: {
       const screen = panelFullScreen(kind)
-      return screen ? SCREEN_SYSTEM_IMAGE[screen] : 'square'
+      return (screen && SCREEN_SYSTEM_IMAGE[screen]) ?? 'square'
     }
   }
 }

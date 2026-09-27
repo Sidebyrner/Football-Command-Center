@@ -10,6 +10,7 @@ import { useApp, useModel } from '@ui/app/AppContext'
 import { NeedsSetup } from '@ui/components/State'
 import { Placeholder } from './Placeholder'
 import { SettingsScreen } from './settings/SettingsScreen'
+import { DraftPlanScreen, DraftScreen, OddsScreen, PowerRankingsScreen, ResearchScreen } from './tools'
 import { DSTStreamScreen, IDPStreamScreen, KStreamScreen, QBStreamScreen, RBStreamScreen, WRStreamScreen } from './streams'
 import { DiscoverScreen } from './market/DiscoverScreen'
 import { PlanningScreen } from './market/PlanningScreen'
@@ -24,6 +25,11 @@ import { SitStartScreen } from './lineup/SitStartScreen'
 /** Screens built so far; the rest render their placeholder. */
 export const screens: Partial<Record<Screen, ComponentType>> = {
   settings: SettingsScreen,
+  draft: DraftScreen,
+  draftPlan: DraftPlanScreen,
+  research: ResearchScreen,
+  powerRankings: PowerRankingsScreen,
+  odds: OddsScreen,
   qbStream: QBStreamScreen,
   rbStream: RBStreamScreen,
   wrStream: WRStreamScreen,

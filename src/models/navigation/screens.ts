@@ -7,13 +7,23 @@ export type Screen =
   | 'board' | 'dashboard' | 'injuries' | 'discovery' | 'planning' | 'waivers' | 'trades'
   | 'idpStream' | 'wrStream' | 'rbStream' | 'qbStream' | 'dstStream' | 'kStream'
   | 'matchup' | 'sitStart' | 'settings'
+  /** Web-only tools from the original web app: draft day, research, rankings, odds. */
+  | 'draft' | 'draftPlan' | 'research' | 'powerRankings' | 'odds'
 
 export const screenTitle: Record<Screen, string> = {
   board: 'Board', dashboard: 'My Team', injuries: 'Injuries', discovery: 'Discover',
   planning: 'Planning', waivers: 'Waivers', trades: 'Trades', idpStream: 'IDP Stream',
   wrStream: 'WR Stream', rbStream: 'RB Stream', qbStream: 'QB Stream', dstStream: 'D/ST Stream',
   kStream: 'K Stream', matchup: 'Matchup', sitStart: 'Sit/Start', settings: 'Settings',
+  draft: 'Draft', draftPlan: 'Draft Plan', research: 'Research', powerRankings: 'Power Rankings', odds: 'Odds',
 }
+
+/**
+ * The web-only tools, in sidebar order. Not a phone tab: on a phone they open
+ * from My Team, and live under the Team hub.
+ */
+export const toolScreens: readonly Screen[] = ['draft', 'draftPlan', 'research', 'powerRankings', 'odds']
+export const isToolScreen = (s: Screen) => toolScreens.includes(s)
 
 export type Hub = 'board' | 'team' | 'lineup' | 'market' | 'streams'
 
@@ -34,7 +44,7 @@ export const hubScreens: Record<Hub, readonly Screen[]> = {
 
 /** Which hub a screen lives in. Settings sits behind Team's gear. */
 export function hubFor(screen: Screen): Hub {
-  if (screen === 'settings') return 'team'
+  if (screen === 'settings' || isToolScreen(screen)) return 'team'
   return hubs.find((hub) => hubScreens[hub].includes(screen)) ?? 'team'
 }
 
@@ -75,6 +85,11 @@ const paths: Record<Screen, string> = {
   kStream: '/streams/k',
   dstStream: '/streams/dst',
   idpStream: '/streams/idp',
+  draft: '/tools/draft',
+  draftPlan: '/tools/draft-plan',
+  research: '/tools/research',
+  powerRankings: '/tools/power-rankings',
+  odds: '/tools/odds',
 }
 
 export function pathFor(screen: Screen): string {

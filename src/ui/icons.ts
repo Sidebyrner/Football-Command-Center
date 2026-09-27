@@ -1,5 +1,5 @@
 import {
-  ArrowLeftRight, Binoculars, CalendarClock, Cross, Footprints, Inbox, LayoutGrid, Repeat, Settings,
+  ArrowLeftRight, BarChart3, Binoculars, ClipboardList, Dices, NotebookPen, Trophy, CalendarClock, Cross, Footprints, Inbox, LayoutGrid, Repeat, Settings,
   Shield, ShieldHalf, SquareUser, Target, Users, Zap, Wind, type LucideIcon,
 } from 'lucide-react'
 import type { Hub, Screen } from '@models/navigation/screens'
@@ -29,4 +29,9 @@ export const screenIcon: Record<Screen, LucideIcon> = {
   dstStream: Shield,
   idpStream: ShieldHalf,
   settings: Settings,
+  draft: ClipboardList,
+  draftPlan: NotebookPen,
+  research: BarChart3,
+  powerRankings: Trophy,
+  odds: Dices,
 }

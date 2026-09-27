@@ -1,0 +1,20 @@
+/*
+ * The original web app's colour variables, pointed at the design tokens, so
+ * its tools follow light and dark mode inside the new shell.
+ */
+.fcc {
+  --color-bg: var(--page);
+  --color-surface: var(--card);
+  --color-surface-2: var(--inset);
+  --color-border: var(--stroke);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-2);
+  --color-text-faint: var(--text-3);
+  --color-accent: var(--accent);
+  --color-accent-hover: color-mix(in srgb, var(--accent) 85%, black);
+  --color-start: var(--start);
+  --color-caution: var(--caution);
+  --color-sit: var(--sit);
+  --shadow-card: var(--shadow);
+}
+.fcc-tool { display: grid; gap: var(--space-l); min-width: 0; }
