@@ -4,8 +4,11 @@ import { useDefenseVsPosition } from '../../hooks/useDefenseVsPosition'
 import { useWeeklySeasons } from '../../hooks/usePlayerWeekly'
 import DvpHeatmap from './DvpHeatmap'
 import DvpRankedList from './DvpRankedList'
+import { FilterChip, ScreenSection, SegmentBar } from '@ui/components/Screen'
+import '../../screens/tools/researchTools.css'
 
 const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K']
+const VIEWS = ['heatmap', 'ranked']
 
 /**
  * How generous each defense is to each position, in this league's points.
@@ -26,103 +29,86 @@ export default function DefenseVsPositionPanel({ myTeamAbbrs }) {
 
   if (!seasons.length && !loading) {
     return (
-      <p className="text-xs text-[var(--color-text-faint)]">
-        No weekly data on disk. Run <code className="text-[var(--color-text-muted)]">npm run preprocess-nflverse</code> to build it.
-      </p>
+      <ScreenSection title="Defense vs position" icon={Shield} hue="var(--hue-team)">
+        <p className="card t-meta muted" style={{ margin: 0 }}>
+          No weekly data on disk. Run <code>npm run preprocess-nflverse</code> to build it.
+        </p>
+      </ScreenSection>
     )
   }
 
   return (
-    <section>
-      <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-faint)] flex items-center gap-1.5">
-          <Shield size={12} />
-          Defense vs position
-        </h2>
-
-        <div className="flex items-center gap-3">
+    <ScreenSection
+      title="Defense vs position"
+      icon={Shield}
+      hue="var(--hue-team)"
+      subtitle="How generous each defense is to each position, in your league's points."
+    >
+      <div className="card rt-stack">
+        <div className="rt-row" style={{ justifyContent: 'space-between' }}>
           {seasons.length > 1 && (
-            <div className="flex gap-1">
+            <div className="rt-row" role="group" aria-label="Season">
               {seasons.map((s) => (
-                <button
+                <FilterChip
                   key={s.season}
+                  label={`${s.season}${!s.complete ? ` (${s.weeks} wk)` : ''}`}
+                  selected={active === s.season}
                   onClick={() => setSeason(s.season)}
-                  className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
-                    active === s.season
-                      ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)] font-semibold'
-                      : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-                  }`}
-                >
-                  {s.season}{!s.complete ? ` (${s.weeks} wk)` : ''}
-                </button>
+                />
               ))}
             </div>
           )}
-          <div className="flex gap-1 border-l border-[var(--color-border)] pl-3">
-            {['heatmap', 'by position'].map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v === 'heatmap' ? 'heatmap' : 'ranked')}
-                className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
-                  (view === 'heatmap') === (v === 'heatmap')
-                    ? 'bg-[var(--color-surface-2)] text-[var(--color-text)] font-semibold'
-                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-                }`}
-              >
-                {v}
-              </button>
-            ))}
+          <div style={{ minWidth: 220, flex: '0 1 260px', marginLeft: 'auto' }}>
+            <SegmentBar
+              options={VIEWS}
+              value={view}
+              label={(v) => (v === 'heatmap' ? 'Heatmap' : 'By position')}
+              onChange={setView}
+              ariaLabel="Defense vs position view"
+            />
           </div>
         </div>
-      </div>
 
-      {loading && (
-        <p className="text-sm text-[var(--color-text-muted)] flex items-center gap-1.5">
-          <Loader2 size={13} className="animate-spin" /> Scoring every game log against your league's rules…
-        </p>
-      )}
-      {error && <p className="text-sm text-[var(--color-sit)]">{error}</p>}
+        {loading && (
+          <p className="t-meta muted flex items-center gap-1.5" role="status" style={{ margin: 0 }}>
+            <Loader2 size={13} className="animate-spin" aria-hidden /> Scoring every game log against your league's rules…
+          </p>
+        )}
+        {error && <p className="t-meta" role="alert" style={{ margin: 0, color: 'var(--sit)' }}>{error}</p>}
 
-      {!loading && dvp && (
-        <>
-          {view === 'ranked' && (
-            <div className="flex gap-1 mb-2">
-              {POSITIONS.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPosition(p)}
-                  className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
-                    position === p
-                      ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)] font-semibold'
-                      : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
+        {!loading && dvp && (
+          <>
+            {view === 'ranked' && (
+              <div className="rt-row" role="group" aria-label="Position">
+                {POSITIONS.map((p) => (
+                  <FilterChip key={p} label={p} selected={position === p} onClick={() => setPosition(p)} />
+                ))}
+              </div>
+            )}
+
+            {view === 'heatmap'
+              ? <DvpHeatmap dvp={dvp} myTeamAbbrs={myTeamAbbrs} />
+              : <DvpRankedList dvp={dvp} position={position} myTeamAbbrs={myTeamAbbrs} />}
+
+            <div className="rt-stack" style={{ gap: 'var(--space-xs)' }}>
+              <p className="t-meta muted" style={{ margin: 0 }}>
+                Points allowed per <strong style={{ color: 'var(--text)' }}>game the defense played</strong>,
+                summed across every player at that position who faced them, scored by{' '}
+                <strong style={{ color: 'var(--text)' }}>{profileName ?? 'your league profile'}</strong>.
+                Volume counts: a defense that keeps facing three-receiver offenses will look soft to WRs.
+              </p>
+              <p className="t-meta flex items-start gap-1" style={{ margin: 0, color: 'var(--caution)' }}>
+                <AlertTriangle size={12} className="flex-shrink-0" style={{ marginTop: 2 }} aria-hidden />
+                <span>
+                  This is {dvp.season} only — never blended with another year. Last season's
+                  defense is not this season's defense; personnel and coordinators turn over.
+                  {seasonMeta && !seasonMeta.complete && ` ${dvp.season} has ${dvp.weeks.length} weeks so far.`}
+                </span>
+              </p>
             </div>
-          )}
-
-          {view === 'heatmap'
-            ? <DvpHeatmap dvp={dvp} myTeamAbbrs={myTeamAbbrs} />
-            : <DvpRankedList dvp={dvp} position={position} myTeamAbbrs={myTeamAbbrs} />}
-
-          <div className="mt-3 space-y-1">
-            <p className="text-[10px] text-[var(--color-text-muted)]">
-              Points allowed per <span className="text-[var(--color-text)]">game the defense played</span>,
-              summed across every player at that position who faced them, scored by{' '}
-              <span className="text-[var(--color-text)]">{profileName ?? 'your league profile'}</span>.
-              Volume counts: a defense that keeps facing three-receiver offenses will look soft to WRs.
-            </p>
-            <p className="text-[10px] text-[var(--color-caution)] flex items-start gap-1">
-              <AlertTriangle size={10} className="flex-shrink-0 mt-0.5" />
-              This is {dvp.season} only — never blended with another year. Last season's
-              defense is not this season's defense; personnel and coordinators turn over.
-              {seasonMeta && !seasonMeta.complete && ` ${dvp.season} has ${dvp.weeks.length} weeks so far.`}
-            </p>
-          </div>
-        </>
-      )}
-    </section>
+          </>
+        )}
+      </div>
+    </ScreenSection>
   )
 }

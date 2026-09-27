@@ -2,15 +2,12 @@ import { AlertTriangle } from 'lucide-react'
 
 function Tile({ label, value, hint, accent }) {
   return (
-    <div className="border border-[var(--color-border)] rounded bg-[var(--color-surface-2)] px-3 py-2">
-      <p className="text-[9px] uppercase tracking-wide text-[var(--color-text-faint)]">{label}</p>
-      <p
-        className="text-lg font-bold tabular-nums"
-        style={{ color: accent ? 'var(--color-accent)' : 'var(--color-text)' }}
-      >
+    <div className="inset" style={{ padding: 'var(--space-s) var(--space-m)' }}>
+      <p className="t-micro muted" style={{ margin: 0 }}>{label}</p>
+      <p className="t-title" style={{ margin: 0, color: accent ? 'var(--accent)' : 'var(--text)' }}>
         {value ?? '—'}
       </p>
-      {hint && <p className="text-[9px] text-[var(--color-text-faint)] leading-tight">{hint}</p>}
+      {hint && <p className="t-caption faint" style={{ margin: 0 }}>{hint}</p>}
     </div>
   )
 }
@@ -42,10 +39,10 @@ export default function ConsistencyPanel({ scored, distribution, season, profile
   return (
     <div>
       <div className="flex items-baseline justify-between mb-2 gap-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-faint)]">
+        <h3 className="t-section" style={{ margin: 0 }}>
           Actual production
         </h3>
-        <span className="text-[10px] text-[var(--color-text-faint)]">
+        <span className="t-meta faint">
           {season} · {d.n} week{d.n === 1 ? '' : 's'}
         </span>
       </div>
@@ -62,27 +59,27 @@ export default function ConsistencyPanel({ scored, distribution, season, profile
         <Tile label="Volatility" value={d.cv?.toFixed(2)} hint={volatilityLabel(d.cv)} />
       </div>
 
-      <p className="text-[10px] text-[var(--color-text-muted)] mt-2 leading-snug">
-        This is what he <span className="text-[var(--color-text)]">did</span>, in{' '}
-        <span className="text-[var(--color-text)]">{profileName ?? 'your league'}</span> points. The
+      <p className="t-meta muted" style={{ margin: 'var(--space-s) 0 0' }}>
+        This is what he <strong style={{ color: 'var(--text)' }}>did</strong>, in{' '}
+        <strong style={{ color: 'var(--text)' }}>{profileName ?? 'your league'}</strong> points. The
         0–100 score above is something else — how his season profile{' '}
-        <span className="text-[var(--color-text)]">ranks</span> against his position. They answer
+        <strong style={{ color: 'var(--text)' }}>ranks</strong> against his position. They answer
         different questions and will disagree.
       </p>
 
       {thin && (
-        <p className="text-[10px] text-[var(--color-caution)] mt-1.5 flex items-start gap-1">
-          <AlertTriangle size={10} className="flex-shrink-0 mt-0.5" />
+        <p className="t-meta flex items-start gap-1" style={{ margin: '6px 0 0', color: 'var(--caution)' }}>
+          <AlertTriangle size={12} className="flex-shrink-0" style={{ marginTop: 1 }} aria-hidden />
           Only {d.n} game{d.n === 1 ? '' : 's'} — a floor and ceiling off this few weeks is noise, not a range.
         </p>
       )}
       {stale && (
-        <p className="text-[10px] text-[var(--color-text-faint)] mt-1">
+        <p className="t-meta faint" style={{ margin: '4px 0 0' }}>
           {season} is still in progress ({seasonMeta.weeks} week{seasonMeta.weeks === 1 ? '' : 's'} of data).
         </p>
       )}
       {scored?.unsupported?.length > 0 && (
-        <p className="text-[10px] text-[var(--color-text-faint)] mt-1">
+        <p className="t-meta faint" style={{ margin: '4px 0 0' }}>
           Your league scores {scored.unsupported.join(', ')}, which this dataset doesn't
           break out — those points are missing from every week above, not zero.
         </p>

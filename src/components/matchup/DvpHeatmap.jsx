@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { heatColor } from '../../utils/chartColors'
-import { getPositionColor } from '../../utils/playerHelpers'
+import { heatFill } from '../shared/chartTheme'
+import { positionColor } from '@ui/components/Player'
+import '../../screens/tools/researchTools.css'
 
 /**
  * Fantasy points each defense allows to each position, in YOUR league's
@@ -8,7 +9,8 @@ import { getPositionColor } from '../../utils/playerHelpers'
  *
  * A DOM grid rather than a Recharts chart: recharts has no heatmap primitive
  * worth the wrapper, and a plain grid can use CSS vars directly instead of the
- * hex twins in chartColors.js.
+ * hex twins in chartColors.js. Every cell prints its value, and the legend
+ * names each colour, so the colour is never the only signal.
  */
 export default function DvpHeatmap({ dvp, myTeamAbbrs }) {
   const [hover, setHover] = useState(null)
@@ -41,40 +43,29 @@ export default function DvpHeatmap({ dvp, myTeamAbbrs }) {
 
   if (!rows.length) return null
   const { positions, leagueAvgByPos, minGames } = dvp
+  const columns = { gridTemplateColumns: `56px repeat(${positions.length}, minmax(0, 1fr))` }
 
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[420px]">
+    <div className="rt-scroll">
+      <div className="rt-heat" role="table" aria-label="Fantasy points allowed per game by each defense to each position, softest defenses first">
         {/* header */}
-        <div
-          className="grid gap-px text-[9px] uppercase tracking-wide text-[var(--color-text-faint)] mb-px"
-          style={{ gridTemplateColumns: `56px repeat(${positions.length}, minmax(0, 1fr))` }}
-        >
-          <div />
+        <div className="grid" style={{ ...columns, gap: 2 }} role="row">
+          <div role="columnheader" className="t-micro faint rt-heat-head" style={{ textAlign: 'left', paddingLeft: 6 }}>Def</div>
           {positions.map((p) => (
-            <div key={p} className="text-center py-1" style={{ color: getPositionColor(p) }}>
-              {p}
+            <div key={p} role="columnheader" className="rt-heat-head">
+              <span className="t-micro" style={{ color: positionColor(p) }}>{p}</span>
               {leagueAvgByPos[p] != null && (
-                <span className="block text-[8px] text-[var(--color-text-faint)] normal-case tracking-normal">
-                  avg {leagueAvgByPos[p]}
-                </span>
+                <span className="block t-caption faint">avg {leagueAvgByPos[p]}</span>
               )}
             </div>
           ))}
         </div>
 
         {rows.map((r) => (
-          <div
-            key={r.def}
-            className="grid gap-px mb-px"
-            style={{ gridTemplateColumns: `56px repeat(${positions.length}, minmax(0, 1fr))` }}
-          >
-            <div
-              className={`text-[10px] font-semibold px-1.5 py-1 flex items-center rounded-l ${
-                r.mine ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]'
-              }`}
-            >
+          <div key={r.def} className="grid" style={{ ...columns, gap: 2 }} role="row">
+            <div role="rowheader" className={`rt-heat-def${r.mine ? ' mine' : ''}`}>
               {r.def}
+              {r.mine && <span className="sr-only"> (your opponent)</span>}
             </div>
             {positions.map((p) => {
               const cell = r.byPos[p]
@@ -85,26 +76,31 @@ export default function DvpHeatmap({ dvp, myTeamAbbrs }) {
               // single outlier flattening everything else.
               const t = thin || !avg ? null : Math.max(-1, Math.min(1, (cell.perGame - avg) / (avg * 0.35)))
               const key = `${r.def}-${p}`
+              const label = thin
+                ? `${r.def} vs ${p}: under ${minGames} games, not ranked`
+                : `${r.def} vs ${p}: ${cell.perGame.toFixed(1)} per game, ${cell.vsLeagueAvg > 0 ? '+' : ''}${cell.vsLeagueAvg} vs league average, rank ${cell.rank} of ${dvp.ranked[p]?.length ?? '—'} softest, ${cell.games} games`
               return (
                 <div
                   key={p}
+                  role="cell"
+                  tabIndex={thin ? -1 : 0}
+                  aria-label={label}
                   onMouseEnter={() => setHover(key)}
                   onMouseLeave={() => setHover(null)}
-                  className="relative text-center py-1 text-[10px] tabular-nums cursor-default"
-                  style={{
-                    backgroundColor: thin ? 'rgba(71, 85, 105, 0.18)' : heatColor(t),
-                    color: thin ? 'var(--color-text-faint)' : '#f8fafc',
-                  }}
+                  onFocus={() => setHover(key)}
+                  onBlur={() => setHover(null)}
+                  className={`rt-heat-cell${thin ? ' thin' : ''}`}
+                  style={thin ? undefined : { background: heatFill(t) }}
                 >
-                  {thin ? '—' : cell.perGame.toFixed(1)}
+                  <span aria-hidden>{thin ? '—' : cell.perGame.toFixed(1)}</span>
                   {hover === key && !thin && (
-                    <div className="absolute z-20 left-1/2 -translate-x-1/2 top-full mt-1 whitespace-nowrap bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded px-2 py-1 text-left shadow-lg">
-                      <p className="font-semibold text-[var(--color-text)]">{r.def} vs {p}</p>
-                      <p className="text-[var(--color-text-muted)]">
+                    <div className="rt-tooltip" aria-hidden>
+                      <p style={{ fontWeight: 600 }}>{r.def} vs {p}</p>
+                      <p className="muted">
                         {cell.perGame.toFixed(1)}/gm · {cell.vsLeagueAvg > 0 ? '+' : ''}
                         {cell.vsLeagueAvg} vs league avg
                       </p>
-                      <p className="text-[var(--color-text-faint)]">
+                      <p className="faint">
                         rank {cell.rank}/{dvp.ranked[p]?.length ?? '—'} softest · {cell.games} games
                       </p>
                     </div>
@@ -114,25 +110,25 @@ export default function DvpHeatmap({ dvp, myTeamAbbrs }) {
             })}
           </div>
         ))}
+      </div>
 
-        <div className="flex items-center gap-3 mt-3 text-[9px] text-[var(--color-text-faint)]">
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: heatColor(-1) }} />
-            tough
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: heatColor(0) }} />
-            league average
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: heatColor(1) }} />
-            soft
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: 'rgba(71, 85, 105, 0.18)' }} />
-            under {minGames} games — not ranked
-          </span>
-        </div>
+      <div className="rt-row t-caption muted" style={{ marginTop: 'var(--space-s)', gap: 'var(--space-m)' }} aria-label="Heatmap legend">
+        <span className="rt-row" style={{ gap: 4 }}>
+          <span className="rt-swatch" style={{ background: heatFill(-1) }} />
+          tough (fewer points than average)
+        </span>
+        <span className="rt-row" style={{ gap: 4 }}>
+          <span className="rt-swatch" style={{ background: heatFill(0) }} />
+          league average
+        </span>
+        <span className="rt-row" style={{ gap: 4 }}>
+          <span className="rt-swatch" style={{ background: heatFill(1) }} />
+          soft (more points than average)
+        </span>
+        <span className="rt-row" style={{ gap: 4 }}>
+          <span className="rt-swatch" style={{ background: 'var(--inset)' }} />
+          — under {minGames} games, not ranked
+        </span>
       </div>
     </div>
   )

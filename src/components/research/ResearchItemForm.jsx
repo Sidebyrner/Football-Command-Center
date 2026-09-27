@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { TAGS } from '../../utils/researchTags'
+import { tagToken } from './ResearchCard'
+import '../../screens/tools/researchTools.css'
 
 const EMPTY = { title: '', body: '', url: '', tags: [] }
 
@@ -40,86 +42,88 @@ export default function ResearchItemForm({ player, initial, onSave, onCancel }) 
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="rounded border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3 flex flex-col gap-2.5"
-    >
+    <form onSubmit={handleSubmit} className="card rt-stack" aria-label="New research item">
       {/* Title */}
-      <input
-        type="text"
-        placeholder="Title (required)"
-        value={fields.title}
-        onChange={(e) => setFields((f) => ({ ...f, title: e.target.value }))}
-        autoFocus
-        className="w-full px-2.5 py-1.5 text-sm bg-[var(--color-surface)] border border-[var(--color-border)] rounded text-[var(--color-text)] placeholder-[var(--color-text-faint)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
-      />
+      <label className="rt-label">
+        <span className="t-meta muted">Title</span>
+        <input
+          type="text"
+          placeholder="Title (required)"
+          value={fields.title}
+          onChange={(e) => setFields((f) => ({ ...f, title: e.target.value }))}
+          autoFocus
+          required
+          className="rt-field w-full"
+        />
+      </label>
 
       {/* Player name (only shown when no player context is pre-filled) */}
       {!player && (
-        <input
-          type="text"
-          placeholder="Player name (optional)"
-          value={playerName}
-          onChange={(e) => setPlayerName(e.target.value)}
-          className="w-full px-2.5 py-1.5 text-sm bg-[var(--color-surface)] border border-[var(--color-border)] rounded text-[var(--color-text)] placeholder-[var(--color-text-faint)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
-        />
+        <label className="rt-label">
+          <span className="t-meta muted">Player</span>
+          <input
+            type="text"
+            placeholder="Player name (optional)"
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            className="rt-field w-full"
+          />
+        </label>
       )}
 
       {/* Notes / body */}
-      <textarea
-        placeholder="Notes or excerpt (optional)"
-        value={fields.body}
-        onChange={(e) => setFields((f) => ({ ...f, body: e.target.value }))}
-        rows={3}
-        className="w-full px-2.5 py-1.5 text-sm bg-[var(--color-surface)] border border-[var(--color-border)] rounded text-[var(--color-text)] placeholder-[var(--color-text-faint)] focus:outline-none focus:border-[var(--color-accent)] transition-colors resize-none"
-      />
+      <label className="rt-label">
+        <span className="t-meta muted">Notes</span>
+        <textarea
+          placeholder="Notes or excerpt (optional)"
+          value={fields.body}
+          onChange={(e) => setFields((f) => ({ ...f, body: e.target.value }))}
+          rows={3}
+          className="rt-field w-full"
+        />
+      </label>
 
       {/* URL */}
-      <input
-        type="url"
-        placeholder="Source URL (optional)"
-        value={fields.url}
-        onChange={(e) => setFields((f) => ({ ...f, url: e.target.value }))}
-        className="w-full px-2.5 py-1.5 text-sm bg-[var(--color-surface)] border border-[var(--color-border)] rounded text-[var(--color-text)] placeholder-[var(--color-text-faint)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
-      />
+      <label className="rt-label">
+        <span className="t-meta muted">Source URL</span>
+        <input
+          type="url"
+          placeholder="https://… (optional)"
+          value={fields.url}
+          onChange={(e) => setFields((f) => ({ ...f, url: e.target.value }))}
+          className="rt-field w-full"
+        />
+      </label>
 
       {/* Tags */}
-      <div className="flex flex-wrap gap-1.5">
-        {TAGS.map((tag) => {
-          const active = fields.tags.includes(tag.value)
-          return (
-            <button
-              key={tag.value}
-              type="button"
-              onClick={() => toggleTag(tag.value)}
-              className="px-2 py-0.5 text-[10px] font-semibold rounded uppercase tracking-wide transition-colors"
-              style={
-                active
-                  ? { color: tag.color, backgroundColor: tag.bg, borderColor: tag.color, border: `1px solid ${tag.color}` }
-                  : { color: 'var(--color-text-faint)', backgroundColor: 'transparent', border: '1px solid var(--color-border)' }
-              }
-            >
-              {tag.label}
-            </button>
-          )
-        })}
-      </div>
+      <fieldset className="rt-label" style={{ border: 0, padding: 0, margin: 0 }}>
+        <legend className="t-meta muted" style={{ marginBottom: 'var(--space-xs)' }}>Tags</legend>
+        <div className="rt-row" style={{ gap: 6 }}>
+          {TAGS.map((tag) => {
+            const active = fields.tags.includes(tag.value)
+            return (
+              <button
+                key={tag.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => toggleTag(tag.value)}
+                className="rt-tag-toggle t-micro"
+                style={{ '--tag': tagToken(tag.value) }}
+              >
+                {tag.label}
+              </button>
+            )
+          })}
+        </div>
+      </fieldset>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 pt-0.5">
-        <button
-          type="submit"
-          disabled={!fields.title.trim()}
-          className="px-3 py-1.5 text-xs font-semibold bg-[var(--color-accent)] text-black rounded disabled:opacity-40 hover:bg-[var(--color-accent-hover)] transition-colors"
-        >
+      <div className="rt-row">
+        <button type="submit" disabled={!fields.title.trim()} className="button primary">
           Save
         </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors flex items-center gap-1"
-        >
-          <X size={12} /> Cancel
+        <button type="button" onClick={onCancel} className="button rt-button">
+          <X size={14} aria-hidden /> Cancel
         </button>
       </div>
     </form>

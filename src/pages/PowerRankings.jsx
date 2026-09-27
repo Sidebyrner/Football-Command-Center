@@ -1,11 +1,14 @@
-import { Loader2, TrendingUp } from 'lucide-react'
+import { useMemo } from 'react'
+import { BarChart3, ListOrdered, Trophy, TrendingUp } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import Header from '../components/layout/Header'
+import { AboutThisData, ScreenHero, ScreenSection } from '@ui/components/Screen'
+import { ErrorState, LoadingPlaceholder } from '@ui/components/State'
 import TeamGradeRow from '../components/draft/TeamGradeRow'
 import PowerRankingsChart from '../components/rankings/PowerRankingsChart'
 import WeeklyMatchupOdds from '../components/rankings/WeeklyMatchupOdds'
 import { useTeamPowerRankings } from '../hooks/useTeamPowerRankings'
 import useAppStore from '../store/useAppStore'
+import '../screens/tools/researchTools.css'
 
 /**
  * League-wide team strength, visualized — the dedicated home for
@@ -20,61 +23,82 @@ export default function PowerRankings() {
   const leagueId = useAppStore((s) => s.leagueId)
   const sleeperUserId = useAppStore((s) => s.sleeperUserId)
 
+  const leagueName = useAppStore((s) => s.leagueName)
+  const season = useAppStore((s) => s.season)
+  const currentWeek = useAppStore((s) => s.currentWeek)
+
   const { teams, playersById, loading, error } = useTeamPowerRankings(leagueId, sleeperUserId)
 
+  // Where you stand, for the hero — teams arrive already ordered by score.
+  const mine = useMemo(() => {
+    const i = teams.findIndex((t) => t.isMe)
+    return i < 0 ? null : { rank: i + 1, team: teams[i] }
+  }, [teams])
+
+  const answer = loading
+    ? 'Grading every roster…'
+    : mine
+      ? `You're #${mine.rank} of ${teams.length}`
+      : teams.length > 0 ? `${teams.length} teams ranked` : 'League strength'
+
   return (
-    <div className="flex flex-col h-screen">
-      <Header title="Power Rankings" />
-      <main className="flex-1 overflow-auto p-6 space-y-8">
-        {error && (
-          <p className="text-sm text-[var(--color-sit)]">Failed to load league rosters: {error}</p>
-        )}
+    <div className="rt-page">
+      <ScreenHero
+        overline="Tools · Power Rankings"
+        icon={Trophy}
+        hue="var(--hue-team)"
+        answer={answer}
+        detail={[leagueName, season && `${season} season`, currentWeek && `Week ${currentWeek}`].filter(Boolean).join(' · ')}
+        stats={mine?.team.grade ? [
+          { value: mine.team.grade, label: 'your grade' },
+          ...(mine.team.score != null ? [{ value: String(mine.team.score), label: 'score' }] : []),
+        ] : []}
+      />
 
-        {loading && (
-          <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
-            <Loader2 size={14} className="animate-spin" />
-            Grading every team's current roster…
-          </div>
-        )}
+      {error && <ErrorState message={`Failed to load league rosters: ${error}`} />}
 
-        {!loading && !teams.length && !error && (
-          <p className="text-sm text-[var(--color-text-muted)]">No rosters found for this league yet.</p>
-        )}
+      {loading && <LoadingPlaceholder label="Grading every team's current roster…" cards={3} />}
 
-        {!loading && teams.length > 0 && (
-          <>
-            <section>
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-faint)] mb-3">
-                League strength, right now
-              </h2>
-              <PowerRankingsChart teams={teams} />
-              <div className="mt-4 border border-[var(--color-border)] rounded bg-[var(--color-surface)] divide-y divide-[var(--color-border)]">
-                {teams.map((t) => (
-                  <div key={t.id} className="px-1">
-                    <TeamGradeRow team={t} />
-                  </div>
-                ))}
-              </div>
-            </section>
+      {!loading && !teams.length && !error && (
+        <p className="card t-body muted" style={{ margin: 0 }}>No rosters found for this league yet.</p>
+      )}
 
-            <section>
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-faint)] mb-3 flex items-center gap-1.5">
-                <TrendingUp size={12} />
-                This week's matchups
-                {/* Deliberately a league-wide scan, not a lineup tool. The
-                    slot-by-slot version of your own matchup lives on /matchup. */}
-                <Link
-                  to="/matchup"
-                  className="ml-auto normal-case tracking-normal font-normal text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-text)] underline"
-                >
-                  Plan your own matchup slot by slot →
-                </Link>
-              </h2>
-              <WeeklyMatchupOdds teams={teams} playersById={playersById} />
-            </section>
-          </>
-        )}
-      </main>
+      {!loading && teams.length > 0 && (
+        <>
+          <ScreenSection title="League strength, right now" icon={BarChart3} hue="var(--hue-team)">
+            <PowerRankingsChart teams={teams} />
+          </ScreenSection>
+
+          <ScreenSection title="Every team" icon={ListOrdered} count={teams.length} hue="var(--hue-team)">
+            <div className="card rt-divided" style={{ padding: 'var(--space-xs)' }}>
+              {teams.map((t) => (
+                <div key={t.id} style={{ padding: '2px 4px' }}>
+                  <TeamGradeRow team={t} />
+                </div>
+              ))}
+            </div>
+          </ScreenSection>
+
+          <ScreenSection
+            title="This week's matchups"
+            icon={TrendingUp}
+            hue="var(--hue-team)"
+            subtitle="A league-wide scan: on-paper grade and Vegas' implied points, side by side and never blended."
+          >
+            {/* Deliberately a league-wide scan, not a lineup tool. The
+                slot-by-slot version of your own matchup lives on Lineup › Matchup. */}
+            <Link to="/lineup/matchup" className="rt-link t-meta" style={{ justifySelf: 'start' }}>
+              Plan your own matchup slot by slot →
+            </Link>
+            <WeeklyMatchupOdds teams={teams} playersById={playersById} />
+          </ScreenSection>
+        </>
+      )}
+
+      <AboutThisData>
+        <span>Each team's real current roster, graded the same way Trade Analyzer grades it: average player score plus roster construction. A point-in-time read — there's no history to plot a trend over.</span>
+        <span>Value is how far the roster beats expected value; construction is whether its starter slots are actually filled rather than stacked at one position.</span>
+      </AboutThisData>
     </div>
   )
 }

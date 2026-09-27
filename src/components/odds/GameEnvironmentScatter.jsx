@@ -3,27 +3,27 @@ import {
   ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, ZAxis,
   CartesianGrid, Tooltip, Cell, ReferenceLine, Label,
 } from 'recharts'
-import { ACCENT_HEX, NEUTRAL_HEX, BORDER_RGBA, TEXT_MUTED_HEX, TEXT_FAINT_HEX } from '../../utils/chartColors'
+import { Gauge } from 'lucide-react'
+import { ScreenSection } from '@ui/components/Screen'
+import { AXIS_TICK, GRID_STROKE, HIGHLIGHT, NEUTRAL, FAINT, ChartTooltipBox } from '../shared/chartTheme'
 import {
   BLOWOUT_SPREAD, GAME_SCRIPTS, SCRIPT_ORDER, classifyGameScript, medianTotal as medianOf,
 } from '../../utils/gameScript'
-
-const AXIS_TICK = { fill: TEXT_MUTED_HEX, fontSize: 11 }
 
 function EnvTooltip({ active, payload }) {
   if (!active || !payload?.length) return null
   const g = payload[0].payload
   return (
-    <div className="bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded px-3 py-2 text-xs shadow-lg">
-      <p className="font-semibold text-[var(--color-text)]">{g.away} @ {g.home}</p>
-      <p className="text-[var(--color-text-muted)] tabular-nums">
+    <ChartTooltipBox>
+      <p style={{ fontWeight: 600 }}>{g.away} @ {g.home}{g.mine ? ' · your players' : ''}</p>
+      <p className="muted">
         O/U {g.total} · {g.favorite} by {g.margin}
       </p>
-      <p className="text-[var(--color-text-faint)] tabular-nums">
+      <p className="faint">
         implied {g.away} {g.awayImplied?.toFixed(1)} · {g.home} {g.homeImplied?.toFixed(1)}
       </p>
-      <p className="text-[var(--color-accent)] mt-1">{g.quadrant}</p>
-    </div>
+      <p style={{ marginTop: 4, fontWeight: 600 }}>{g.quadrant}</p>
+    </ChartTooltipBox>
   )
 }
 
@@ -61,57 +61,56 @@ export default function GameEnvironmentScatter({ games, myTeamAbbrs }) {
   if (rows.length < 2) return null
 
   return (
-    <div>
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-faint)] mb-2">
-        Game environment this week
-      </h2>
-
+    <ScreenSection title="Game environment this week" icon={Gauge} hue="var(--hue-market)">
+      <figure className="card" style={{ margin: 0, minWidth: 0 }} aria-label="Each game's total against its spread">
       <ResponsiveContainer width="100%" height={280}>
         <ScatterChart margin={{ left: 0, right: 16, top: 12, bottom: 16 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={BORDER_RGBA} />
+          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
           <XAxis
             type="number" dataKey="total" name="Total" domain={['dataMin - 2', 'dataMax + 2']}
             tick={AXIS_TICK} tickLine={false}
           >
-            <Label value="game total (O/U)" position="insideBottom" offset={-10} fill={TEXT_FAINT_HEX} fontSize={10} />
+            <Label value="game total (O/U)" position="insideBottom" offset={-10} fill={FAINT} fontSize={10} />
           </XAxis>
           <YAxis
             type="number" dataKey="margin" name="Spread" domain={[0, 'dataMax + 1.5']}
             tick={AXIS_TICK} tickLine={false} width={44}
           >
-            <Label value="spread" angle={-90} position="insideLeft" fill={TEXT_FAINT_HEX} fontSize={10} />
+            <Label value="spread" angle={-90} position="insideLeft" fill={FAINT} fontSize={10} />
           </YAxis>
           <ZAxis range={[110, 110]} />
-          <ReferenceLine x={medianTotal} stroke={BORDER_RGBA} strokeDasharray="4 4" />
-          <ReferenceLine y={BLOWOUT_SPREAD} stroke={BORDER_RGBA} strokeDasharray="4 4" />
-          <Tooltip content={<EnvTooltip />} cursor={{ strokeDasharray: '3 3' }} />
+          <ReferenceLine x={medianTotal} stroke={GRID_STROKE} strokeDasharray="4 4" />
+          <ReferenceLine y={BLOWOUT_SPREAD} stroke={GRID_STROKE} strokeDasharray="4 4" />
+          <Tooltip content={<EnvTooltip />} cursor={{ strokeDasharray: '3 3', stroke: GRID_STROKE }} />
           <Scatter data={rows}>
             {rows.map((r) => (
-              <Cell key={`${r.away}-${r.home}`} fill={r.mine ? ACCENT_HEX : NEUTRAL_HEX} />
+              <Cell key={`${r.away}-${r.home}`} fill={r.mine ? HIGHLIGHT : NEUTRAL} stroke={r.mine ? 'var(--text)' : 'none'} strokeWidth={r.mine ? 2 : 0} />
             ))}
           </Scatter>
         </ScatterChart>
       </ResponsiveContainer>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+      </figure>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
         {SCRIPT_ORDER.map((key) => {
           const s = GAME_SCRIPTS[key]
           return (
-            <div key={key} className="border border-[var(--color-border)] rounded px-2 py-1.5 bg-[var(--color-surface)]">
-              <p className="text-[10px] font-semibold text-[var(--color-text)]">
-                {s.label} <span className="text-[var(--color-text-faint)] font-normal">· {s.axis}</span>
+            <div key={key} className="inset">
+              <p className="t-meta" style={{ margin: 0, fontWeight: 600 }}>
+                {s.label} <span className="faint" style={{ fontWeight: 400 }}>· {s.axis}</span>
               </p>
-              <p className="text-[9px] text-[var(--color-text-muted)] leading-tight mt-0.5">{s.blurb}</p>
+              <p className="t-caption muted" style={{ margin: '2px 0 0' }}>{s.blurb}</p>
             </div>
           )
         })}
       </div>
 
-      <p className="text-[10px] text-[var(--color-text-faint)] mt-1.5">
+      <p className="t-meta muted" style={{ margin: 0 }}>
         Split at a {BLOWOUT_SPREAD}-point spread and this week's median total ({medianTotal}).
         The vertical line moves with the board; the horizontal one doesn't — a touchdown is a
-        touchdown. Highlighted dots are games your players are in.
+        touchdown. Ringed indigo dots are games your players are in; plain grey dots are the rest.
       </p>
-    </div>
+    </ScreenSection>
   )
 }

@@ -6,7 +6,8 @@ import { AlertTriangle, Info, Zap, ChevronDown, ChevronUp, Loader2, SlashIcon } 
 // itself a start/sit call it cannot actually make.
 import { evaluateDraft } from '../../utils/evaluationEngine'
 import useScoringProfileStore from '../../store/useScoringProfileStore'
-import { getPositionColor } from '../../utils/playerHelpers'
+import { positionColor } from '@ui/components/Player'
+import '../../screens/tools/researchTools.css'
 import { usePlayerStats } from '../../hooks/usePlayerStats'
 import { useCohorts } from '../../hooks/useCohorts'
 import { toEvalMetrics } from '../../services/nflverseService'
@@ -14,25 +15,34 @@ import { toEvalMetrics } from '../../services/nflverseService'
 // Below this share of real inputs the composite is too thin to headline.
 const MIN_HEADLINE_COVERAGE = 0.5
 
-const TIER_STYLES = {
-  1: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30' },
-  2: { bg: 'bg-sky-500/10',    text: 'text-sky-400',     border: 'border-sky-500/25' },
-  3: { bg: 'bg-amber-500/10',  text: 'text-amber-400',   border: 'border-amber-500/25' },
-  4: { bg: 'bg-slate-500/10',  text: 'text-slate-400',   border: 'border-slate-500/20' },
-  5: { bg: 'bg-rose-500/10',   text: 'text-rose-400',    border: 'border-rose-500/20' },
+// Tier and risk colours from the design tokens; the tier label and the risk
+// word always print too, so the colour is never the only signal.
+const TIER_TOKEN = {
+  1: 'var(--start)',
+  2: 'var(--hue-team)',
+  3: 'var(--caution)',
+  4: 'var(--text-2)',
+  5: 'var(--sit)',
 }
 
-const RISK_COLORS = {
-  'Low':      'text-emerald-400',
-  'Moderate': 'text-amber-400',
-  'High':     'text-rose-400',
-  'Very High':'text-rose-500',
+const RISK_TOKEN = {
+  'Low':      'var(--start)',
+  'Moderate': 'var(--caution)',
+  'High':     'var(--sit)',
+  'Very High':'var(--sit)',
 }
 
 function TierBadge({ tier, label }) {
-  const s = TIER_STYLES[tier] ?? TIER_STYLES[5]
+  const color = TIER_TOKEN[tier] ?? TIER_TOKEN[5]
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded border text-xs font-semibold ${s.bg} ${s.text} ${s.border}`}>
+    <span
+      className="t-meta"
+      style={{
+        display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 999, fontWeight: 600,
+        color, background: `color-mix(in srgb, ${color} 14%, transparent)`,
+        border: `1px solid color-mix(in srgb, ${color} 35%, transparent)`,
+      }}
+    >
       {label}
     </span>
   )
@@ -45,9 +55,9 @@ function ScoreRing({ score, color }) {
   const offset = circumference - (score / 100) * circumference
 
   return (
-    <div className="relative flex items-center justify-center" style={{ width: 80, height: 80 }}>
-      <svg width="80" height="80" className="-rotate-90">
-        <circle cx="40" cy="40" r={radius} fill="none" stroke="rgba(248,250,252,0.07)" strokeWidth="6" />
+    <div className="relative flex items-center justify-center" style={{ width: 80, height: 80 }} role="img" aria-label={`Score ${score} of 100`}>
+      <svg width="80" height="80" className="-rotate-90" aria-hidden>
+        <circle cx="40" cy="40" r={radius} fill="none" stroke="var(--inset)" strokeWidth="6" />
         <circle
           cx="40" cy="40" r={radius}
           fill="none"
@@ -59,7 +69,7 @@ function ScoreRing({ score, color }) {
           style={{ transition: 'stroke-dashoffset 0.6s ease' }}
         />
       </svg>
-      <span className="absolute text-lg font-bold tabular-nums" style={{ color }}>
+      <span className="absolute t-title" style={{ color }} aria-hidden>
         {score}
       </span>
     </div>
@@ -97,8 +107,8 @@ const METRIC_LABELS = {
 function ThinScore({ score }) {
   return (
     <div className="flex flex-col items-center justify-center" style={{ width: 80, height: 80 }}>
-      <span className="text-lg font-bold tabular-nums text-[var(--color-text-muted)]">{score}</span>
-      <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-faint)]">low data</span>
+      <span className="t-title muted">{score}</span>
+      <span className="t-micro faint">low data</span>
     </div>
   )
 }
@@ -110,14 +120,11 @@ function FactorBar({ factor }) {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] text-[var(--color-text-muted)] w-28 flex-shrink-0 truncate">{label}</span>
-      <div className="flex-1 h-1.5 rounded-full bg-[var(--color-surface)] overflow-hidden">
-        <div
-          className="h-full rounded-full bg-[var(--color-accent)] transition-all duration-500"
-          style={{ width: `${pct}%` }}
-        />
+      <span className="t-meta muted w-28 flex-shrink-0 truncate">{label}</span>
+      <div className="rt-meter" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+        <span style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-[10px] tabular-nums text-[var(--color-text-faint)] w-7 text-right">{pct}</span>
+      <span className="t-meta faint w-7 text-right">{pct}</span>
     </div>
   )
 }
@@ -126,8 +133,8 @@ function FactorBar({ factor }) {
 function FormatImpactRow({ item }) {
   const isBoost = item.type === 'boost'
   return (
-    <li className={`flex items-start gap-1.5 text-[11px] ${isBoost ? 'text-emerald-400' : 'text-rose-400'}`}>
-      <span className="flex-shrink-0 font-bold mt-px">{isBoost ? '▲' : '▼'}</span>
+    <li className="flex items-start gap-1.5 t-meta" style={{ color: isBoost ? 'var(--start)' : 'var(--sit)' }}>
+      <span className="flex-shrink-0 font-bold mt-px" aria-label={isBoost ? 'Boost' : 'Drag'}>{isBoost ? '▲' : '▼'}</span>
       <span>{item.text}</span>
     </li>
   )
@@ -139,22 +146,25 @@ function FormatImpactRow({ item }) {
 function Coverage({ coverage, factors }) {
   const [open, setOpen] = useState(false)
   const pct = Math.round(coverage * 100)
-  const tone = coverage >= 0.8 ? 'text-emerald-400'
-    : coverage >= MIN_HEADLINE_COVERAGE ? 'text-amber-400'
-    : 'text-rose-400'
+  const tone = coverage >= 0.8 ? 'var(--start)'
+    : coverage >= MIN_HEADLINE_COVERAGE ? 'var(--caution)'
+    : 'var(--sit)'
 
   return (
     <div className="mt-2">
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1 text-[10px] text-[var(--color-text-faint)] hover:text-[var(--color-text-muted)] transition-colors"
+        aria-expanded={factors.length > 0 ? open : undefined}
+        className="flex items-center gap-1 t-meta faint"
+        style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', font: 'inherit' }}
       >
-        <Info size={10} />
-        <span className={tone}>{pct}% of model weight from real data</span>
-        {factors.length > 0 && (open ? <ChevronUp size={10} /> : <ChevronDown size={10} />)}
+        <Info size={12} aria-hidden />
+        <span style={{ color: tone }}>{pct}% of model weight from real data</span>
+        {factors.length > 0 && (open ? <ChevronUp size={12} aria-hidden /> : <ChevronDown size={12} aria-hidden />)}
       </button>
       {open && factors.length > 0 && (
-        <p className="text-[10px] text-[var(--color-text-faint)] mt-1 leading-relaxed">
+        <p className="t-meta faint" style={{ margin: '4px 0 0' }}>
           Excluded (no data, not estimated): {factors.map((f) => METRIC_LABELS[f] ?? f).join(' · ')}
         </p>
       )}
@@ -168,9 +178,9 @@ function Coverage({ coverage, factors }) {
 function Unavailable({ reason }) {
   return (
     <div className="flex flex-col items-center text-center gap-2 py-8 px-4">
-      <SlashIcon size={20} className="text-[var(--color-text-faint)]" />
-      <p className="text-xs font-semibold text-[var(--color-text-muted)]">No score available</p>
-      <p className="text-[10px] text-[var(--color-text-faint)] leading-relaxed max-w-[15rem]">{reason}</p>
+      <SlashIcon size={20} color="var(--text-3)" aria-hidden />
+      <p className="t-body muted" style={{ margin: 0, fontWeight: 600 }}>No score available</p>
+      <p className="t-meta faint max-w-[15rem]" style={{ margin: 0 }}>{reason}</p>
     </div>
   )
 }
@@ -190,11 +200,11 @@ function DraftPanel({ result, posColor }) {
           : <ScoreRing score={result.score} color={posColor} />}
         <div className="space-y-1.5">
           <TierBadge tier={result.tier} label={result.tierLabel} />
-          <div className="flex items-center gap-3 text-[10px] text-[var(--color-text-muted)]">
-            <span>Floor <b className="text-[var(--color-text)]">{result.floor}</b></span>
-            <span className="text-[var(--color-text-faint)]">/</span>
-            <span>Ceiling <b className="text-[var(--color-text)]">{result.ceiling}</b></span>
-            <span className={`font-semibold ${RISK_COLORS[result.risk] ?? ''}`}>
+          <div className="flex items-center gap-3 flex-wrap t-meta muted">
+            <span>Floor <b style={{ color: 'var(--text)' }}>{result.floor}</b></span>
+            <span className="faint">/</span>
+            <span>Ceiling <b style={{ color: 'var(--text)' }}>{result.ceiling}</b></span>
+            <span style={{ fontWeight: 600, color: RISK_TOKEN[result.risk] }}>
               {result.risk} Risk
             </span>
           </div>
@@ -204,7 +214,7 @@ function DraftPanel({ result, posColor }) {
       {/* Top factors */}
       {result.topFactors.length > 0 && (
         <section>
-          <h4 className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-faint)] mb-2">
+          <h4 className="t-micro muted" style={{ margin: '0 0 var(--space-s)' }}>
             Draft Factors
           </h4>
           <div className="space-y-1.5">
@@ -219,13 +229,13 @@ function DraftPanel({ result, posColor }) {
       {/* Risk detail — why the risk label reads the way it does */}
       {result.riskFlags?.length > 0 && (
         <section>
-          <h4 className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-faint)] mb-2">
+          <h4 className="t-micro muted" style={{ margin: '0 0 var(--space-s)' }}>
             Risk Factors
           </h4>
           <ul className="space-y-1">
             {result.riskFlags.map((f, i) => (
-              <li key={i} className="flex items-start gap-1.5 text-[11px] text-[var(--color-text-muted)]">
-                <AlertTriangle size={10} className="text-[var(--color-caution)] flex-shrink-0 mt-0.5" />
+              <li key={i} className="flex items-start gap-1.5 t-meta muted">
+                <AlertTriangle size={12} color="var(--caution)" className="flex-shrink-0" style={{ marginTop: 1 }} aria-hidden />
                 <span>{f}</span>
               </li>
             ))}
@@ -236,7 +246,7 @@ function DraftPanel({ result, posColor }) {
       {/* Format impact */}
       {result.formatImpact.length > 0 && (
         <section>
-          <h4 className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-faint)] mb-2">
+          <h4 className="t-micro muted" style={{ margin: '0 0 var(--space-s)' }}>
             Format Impact
           </h4>
           <ul className="space-y-1">
@@ -253,7 +263,7 @@ function DraftPanel({ result, posColor }) {
 // ── Main export ───────────────────────────────────────────────────────────────
 export default function EvalPanel({ player }) {
   const activeProfile = useScoringProfileStore((s) => s.activeProfile)
-  const posColor = getPositionColor(player.position)
+  const posColor = positionColor(player.position)
 
   const { history, seasons, loading: statsLoading } = usePlayerStats(player)
   const { cohorts, loading: cohortsLoading, error: cohortsError } = useCohorts()
@@ -274,30 +284,30 @@ export default function EvalPanel({ player }) {
   return (
     <div className="space-y-4">
       {/* Provenance — say exactly where the numbers came from */}
-      <div className="flex items-start gap-1.5 px-2.5 py-2 rounded bg-[var(--color-surface-2)] border border-[var(--color-border)]">
-        <Zap size={11} className="text-[var(--color-accent)] flex-shrink-0 mt-px" />
+      <div className="inset flex items-start gap-1.5">
+        <Zap size={12} color="var(--accent)" className="flex-shrink-0" style={{ marginTop: 2 }} aria-hidden />
         {cohortsError ? (
-          <p className="text-[10px] text-[var(--color-text-faint)] leading-relaxed">
+          <p className="t-meta faint" style={{ margin: 0 }}>
             Cohort data missing. Run{' '}
-            <code className="text-[var(--color-accent)]">npm run preprocess-nflverse</code>{' '}
+            <code>npm run preprocess-nflverse</code>{' '}
             to enable scoring.
           </p>
         ) : mostRecentSeason ? (
-          <p className="text-[10px] text-[var(--color-text-faint)] leading-relaxed">
+          <p className="t-meta faint" style={{ margin: 0 }}>
             Percentiles vs. real {mostRecentSeason} qualifying {player.position}s from nflverse.
             Unmeasured inputs are excluded from the weighting, never estimated. Draft value
             only — season-long production, not a specific week's matchup.
           </p>
         ) : (
-          <p className="text-[10px] text-[var(--color-text-faint)] leading-relaxed">
+          <p className="t-meta faint" style={{ margin: 0 }}>
             No nflverse season history for this player.
           </p>
         )}
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-10 text-xs text-[var(--color-text-faint)]">
-          <Loader2 size={13} className="animate-spin" />
+        <div className="flex items-center justify-center gap-2 py-10 t-meta faint" role="status">
+          <Loader2 size={13} className="animate-spin" aria-hidden />
           Loading model inputs…
         </div>
       ) : (

@@ -1,6 +1,9 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { getPositionColor } from '../../utils/playerHelpers'
+import { Users } from 'lucide-react'
+import { ScreenSection } from '@ui/components/Screen'
+import { PositionChip } from '@ui/components/Player'
+import '../../screens/tools/researchTools.css'
 import { toNflverseTeam } from '../../utils/nflTeams'
 import { classifyGameScript, readForPosition, medianTotal as medianOf } from '../../utils/gameScript'
 
@@ -18,42 +21,33 @@ function formatSpread(v) {
 
 function Row({ r }) {
   return (
-    <tr className="border-b border-[var(--color-border)] last:border-0">
-      <td className="py-1.5 pr-2 whitespace-nowrap">
-        <span
-          className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-          style={{ color: getPositionColor(r.position), backgroundColor: `${getPositionColor(r.position)}20` }}
-        >
-          {r.position ?? '?'}
-        </span>
+    <tr>
+      <td style={{ whiteSpace: 'nowrap' }}>
+        <PositionChip position={r.position} label={r.position ?? '?'} />
       </td>
-      <td className="py-1.5 pr-2 min-w-0">
-        <span className="text-[var(--color-text)]">{r.name}</span>
-        {r.isStarter && (
-          <span className="ml-1.5 text-[9px] font-semibold text-[var(--color-accent)]">STARTER</span>
-        )}
+      <td style={{ minWidth: 120 }}>
+        <span style={{ fontWeight: 600 }}>{r.name}</span>
+        {r.isStarter && <span className="t-micro" style={{ marginLeft: 6, color: 'var(--accent)' }}>Starter</span>}
       </td>
-      <td className="py-1.5 pr-2 whitespace-nowrap text-[var(--color-text-muted)]">
-        {r.game ? `${r.isHome ? 'vs' : '@'} ${r.opponent}` : <span className="text-[var(--color-text-faint)]">no game</span>}
+      <td className="muted" style={{ whiteSpace: 'nowrap' }}>
+        {r.game ? `${r.isHome ? 'vs' : '@'} ${r.opponent}` : <span className="faint">no game</span>}
       </td>
-      <td className="py-1.5 pr-2 whitespace-nowrap text-[var(--color-text-faint)] hidden md:table-cell">
+      <td className="faint hidden md:table-cell" style={{ whiteSpace: 'nowrap' }}>
         {r.kickoff ?? '—'}
       </td>
-      <td className="py-1.5 pr-2 text-right tabular-nums text-[var(--color-text-muted)]">{formatSpread(r.spread)}</td>
-      <td className="py-1.5 pr-2 text-right tabular-nums text-[var(--color-text-muted)] hidden sm:table-cell">
-        {r.total ?? '—'}
-      </td>
-      <td className="py-1.5 pr-3 text-right tabular-nums font-semibold text-[var(--color-text)]">
+      <td className="num muted">{formatSpread(r.spread)}</td>
+      <td className="num muted hidden sm:table-cell">{r.total ?? '—'}</td>
+      <td className="num" style={{ fontWeight: 700 }}>
         {r.implied != null ? r.implied.toFixed(1) : '—'}
       </td>
-      <td className="py-1.5 pr-2 whitespace-nowrap">
+      <td style={{ whiteSpace: 'nowrap' }}>
         {r.script ? (
-          <span className="text-[10px] font-semibold text-[var(--color-text)]">{r.script.label}</span>
+          <span className="t-meta" style={{ fontWeight: 600 }}>{r.script.label}</span>
         ) : (
-          <span className="text-[10px] text-[var(--color-text-faint)]">—</span>
+          <span className="t-meta faint">—</span>
         )}
       </td>
-      <td className="py-1.5 text-[10px] text-[var(--color-text-muted)] leading-tight">
+      <td className="t-meta muted" style={{ minWidth: 180 }}>
         {r.read ?? ''}
       </td>
     </tr>
@@ -67,7 +61,7 @@ function Row({ r }) {
  * game — and it knows nothing whatsoever about the player. A replacement-level
  * body in a shootout outranks a stud in a slog on this page, which is exactly
  * why it names itself rather than offering a start/sit verdict. The lineup
- * optimizer on /matchup can run this same basis against the others.
+ * optimizer on Lineup › Matchup can run this same basis against the others.
  */
 export default function MyTeamOdds({ myTeam, playersById, scheduleByTeam, impliedForTeam, source, week }) {
   const { rows, noGame } = useMemo(() => {
@@ -119,46 +113,40 @@ export default function MyTeamOdds({ myTeam, playersById, scheduleByTeam, implie
   if (rows.length === 0 && noGame.length === 0) return null
 
   return (
-    <section>
-      <div className="flex items-baseline justify-between gap-3 mb-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-faint)]">
-          Your roster, week {week}
-        </h2>
-        <Link
-          to="/matchup"
-          className="text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-text)] underline"
-        >
+    <ScreenSection title={`Your roster, week ${week}`} icon={Users} hue="var(--hue-market)">
+      <div className="rt-row" style={{ justifyContent: 'space-between' }}>
+        <p className="t-meta muted" style={{ margin: 0, flex: '1 1 260px' }}>
+          Sorted by implied team total — the market's view of the game each player is in, and nothing
+          about the player himself. {source === 'schedule' && 'Recorded lines, not live ones. '}
+          {noGame.length > 0 && `${noGame.length} of your ${rows.length + noGame.length} players have no line this week.`}
+        </p>
+        <Link to="/lineup/matchup" className="rt-link t-meta">
           Optimize a lineup on this basis →
         </Link>
       </div>
 
-      <p className="text-[10px] text-[var(--color-text-faint)] mb-2 leading-relaxed">
-        Sorted by implied team total — the market's view of the game each player is in, and nothing
-        about the player himself. {source === 'schedule' && 'Recorded lines, not live ones. '}
-        {noGame.length > 0 && `${noGame.length} of your ${rows.length + noGame.length} players have no line this week.`}
-      </p>
-
-      <div className="border border-[var(--color-border)] rounded bg-[var(--color-surface)] overflow-x-auto">
-        <table className="w-full text-xs">
+      <div className="card rt-scroll" style={{ padding: 0 }}>
+        <table className="rt-table">
+          <caption className="sr-only">Your players' games this week, by implied team total</caption>
           <thead>
-            <tr className="text-[9px] uppercase tracking-wide text-[var(--color-text-faint)] border-b border-[var(--color-border)]">
-              <th className="text-left font-medium py-1.5 pl-3 pr-2">Pos</th>
-              <th className="text-left font-medium py-1.5 pr-2">Player</th>
-              <th className="text-left font-medium py-1.5 pr-2">Game</th>
-              <th className="text-left font-medium py-1.5 pr-2 hidden md:table-cell">Kick</th>
-              <th className="text-right font-medium py-1.5 pr-2">Spread</th>
-              <th className="text-right font-medium py-1.5 pr-2 hidden sm:table-cell">O/U</th>
-              <th className="text-right font-medium py-1.5 pr-3">Implied</th>
-              <th className="text-left font-medium py-1.5 pr-2">Script</th>
-              <th className="text-left font-medium py-1.5">What it implies</th>
+            <tr>
+              <th scope="col">Pos</th>
+              <th scope="col">Player</th>
+              <th scope="col">Game</th>
+              <th scope="col" className="hidden md:table-cell">Kick</th>
+              <th scope="col" className="num">Spread</th>
+              <th scope="col" className="num hidden sm:table-cell">O/U</th>
+              <th scope="col" className="num">Implied</th>
+              <th scope="col">Script</th>
+              <th scope="col">What it implies</th>
             </tr>
           </thead>
-          <tbody className="[&>tr>td:first-child]:pl-3">
+          <tbody>
             {rows.map((r) => <Row key={r.id} r={r} />)}
             {noGame.map((r) => <Row key={r.id} r={r} />)}
           </tbody>
         </table>
       </div>
-    </section>
+    </ScreenSection>
   )
 }

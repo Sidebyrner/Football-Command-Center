@@ -1,5 +1,6 @@
 import { Pin, Archive, Trash2, ExternalLink } from 'lucide-react'
 import { getTag } from '../../utils/researchTags'
+import '../../screens/tools/researchTools.css'
 
 const SOURCE_LABEL = {
   user: 'Note',
@@ -8,19 +9,31 @@ const SOURCE_LABEL = {
   rss: 'Feed',
 }
 
+/** Each research tag's colour as a design token — the label always shows too. */
+const TAG_TOKEN = {
+  injury: 'var(--sit)',
+  'depth-chart': 'var(--caution)',
+  'role-change': 'var(--pos-wr)',
+  'camp-buzz': 'var(--start)',
+  suspension: 'var(--pos-te)',
+  contract: 'var(--pos-qb)',
+  coaching: 'var(--pos-def)',
+  rookie: 'var(--hue-lineup)',
+  offense: 'var(--pos-lb)',
+  general: 'var(--text-2)',
+}
+export const tagToken = (value) => TAG_TOKEN[value] ?? 'var(--text-2)'
+
 function formatDate(iso) {
   if (!iso) return null
   const d = new Date(iso)
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function TagPill({ value }) {
+export function TagPill({ value }) {
   const tag = getTag(value)
   return (
-    <span
-      className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded uppercase tracking-wide"
-      style={{ color: tag.color, backgroundColor: tag.bg }}
-    >
+    <span className="rt-tag t-micro" style={{ '--tag': tagToken(value) }}>
       {tag.label}
     </span>
   )
@@ -34,67 +47,67 @@ function TagPill({ value }) {
 export default function ResearchCard({ item, onPin, onArchive, onDelete, compact = false }) {
   const dateStr = formatDate(item.publishedAt ?? item.createdAt)
   const sourceLabel = SOURCE_LABEL[item.source] ?? item.source
+  const title = item.title || 'Untitled'
 
   return (
-    <div
-      className={`group relative rounded border border-[var(--color-border)] bg-[var(--color-surface)] transition-colors hover:border-[rgba(248,250,252,0.15)] ${
-        compact ? 'px-3 py-2.5' : 'px-4 py-3'
-      } ${item.isSaved ? 'border-l-2 border-l-[var(--color-accent)]' : ''}`}
+    <article
+      className={`card rt-note${item.isSaved ? ' pinned' : ''}`}
+      style={compact ? { padding: 'var(--space-m)' } : undefined}
+      aria-label={item.isSaved ? `${title} (pinned)` : title}
     >
       {/* Header row */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           {/* Player + source (full mode only) */}
           {!compact && item.playerName && (
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-semibold text-[var(--color-text-muted)]">
-                {item.playerName}
-              </span>
+            <div className="rt-row t-meta" style={{ marginBottom: 2 }}>
+              <span className="muted" style={{ fontWeight: 600 }}>{item.playerName}</span>
               {item.playerPosition && (
-                <span className="text-[10px] text-[var(--color-text-faint)]">
-                  {item.playerPosition} · {item.playerTeam}
-                </span>
+                <span className="faint">{item.playerPosition} · {item.playerTeam}</span>
               )}
             </div>
           )}
 
           {/* Title */}
-          <p className={`font-medium text-[var(--color-text)] leading-snug ${compact ? 'text-xs' : 'text-sm'}`}>
-            {item.title || <span className="italic text-[var(--color-text-faint)]">Untitled</span>}
+          <p className={`rt-note-title ${compact ? 't-meta' : 't-body'}`}>
+            {item.title || <span className="faint" style={{ fontStyle: 'italic' }}>Untitled</span>}
           </p>
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+        <div className="rt-note-actions">
           {onPin && (
             <button
+              type="button"
               onClick={() => onPin(item.id)}
               title={item.isSaved ? 'Unpin' : 'Pin'}
-              className={`p-1 rounded transition-colors ${
-                item.isSaved
-                  ? 'text-[var(--color-accent)]'
-                  : 'text-[var(--color-text-faint)] hover:text-[var(--color-text)]'
-              }`}
+              aria-label={item.isSaved ? `Unpin ${title}` : `Pin ${title}`}
+              aria-pressed={!!item.isSaved}
+              className={`rt-icon-button${item.isSaved ? ' on' : ''}`}
             >
-              <Pin size={12} fill={item.isSaved ? 'currentColor' : 'none'} />
+              <Pin size={14} fill={item.isSaved ? 'currentColor' : 'none'} aria-hidden />
             </button>
           )}
           {onArchive && (
             <button
+              type="button"
               onClick={() => onArchive(item.id)}
               title="Archive"
-              className="p-1 rounded text-[var(--color-text-faint)] hover:text-[var(--color-text)] transition-colors"
+              aria-label={`Archive ${title}`}
+              className="rt-icon-button"
             >
-              <Archive size={12} />
+              <Archive size={14} aria-hidden />
             </button>
           )}
           {onDelete && (
             <button
+              type="button"
               onClick={() => onDelete(item.id)}
               title="Delete"
-              className="p-1 rounded text-[var(--color-text-faint)] hover:text-[var(--color-sit)] transition-colors"
+              aria-label={`Delete ${title}`}
+              className="rt-icon-button danger"
             >
-              <Trash2 size={12} />
+              <Trash2 size={14} aria-hidden />
             </button>
           )}
         </div>
@@ -102,41 +115,34 @@ export default function ResearchCard({ item, onPin, onArchive, onDelete, compact
 
       {/* Body */}
       {item.body && (
-        <p
-          className={`mt-1.5 text-[var(--color-text-muted)] leading-relaxed line-clamp-3 ${
-            compact ? 'text-[11px]' : 'text-xs'
-          }`}
-        >
+        <p className={`rt-note-body muted line-clamp-3 ${compact ? 't-caption' : 't-meta'}`}>
           {item.body}
         </p>
       )}
 
       {/* Tags + meta */}
-      <div className="flex items-center gap-2 mt-2 flex-wrap">
+      <div className="rt-row">
         {item.tags.map((t) => (
           <TagPill key={t} value={t} />
         ))}
 
-        <span className="ml-auto flex items-center gap-2 text-[10px] text-[var(--color-text-faint)] whitespace-nowrap">
-          {item.source !== 'user' && (
-            <span className="px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] text-[var(--color-text-faint)]">
-              {sourceLabel}
-            </span>
-          )}
+        <span className="ml-auto rt-row t-caption faint" style={{ whiteSpace: 'nowrap', flexWrap: 'nowrap' }}>
+          {item.source !== 'user' && <span className="rt-badge">{sourceLabel}</span>}
           {dateStr}
           {item.url && (
             <a
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[var(--color-accent)] hover:underline inline-flex items-center gap-0.5"
+              className="rt-link inline-flex items-center"
+              aria-label={`Open source for ${title} (new tab)`}
               onClick={(e) => e.stopPropagation()}
             >
-              <ExternalLink size={10} />
+              <ExternalLink size={12} aria-hidden />
             </a>
           )}
         </span>
       </div>
-    </div>
+    </article>
   )
 }

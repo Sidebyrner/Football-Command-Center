@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
-import { Loader2 } from 'lucide-react'
-import { GRADE_COLOR_HEX, TEXT_FAINT_HEX } from '../../utils/chartColors'
+import { Link } from 'react-router-dom'
+import { Loader2, AlertTriangle } from 'lucide-react'
+import { gradeColor } from '../shared/chartTheme'
 import { lineupImpliedTotal } from '../../utils/oddsHelpers'
 import { useLeagueMatchups } from '../../hooks/useLeagueMatchups'
 import { useImpliedTotals } from '../../hooks/useImpliedTotals'
 import useAppStore from '../../store/useAppStore'
+import '../../screens/tools/researchTools.css'
 
 function TeamSide({ team, playersById, impliedForTeam, align }) {
   const vegas = useMemo(
@@ -13,35 +15,31 @@ function TeamSide({ team, playersById, impliedForTeam, align }) {
   )
 
   if (!team) {
-    return <div className="flex-1 text-sm text-[var(--color-text-faint)]">Bye / unknown</div>
+    return <div className="flex-1 t-body faint">Bye / unknown</div>
   }
 
-  const color = team.grade ? GRADE_COLOR_HEX[team.grade] : TEXT_FAINT_HEX
   const gamesFound = vegas ? vegas.teamCount - vegas.missing.length : 0
 
   return (
-    <div className={`flex-1 min-w-0 ${align === 'right' ? 'text-right' : ''}`}>
-      <p className="text-sm font-semibold text-[var(--color-text)] truncate">
+    <div className={`flex-1 min-w-0 ${align === 'right' ? 'text-right rt-side-right' : ''}`}>
+      <p className="t-body truncate" style={{ margin: 0, fontWeight: 600 }}>
         {team.name}{team.isMe ? ' (you)' : ''}
       </p>
-      <div className={`flex items-center gap-1.5 mt-1 ${align === 'right' ? 'justify-end' : ''}`}>
-        <span
-          className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-          style={{ color, backgroundColor: `${color}20` }}
-        >
+      <div className={`rt-row ${align === 'right' ? 'justify-end' : ''}`} style={{ gap: 6, marginTop: 4 }}>
+        <span className="rt-grade t-meta" style={{ '--grade': gradeColor(team.grade) }}>
           {team.grade ?? '—'}
         </span>
-        <span className="text-[10px] text-[var(--color-text-faint)]">on paper</span>
+        <span className="t-meta faint">on paper</span>
       </div>
-      <p className="text-xs text-[var(--color-text-muted)] mt-1 tabular-nums">
+      <p className="t-meta muted" style={{ margin: '4px 0 0' }}>
         {vegas?.total != null ? (
-          <>Vegas: <span className="font-semibold text-[var(--color-text)]">{vegas.total.toFixed(1)}</span> implied pts across {gamesFound} team{gamesFound === 1 ? '' : 's'}</>
+          <>Vegas: <strong style={{ color: 'var(--text)' }}>{vegas.total.toFixed(1)}</strong> implied pts across {gamesFound} team{gamesFound === 1 ? '' : 's'}</>
         ) : (
-          <span className="text-[var(--color-text-faint)]">Vegas: no lines loaded</span>
+          <span className="faint">Vegas: no lines loaded</span>
         )}
       </p>
       {vegas?.missing.length > 0 && (
-        <p className="text-[9px] text-[var(--color-text-faint)] mt-0.5">
+        <p className="t-caption faint" style={{ margin: '2px 0 0' }}>
           {vegas.missing.length} starter team{vegas.missing.length === 1 ? '' : 's'} with no line ({vegas.missing.join(', ')})
         </p>
       )}
@@ -70,28 +68,32 @@ export default function WeeklyMatchupOdds({ teams, playersById }) {
     return map
   }, [teams])
 
-  if (matchupsLoading) return <p className="text-sm text-[var(--color-text-muted)]">Loading matchups…</p>
-  if (matchupsError) return <p className="text-sm text-[var(--color-sit)]">Failed to load matchups: {matchupsError}</p>
+  if (matchupsLoading) return <p className="t-body muted" role="status" style={{ margin: 0 }}>Loading matchups…</p>
+  if (matchupsError) return <p className="t-body" role="alert" style={{ margin: 0, color: 'var(--sit)' }}>Failed to load matchups: {matchupsError}</p>
   if (matchups.length === 0) {
-    return <p className="text-sm text-[var(--color-text-muted)]">No matchups found for week {currentWeek} yet.</p>
+    return <p className="card t-body muted" style={{ margin: 0 }}>No matchups found for week {currentWeek} yet.</p>
   }
 
   return (
-    <div className="space-y-2">
+    <div className="rt-card-list">
       {source === null && !oddsLoading && (
-        <p className="text-xs text-[var(--color-caution)] mb-2">
-          No lines available — add an Odds API key in Settings, or run{' '}
-          <code>npm run preprocess-nflverse</code> for the free recorded lines.
+        <p className="t-meta flex items-start gap-1.5" style={{ margin: 0, color: 'var(--caution)' }}>
+          <AlertTriangle size={13} className="flex-shrink-0" style={{ marginTop: 1 }} aria-hidden />
+          <span>
+            No lines available — add an Odds API key on the{' '}
+            <Link to="/tools/odds" className="rt-link">Odds tool</Link>, or run{' '}
+            <code>npm run preprocess-nflverse</code> for the free recorded lines.
+          </span>
         </p>
       )}
       {source === 'schedule' && (
-        <p className="text-[10px] text-[var(--color-text-faint)] mb-2">
+        <p className="t-meta faint" style={{ margin: 0 }}>
           Implied totals from the preprocessed schedule's recorded lines, not live odds.
         </p>
       )}
       {oddsLoading && (
-        <p className="text-xs text-[var(--color-text-muted)] flex items-center gap-1.5 mb-2">
-          <Loader2 size={11} className="animate-spin" /> Loading lines…
+        <p className="t-meta muted flex items-center gap-1.5" role="status" style={{ margin: 0 }}>
+          <Loader2 size={12} className="animate-spin" aria-hidden /> Loading lines…
         </p>
       )}
       {matchups.map((m) => {
@@ -99,12 +101,9 @@ export default function WeeklyMatchupOdds({ teams, playersById }) {
         const teamA = sideA ? teamByRosterId[sideA.rosterId] : null
         const teamB = sideB ? teamByRosterId[sideB.rosterId] : null
         return (
-          <div
-            key={m.matchupId}
-            className="border border-[var(--color-border)] rounded bg-[var(--color-surface)] px-4 py-3 flex items-center gap-4"
-          >
+          <div key={m.matchupId} className="card rt-matchup">
             <TeamSide team={teamA} playersById={playersById} impliedForTeam={impliedForTeam} />
-            <span className="text-[10px] text-[var(--color-text-faint)] flex-shrink-0">vs</span>
+            <span className="t-micro faint rt-vs flex-shrink-0" style={{ marginTop: 3 }}>vs</span>
             <TeamSide team={teamB} playersById={playersById} impliedForTeam={impliedForTeam} align="right" />
           </div>
         )

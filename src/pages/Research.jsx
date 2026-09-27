@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
-import { Plus, BookOpen, Archive, Rss, Loader2 } from 'lucide-react'
-import Header from '../components/layout/Header'
+import { Plus, BookOpen, Archive, Rss, Loader2, NotebookPen } from 'lucide-react'
+import { AboutThisData, ScreenHero, ScreenSection } from '@ui/components/Screen'
 import ResearchCard from '../components/research/ResearchCard'
 import ResearchItemForm from '../components/research/ResearchItemForm'
 import NewsSummaryPanel from '../components/research/NewsSummaryPanel'
@@ -11,6 +11,7 @@ import useMockDraftStore from '../store/useMockDraftStore'
 import { useDraftPlayers } from '../hooks/useDraftPlayers'
 import { useNewsImport } from '../hooks/useNewsImport'
 import { TAGS } from '../utils/researchTags'
+import '../screens/tools/researchTools.css'
 
 const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']
 
@@ -81,6 +82,7 @@ export default function Research() {
 
   const activeCount = items.filter((i) => !i.isArchived).length
   const archivedCount = items.filter((i) => i.isArchived).length
+  const pinnedCount = items.filter((i) => i.isSaved && !i.isArchived).length
 
   function handleSave(fields) {
     addItem(fields)
@@ -88,138 +90,148 @@ export default function Research() {
   }
 
   return (
-    <div className="flex flex-col h-screen">
-      <Header title="Research" />
+    <div className="rt-page">
+      <ScreenHero
+        overline="Tools · Research"
+        icon={BookOpen}
+        hue="var(--hue-team)"
+        answer={activeCount > 0 ? `${activeCount} research note${activeCount === 1 ? '' : 's'}` : 'No research notes yet'}
+        detail="Your notes and imported news on the players you're tracking, plus how every defense treats each position."
+        stats={items.length > 0 ? [
+          { value: String(pinnedCount), label: 'pinned' },
+          { value: String(archivedCount), label: 'archived' },
+        ] : []}
+      />
 
       <NewsSummaryPanel items={items} relevantPlayerIds={relevantPlayerIds} />
 
       {/* Matchup research — needs no API key, so it sits above the note feed */}
-      <div className="flex-shrink-0 px-4 py-4 border-b border-[var(--color-border)]">
-        <DefenseVsPositionPanel />
-      </div>
+      <DefenseVsPositionPanel />
 
-      {/* Filter bar */}
-      <div className="flex-shrink-0 px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface)] flex flex-wrap items-center gap-2">
-        {/* Search */}
-        <input
-          type="text"
-          placeholder="Search items…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-[160px] max-w-xs px-2.5 py-1.5 text-sm bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded text-[var(--color-text)] placeholder-[var(--color-text-faint)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
-        />
+      <ScreenSection
+        title={showArchived ? 'Archived notes' : 'Notes and news'}
+        icon={NotebookPen}
+        count={displayed.length}
+        hue="var(--hue-team)"
+      >
+        {/* Filter bar */}
+        <div className="card rt-row" role="search" aria-label="Filter research">
+          <input
+            type="search"
+            placeholder="Search items…"
+            aria-label="Search research items"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="rt-field"
+            style={{ flex: '1 1 180px' }}
+          />
 
-        {/* Position */}
-        <select
-          value={posFilter}
-          onChange={(e) => setPosFilter(e.target.value)}
-          className="py-1.5 pl-2.5 pr-6 text-sm bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)] transition-colors appearance-none cursor-pointer"
-          style={{ backgroundImage: 'none' }}
-        >
-          <option value="">All Positions</option>
-          {POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
+          <select
+            value={posFilter}
+            onChange={(e) => setPosFilter(e.target.value)}
+            aria-label="Filter by position"
+            className="rt-field"
+            style={{ flex: '0 1 auto' }}
+          >
+            <option value="">All Positions</option>
+            {POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
 
-        {/* Tag */}
-        <select
-          value={tagFilter}
-          onChange={(e) => setTagFilter(e.target.value)}
-          className="py-1.5 pl-2.5 pr-6 text-sm bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)] transition-colors appearance-none cursor-pointer min-w-[110px]"
-          style={{ backgroundImage: 'none' }}
-        >
-          <option value="">All Tags</option>
-          {TAGS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </select>
+          <select
+            value={tagFilter}
+            onChange={(e) => setTagFilter(e.target.value)}
+            aria-label="Filter by tag"
+            className="rt-field"
+            style={{ flex: '0 1 auto', minWidth: 120 }}
+          >
+            <option value="">All Tags</option>
+            {TAGS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
 
-        {/* Archived toggle */}
-        <button
-          onClick={() => setShowArchived((v) => !v)}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded border transition-colors ${
-            showArchived
-              ? 'bg-[var(--color-surface-2)] border-[var(--color-accent)] text-[var(--color-accent)]'
-              : 'bg-[var(--color-surface-2)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-          }`}
-        >
-          <Archive size={13} />
-          <span>Archived</span>
-          {archivedCount > 0 && (
-            <span className="text-xs tabular-nums text-[var(--color-text-faint)]">({archivedCount})</span>
-          )}
-        </button>
+          <button
+            type="button"
+            onClick={() => setShowArchived((v) => !v)}
+            aria-pressed={showArchived}
+            className={`button rt-button${showArchived ? ' on' : ''}`}
+          >
+            <Archive size={14} aria-hidden />
+            <span>Archived</span>
+            {archivedCount > 0 && <span className="t-meta faint">({archivedCount})</span>}
+          </button>
 
-        {/* Import news — relayed through the server proxy (B1/B2). Always
-            shown, even unconfigured, so the feature is discoverable rather
-            than silently absent; the error message points at Settings. */}
-        <button
-          onClick={handleImportNews}
-          disabled={importing}
-          title={hasApiProxy ? 'Import latest NFL news from ESPN and Pro Football Talk' : 'No API proxy configured — see Settings'}
-          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors disabled:opacity-50"
-        >
-          {importing ? <Loader2 size={14} className="animate-spin" /> : <Rss size={14} />}
-          Import News
-        </button>
+          <div className="rt-row ml-auto">
+            {/* Import news — relayed through the server proxy (B1/B2). Always
+                shown, even unconfigured, so the feature is discoverable rather
+                than silently absent; the error message says what's missing. */}
+            <button
+              type="button"
+              onClick={handleImportNews}
+              disabled={importing}
+              aria-busy={importing}
+              title={hasApiProxy
+                ? 'Import latest NFL news from ESPN and Pro Football Talk'
+                : 'No news relay in this build — it needs VITE_API_BASE_URL pointing at the server proxy'}
+              className="button rt-button"
+            >
+              {importing ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Rss size={14} aria-hidden />}
+              Import News
+            </button>
 
-        {/* Add button */}
-        <button
-          onClick={() => setAddingItem((v) => !v)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-[var(--color-accent)] text-black rounded hover:bg-[var(--color-accent-hover)] transition-colors"
-        >
-          <Plus size={14} />
-          Add Item
-        </button>
-      </div>
+            <button
+              type="button"
+              onClick={() => setAddingItem((v) => !v)}
+              aria-expanded={addingItem}
+              className="button primary rt-button"
+            >
+              <Plus size={14} aria-hidden />
+              Add Item
+            </button>
+          </div>
+        </div>
 
-      {(importMsg || importError || importNotice) && (
-        <div className="flex-shrink-0 px-4 py-1.5 text-xs border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-          <span className={
-            importError ? 'text-[var(--color-caution)]'
-              : importNotice ? 'text-[var(--color-text-muted)]'
-              : 'text-[var(--color-start)]'
-          }>
+        {(importMsg || importError || importNotice) && (
+          <p
+            className="t-meta"
+            role="status"
+            style={{
+              margin: 0,
+              color: importError ? 'var(--caution)' : importNotice ? 'var(--text-2)' : 'var(--start)',
+            }}
+          >
             {importError ?? importNotice ?? importMsg}
-          </span>
-        </div>
-      )}
+          </p>
+        )}
 
-      {/* Add form */}
-      {addingItem && (
-        <div className="flex-shrink-0 px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-surface-2)]">
-          <ResearchItemForm onSave={handleSave} onCancel={() => setAddingItem(false)} />
-        </div>
-      )}
+        {/* Add form */}
+        {addingItem && <ResearchItemForm onSave={handleSave} onCancel={() => setAddingItem(false)} />}
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {/* List */}
         {displayed.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <BookOpen size={32} className="text-[var(--color-text-faint)] mb-3" />
+          <div className="card empty-state">
+            <BookOpen size={28} color="var(--text-3)" aria-hidden />
             {showArchived ? (
-              <p className="text-sm text-[var(--color-text-faint)]">No archived items.</p>
+              <p className="t-body muted" style={{ margin: 0 }}>No archived items.</p>
             ) : activeCount === 0 ? (
               <>
-                <p className="text-sm text-[var(--color-text-muted)] mb-1">No research items yet.</p>
-                <p className="text-xs text-[var(--color-text-faint)]">
-                  Click a player row in the Draft Dashboard or use "Add Item" above.
+                <p className="t-title" style={{ margin: 0 }}>No research items yet</p>
+                <p className="t-body muted" style={{ margin: 0 }}>
+                  Open a player on the Draft board or use “Add Item” above.
                 </p>
-                <button
-                  onClick={loadSampleData}
-                  className="mt-4 text-xs px-2.5 py-1.5 rounded border border-[var(--color-border)] text-[var(--color-text-faint)] hover:text-[var(--color-text)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
-                >
+                <button type="button" onClick={loadSampleData} className="button">
                   Load sample items
                 </button>
-                <p className="mt-2 text-[10px] text-[var(--color-text-faint)] max-w-xs">
+                <p className="t-meta faint" style={{ margin: 0, maxWidth: '20rem' }}>
                   Samples are illustrative fiction, not real reporting. They are
                   labelled "sample" wherever they appear.
                 </p>
               </>
             ) : (
-              <p className="text-sm text-[var(--color-text-faint)]">No items match the current filters.</p>
+              <p className="t-body muted" style={{ margin: 0 }}>No items match the current filters.</p>
             )}
           </div>
         ) : (
-          <div className="max-w-3xl space-y-2.5">
-            <p className="text-xs text-[var(--color-text-faint)] mb-3 tabular-nums">
+          <div className="rt-card-list" style={{ maxWidth: '48rem' }}>
+            <p className="t-meta muted" style={{ margin: 0 }}>
               {displayed.length} item{displayed.length !== 1 ? 's' : ''}
               {showArchived ? ' archived' : ''}
             </p>
@@ -234,7 +246,13 @@ export default function Research() {
             ))}
           </div>
         )}
-      </div>
+      </ScreenSection>
+
+      <AboutThisData>
+        <span>Notes live in this browser. Imported news comes from ESPN and Pro Football Talk through the app's server relay, tagged only to players on your watchlist or draft plan.</span>
+        <span>“Summarize my news” sends those already-imported articles to a local model through the same relay; it only appears when the relay is configured.</span>
+        <span>Defense vs position scores nflverse game logs with your league's rules, one season at a time.</span>
+      </AboutThisData>
     </div>
   )
 }

@@ -3,26 +3,24 @@ import {
   ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Cell, ReferenceArea, ReferenceLine,
 } from 'recharts'
-import { ACCENT_HEX, NEUTRAL_HEX, BORDER_RGBA, TEXT_MUTED_HEX, TEXT_FAINT_HEX } from '../../utils/chartColors'
-
-const AXIS_TICK = { fill: TEXT_MUTED_HEX, fontSize: 11 }
+import { AXIS_TICK, CURSOR_FILL, GRID_STROKE, HIGHLIGHT, NEUTRAL, FAINT, ChartTooltipBox } from '../shared/chartTheme'
 
 function LogTooltip({ active, payload }) {
   if (!active || !payload?.length) return null
   const row = payload[0].payload
   return (
-    <div className="bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded px-3 py-2 text-xs shadow-lg max-w-[220px]">
-      <p className="font-semibold text-[var(--color-text)]">
-        Week {row.week} {row.opp ? <span className="text-[var(--color-text-muted)]">vs {row.opp}</span> : null}
+    <ChartTooltipBox>
+      <p style={{ fontWeight: 600 }}>
+        Week {row.week} {row.opp ? <span className="muted">vs {row.opp}</span> : null}
       </p>
-      <p className="text-[var(--color-text)] tabular-nums mb-1">{row.points.toFixed(1)} pts</p>
+      <p style={{ marginBottom: 4 }}>{row.points.toFixed(1)} pts</p>
       {row.breakdown.slice(0, 3).map((c) => (
-        <p key={c.key} className="text-[10px] text-[var(--color-text-muted)] flex justify-between gap-3">
+        <p key={c.key} className="t-caption muted flex justify-between gap-3">
           <span>{c.label}{c.units ? ` (${c.units})` : ''}</span>
-          <span className="tabular-nums">{c.points > 0 ? '+' : ''}{c.points.toFixed(1)}</span>
+          <span>{c.points > 0 ? '+' : ''}{c.points.toFixed(1)}</span>
         </p>
       ))}
-    </div>
+    </ChartTooltipBox>
   )
 }
 
@@ -43,34 +41,34 @@ export default function WeeklyGameLog({ scored, distribution, season, profileNam
   const { floor, ceiling, median } = distribution ?? {}
 
   return (
-    <div>
+    <div role="figure" aria-label={`Fantasy points each week of ${season}`}>
       <div className="flex items-baseline justify-between mb-2 gap-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-faint)]">
+        <h3 className="t-section" style={{ margin: 0 }}>
           Weekly points · {season}
         </h3>
-        <span className="text-[10px] text-[var(--color-text-faint)] truncate">
+        <span className="t-meta faint truncate">
           scored by {profileName ?? 'your league profile'}
         </span>
       </div>
 
       <ResponsiveContainer width="100%" height={200}>
         <ComposedChart data={rows} margin={{ left: -12, right: 8, top: 8, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={BORDER_RGBA} vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
           {floor != null && ceiling != null && (
             <ReferenceArea
               y1={floor}
               y2={ceiling}
-              fill={ACCENT_HEX}
-              fillOpacity={0.07}
+              fill={HIGHLIGHT}
+              fillOpacity={0.1}
               stroke="none"
             />
           )}
           {median != null && (
-            <ReferenceLine y={median} stroke={TEXT_FAINT_HEX} strokeDasharray="4 4" />
+            <ReferenceLine y={median} stroke={FAINT} strokeDasharray="4 4" />
           )}
-          <XAxis dataKey="week" tick={AXIS_TICK} tickLine={false} axisLine={{ stroke: BORDER_RGBA }} />
+          <XAxis dataKey="week" tick={AXIS_TICK} tickLine={false} axisLine={{ stroke: GRID_STROKE }} />
           <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} width={40} />
-          <Tooltip content={<LogTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Tooltip content={<LogTooltip />} cursor={CURSOR_FILL} />
           <Bar dataKey="points" radius={[3, 3, 0, 0]}>
             {rows.map((r) => {
               // Boom weeks earn the accent; bust weeks fade. Everything between
@@ -80,7 +78,7 @@ export default function WeeklyGameLog({ scored, distribution, season, profileNam
               return (
                 <Cell
                   key={r.week}
-                  fill={isBoom ? ACCENT_HEX : NEUTRAL_HEX}
+                  fill={isBoom ? HIGHLIGHT : NEUTRAL}
                   fillOpacity={isBust ? 0.45 : 1}
                 />
               )
@@ -89,8 +87,9 @@ export default function WeeklyGameLog({ scored, distribution, season, profileNam
         </ComposedChart>
       </ResponsiveContainer>
 
-      <p className="text-[10px] text-[var(--color-text-faint)] mt-1">
+      <p className="t-meta muted" style={{ margin: '4px 0 0' }}>
         Shaded band = the middle 60% of his actual weeks (p20–p80). Dashed line = median.
+        Indigo bars are weeks at or above the band (booms); faded bars are at or below it (busts).
       </p>
     </div>
   )

@@ -1,7 +1,9 @@
 import { useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
-import { AlertTriangle } from 'lucide-react'
-import Header from '../components/layout/Header'
+import { AlertTriangle, Scale, CalendarDays } from 'lucide-react'
+import { AboutThisData, Callout, ScreenHero, ScreenSection } from '@ui/components/Screen'
+import RefreshButton from '../components/shared/RefreshButton'
+import OddsKeyField from '../components/odds/OddsKeyField'
+import '../screens/tools/researchTools.css'
 import { useOdds } from '../hooks/useOdds'
 import { useDraftPlayers } from '../hooks/useDraftPlayers'
 import { useLeagueTeamRosters } from '../hooks/useLeagueTeamRosters'
@@ -34,6 +36,7 @@ export default function Odds() {
   const sleeperUserId = useAppStore((s) => s.sleeperUserId)
   const season = useAppStore((s) => s.season)
   const currentWeek = useAppStore((s) => s.currentWeek)
+  const leagueName = useAppStore((s) => s.leagueName)
   const { odds, hasFetched, quota, loading, error, fetchOdds } = useOdds(oddsApiKey, season, currentWeek)
   const { players } = useDraftPlayers()
   const { teams } = useLeagueTeamRosters(leagueId)
@@ -140,108 +143,129 @@ export default function Odds() {
     )
   }, [liveGames, fallbackGames])
 
+  const mineCount = games.filter((g) => g.mine).length
+  const sourceLine = usingFallback
+    ? `Week ${currentWeek} lines from the preprocessed schedule (nfldata) — no API credits used.`
+    : quota.remaining != null
+      ? `${quota.remaining} Odds API requests remaining this month`
+      : 'Live lines from The Odds API'
+
   return (
-    <div className="flex flex-col h-screen">
-      <Header title="Odds" onRefresh={oddsApiKey ? fetchOdds : undefined} refreshing={loading} />
-      <main className="flex-1 overflow-auto p-6 space-y-4">
-        {!oddsApiKey && (
-          <div className="flex items-start gap-2 px-4 py-3 text-sm text-[var(--color-caution)] bg-[var(--color-caution)]/10 border border-[var(--color-caution)]/30 rounded">
-            <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
-            <span>
-              {usingFallback
-                ? 'Showing the schedule file\u2019s recorded lines, not live odds — they don\u2019t move as the week does. '
-                : 'No Odds API key configured — '}
-              <Link to="/classic/settings" className="underline font-semibold hover:text-[var(--color-caution)]">
-                add a key in Settings
-              </Link>{' '}
-              for live spreads and totals. Free tier: 500 requests/month.
-            </span>
-          </div>
-        )}
+    <div className="rt-page">
+      <ScreenHero
+        overline="Tools · Odds"
+        icon={Scale}
+        hue="var(--hue-market)"
+        answer={games.length > 0 ? `${games.length} game${games.length === 1 ? '' : 's'} in week ${currentWeek}` : `Week ${currentWeek} lines`}
+        detail={[leagueName, season && `${season} season`, games.length > 0 && (usingFallback ? 'recorded lines, not live' : 'live lines')].filter(Boolean).join(' · ')}
+        stats={games.length > 0 ? [
+          { value: String(mineCount), label: mineCount === 1 ? 'game with your players' : 'games with your players' },
+          ...(quota.remaining != null && !usingFallback ? [{ value: String(quota.remaining), label: 'API requests left' }] : []),
+        ] : []}
+        trailing={oddsApiKey ? <RefreshButton onClick={fetchOdds} loading={loading} /> : undefined}
+      />
 
-        {error && <p className="text-sm text-[var(--color-sit)]">Failed to load odds: {error}</p>}
-
-        {oddsApiKey && loading && games.length === 0 && (
-          <p className="text-sm text-[var(--color-text-muted)]">Loading odds…</p>
-        )}
-
-        {!loading && games.length === 0 && !error && (
-          <p className="text-sm text-[var(--color-text-muted)]">
-            No games found for week {currentWeek}. Try refreshing, or run{' '}
-            <code>npm run preprocess-nflverse</code> to build the {season} schedule.
-          </p>
-        )}
-
-        {games.length > 0 && (
-          <>
-            {/* Your own roster first — it's why you opened the page. The
-                market-wide charts below are the context for it. */}
-            <MyTeamOdds
-              myTeam={myTeam}
-              playersById={rosterPlayersById}
-              scheduleByTeam={scheduleByTeam}
-              impliedForTeam={impliedForTeam}
-              source={usingFallback ? 'schedule' : 'live'}
-              week={currentWeek}
-            />
-
-            <p className="text-xs text-[var(--color-text-faint)]">
-              {usingFallback
-                ? `Week ${currentWeek} lines from the preprocessed schedule (nfldata) — no API credits used.`
-                : quota.remaining != null
-                  ? `${quota.remaining} Odds API requests remaining this month`
-                  : 'Live lines from The Odds API'}
+      {!oddsApiKey && (
+        <Callout tone="caution">
+          <div className="rt-stack">
+            <p className="t-body flex items-start gap-2" style={{ margin: 0 }}>
+              <AlertTriangle size={16} color="var(--caution)" className="flex-shrink-0" style={{ marginTop: 2 }} aria-hidden />
+              <span>
+                {usingFallback
+                  ? 'Showing the schedule file\u2019s recorded lines, not live odds — they don\u2019t move as the week does. Add an Odds API key below for live spreads and totals.'
+                  : 'No Odds API key yet — add one below for live spreads and totals.'}
+              </span>
             </p>
+            <OddsKeyField />
+          </div>
+        </Callout>
+      )}
 
-            <ImpliedTotalsChart games={games} myTeamAbbrs={myTeamAbbrs} />
+      {error && <p className="t-body" role="alert" style={{ margin: 0, color: 'var(--sit)' }}>Failed to load odds: {error}</p>}
 
-            <GameEnvironmentScatter games={games} myTeamAbbrs={myTeamAbbrs} />
+      {oddsApiKey && loading && games.length === 0 && (
+        <p className="t-body muted" role="status" style={{ margin: 0 }}>Loading odds…</p>
+      )}
 
+      {!loading && games.length === 0 && !error && (
+        <p className="card t-body muted" style={{ margin: 0 }}>
+          No games found for week {currentWeek}. Try refreshing, or run{' '}
+          <code>npm run preprocess-nflverse</code> to build the {season} schedule.
+        </p>
+      )}
+
+      {games.length > 0 && (
+        <>
+          {/* Your own roster first — it's why you opened the page. The
+              market-wide charts below are the context for it. */}
+          <MyTeamOdds
+            myTeam={myTeam}
+            playersById={rosterPlayersById}
+            scheduleByTeam={scheduleByTeam}
+            impliedForTeam={impliedForTeam}
+            source={usingFallback ? 'schedule' : 'live'}
+            week={currentWeek}
+          />
+
+          <p className="t-meta muted" style={{ margin: 0 }}>{sourceLine}</p>
+
+          <ImpliedTotalsChart games={games} myTeamAbbrs={myTeamAbbrs} />
+
+          <GameEnvironmentScatter games={games} myTeamAbbrs={myTeamAbbrs} />
+
+          <ScreenSection title="Every game" icon={CalendarDays} count={games.length} hue="var(--hue-market)">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
               {games.map((g) => (
-                <div
+                <article
                   key={g.id}
-                  className={`border rounded px-4 py-3 bg-[var(--color-surface)] ${
-                    g.mine ? 'border-[var(--color-accent)]/50' : 'border-[var(--color-border)]'
-                  }`}
+                  className={`card rt-game${g.mine ? ' mine' : ''}`}
+                  aria-label={`${g.away_team} at ${g.home_team}${g.mine ? ', your players' : ''}`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-[var(--color-text-faint)]">
+                  <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-s)' }}>
+                    <span className="t-meta faint">
                       {new Date(g.commence_time).toLocaleString([], {
                         weekday: 'short', hour: 'numeric', minute: '2-digit',
                       })}
                     </span>
-                    {g.mine && (
-                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-[var(--color-accent)]/15 text-[var(--color-accent)]">
-                        YOUR PLAYERS
-                      </span>
-                    )}
+                    {g.mine && <span className="rt-badge accent t-micro">Your players</span>}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm font-semibold text-[var(--color-text)]">{g.away_team}</p>
-                      <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
+                      <p className="t-body" style={{ margin: 0, fontWeight: 600 }}>{g.away_team}</p>
+                      <p className="t-meta muted" style={{ margin: 0 }}>
                         {formatSpread(g.line.awaySpread)}
                         {g.line.awayImplied != null && <> · implied {g.line.awayImplied.toFixed(1)}</>}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-semibold text-[var(--color-text)]">{g.home_team}</p>
-                      <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
+                      <p className="t-body" style={{ margin: 0, fontWeight: 600 }}>{g.home_team}</p>
+                      <p className="t-meta muted" style={{ margin: 0 }}>
                         {formatSpread(g.line.homeSpread)}
                         {g.line.homeImplied != null && <> · implied {g.line.homeImplied.toFixed(1)}</>}
                       </p>
                     </div>
                   </div>
                   {g.line.total != null && (
-                    <p className="text-[10px] text-[var(--color-text-faint)] mt-1.5">O/U {g.line.total}</p>
+                    <p className="t-meta faint" style={{ margin: 'var(--space-s) 0 0' }}>O/U {g.line.total}</p>
                   )}
-                </div>
+                </article>
               ))}
             </div>
-          </>
-        )}
-      </main>
+          </ScreenSection>
+        </>
+      )}
+
+      {oddsApiKey && (
+        <div className="card">
+          <OddsKeyField />
+        </div>
+      )}
+
+      <AboutThisData>
+        <span>Live spreads and totals come from The Odds API with your own key; each refresh uses one request from its monthly quota.</span>
+        <span>Without a key, the page draws the lines nfldata recorded alongside the schedule — they don't move during the week.</span>
+        <span>Implied team total = half the game total, adjusted by half the spread. It describes the game, not the player.</span>
+      </AboutThisData>
     </div>
   )
 }

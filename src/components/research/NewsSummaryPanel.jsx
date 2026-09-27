@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Sparkles, Loader2 } from 'lucide-react'
 import { API_BASE, hasApiProxy } from '../../utils/apiBase'
+import '../../screens/tools/researchTools.css'
 
 const MAX_ARTICLES = 20
 
@@ -55,33 +56,34 @@ export default function NewsSummaryPanel({ items, relevantPlayerIds }) {
   if (!hasApiProxy) return null
 
   return (
-    <div className="flex-shrink-0 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+    <div className="card rt-stack">
       <button
+        type="button"
         onClick={open ? () => setOpen(false) : handleGenerate}
         disabled={loading}
-        className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-[var(--color-surface-2)] transition-colors disabled:opacity-50"
+        aria-expanded={open}
+        className="button rt-button"
+        style={{ justifyContent: 'flex-start' }}
       >
         {loading ? (
-          <Loader2 size={12} className="animate-spin text-[var(--color-text-faint)]" />
+          <Loader2 size={14} className="animate-spin" aria-hidden />
         ) : (
-          <Sparkles size={12} className="text-[var(--color-text-faint)]" />
+          <Sparkles size={14} color="var(--accent)" aria-hidden />
         )}
-        <span className="text-[var(--color-text-muted)] font-medium">
-          {open ? 'Hide summary' : 'Summarize my news'}
-        </span>
-        <span className="text-[10px] text-[var(--color-text-faint)] ml-auto">via local LLM</span>
+        <span>{open ? 'Hide summary' : 'Summarize my news'}</span>
+        <span className="t-meta faint ml-auto" style={{ fontWeight: 400 }}>via local LLM</span>
       </button>
 
       {open && (
-        <div className="px-4 pb-3">
+        <div aria-live="polite">
           {loading && (
-            <p className="text-xs text-[var(--color-text-faint)]">
+            <p className="t-meta muted" style={{ margin: 0 }}>
               Thinking… local inference can take a bit longer than the rest of this app.
             </p>
           )}
-          {error && <p className="text-xs text-[var(--color-sit)]">{error}</p>}
+          {error && <p className="t-meta" style={{ margin: 0, color: 'var(--sit)' }}>{error}</p>}
           {summary && !loading && (
-            <p className="text-xs text-[var(--color-text)] leading-relaxed whitespace-pre-wrap">{summary}</p>
+            <p className="t-body" style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{summary}</p>
           )}
         </div>
       )}
