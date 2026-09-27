@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Star, AlertTriangle, Info, TrendingDown, BookOpen, Plus, Cpu, BarChart2, Loader2, Database, ListChecks } from 'lucide-react'
+import { X, Star, AlertTriangle, Info, TrendingDown, BookOpen, Plus, Cpu, BarChart2, Loader2, Database, ListChecks, Activity } from 'lucide-react'
 import { getStatusColor, getStatusLabel, getPositionColor } from '../../utils/playerHelpers'
 import useResearchStore, { selectPlayerItems } from '../../store/useResearchStore'
 import ResearchCard from '../research/ResearchCard'
 import ResearchItemForm from '../research/ResearchItemForm'
 import EvalPanel from '../eval/EvalPanel'
 import { usePlayerStats } from '../../hooks/usePlayerStats'
+import { usePlayerWeekly, useWeeklySeasons } from '../../hooks/usePlayerWeekly'
+import WeeklyGameLog from '../weekly/WeeklyGameLog'
+import ConsistencyPanel from '../weekly/ConsistencyPanel'
 import useMockDraftStore from '../../store/useMockDraftStore'
 
 // ---------------------------------------------------------------------------
@@ -345,11 +348,96 @@ function StatsTab({ player }) {
 }
 
 // ---------------------------------------------------------------------------
+// Weekly tab — real week-by-week fantasy points under the league's own scoring.
+// Distinct from the Stats tab (season aggregates) and from Evaluate (a 0-100
+// percentile rank): this one is denominated in points you actually banked.
+// ---------------------------------------------------------------------------
+
+function WeeklyTab({ player }) {
+  const manifestSeasons = useWeeklySeasons()
+  const [season, setSeason] = useState(null)
+  const active = season ?? manifestSeasons[0]?.season ?? null
+
+  const { scored, distribution, loading, error, hasData, seasonMeta, profileName } =
+    usePlayerWeekly(player, active)
+
+  if (!player?.gsisId) {
+    return (
+      <p className="text-xs text-[var(--color-text-faint)]">
+        No nflverse id for this player, so there's no game log to score.
+      </p>
+    )
+  }
+  if (loading) {
+    return (
+      <p className="text-xs text-[var(--color-text-muted)] flex items-center gap-1.5">
+        <Loader2 size={12} className="animate-spin" /> Loading weekly game log…
+      </p>
+    )
+  }
+  if (error) {
+    return (
+      <p className="text-xs text-[var(--color-sit)]">
+        {error}
+      </p>
+    )
+  }
+  if (!hasData) {
+    return (
+      <p className="text-xs text-[var(--color-text-faint)]">
+        No {active ?? ''} game log for this player yet.
+        {manifestSeasons.length === 0 && ' Run: npm run preprocess-nflverse'}
+      </p>
+    )
+  }
+
+  return (
+    <section className="space-y-5">
+      {manifestSeasons.length > 1 && (
+        <div className="flex gap-1">
+          {manifestSeasons.map((s) => (
+            <button
+              key={s.season}
+              onClick={() => setSeason(s.season)}
+              className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
+                active === s.season
+                  ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)] font-semibold'
+                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+              }`}
+            >
+              {s.season}{!s.complete ? ` (${s.weeks} wk)` : ''}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <WeeklyGameLog
+        scored={scored}
+        distribution={distribution}
+        season={active}
+        profileName={profileName}
+      />
+      <ConsistencyPanel
+        scored={scored}
+        distribution={distribution}
+        season={active}
+        profileName={profileName}
+        seasonMeta={seasonMeta}
+      />
+
+      <p className="text-[10px] text-[var(--color-text-faint)] pt-1 border-t border-[var(--color-border)]">
+        Source: nflverse weekly player stats · regular season only
+      </p>
+    </section>
+  )
+}
+
 // Main drawer
 // ---------------------------------------------------------------------------
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
+  { key: 'weekly', label: 'Weekly', icon: Activity },
   { key: 'stats', label: 'Stats', icon: BarChart2 },
   { key: 'evaluate', label: 'Evaluate', icon: Cpu },
   { key: 'research', label: 'Research' },
@@ -567,6 +655,11 @@ export default function PlayerDrawer({ player, watchlist, onToggleWatch, onClose
                 )}
               </section>
             </>
+          )}
+
+          {/* ── Weekly tab ────────────────────────────────────── */}
+          {activeTab === 'weekly' && (
+            <WeeklyTab player={player} />
           )}
 
           {/* ── Stats tab ─────────────────────────────────────── */}

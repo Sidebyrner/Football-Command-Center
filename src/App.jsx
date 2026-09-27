@@ -8,8 +8,10 @@ import DraftDashboard from './pages/DraftDashboard'
 import Research from './pages/Research'
 import MockDraft from './pages/MockDraft'
 import SitStart from './pages/SitStart'
+import MatchupPlanner from './pages/MatchupPlanner'
 import TradeAnalyzer from './pages/TradeAnalyzer'
 import PowerRankings from './pages/PowerRankings'
+import Planning from './pages/Planning'
 import Odds from './pages/Odds'
 import Settings from './pages/Settings'
 
@@ -65,6 +67,16 @@ export default function App() {
           }
         />
         <Route
+          path="/matchup"
+          element={
+            <RequireConfig>
+              <AppLayout>
+                <MatchupPlanner />
+              </AppLayout>
+            </RequireConfig>
+          }
+        />
+        <Route
           path="/sit-start"
           element={
             <RequireConfig>
@@ -90,6 +102,16 @@ export default function App() {
             <RequireConfig>
               <AppLayout>
                 <PowerRankings />
+              </AppLayout>
+            </RequireConfig>
+          }
+        />
+        <Route
+          path="/planning"
+          element={
+            <RequireConfig>
+              <AppLayout>
+                <Planning />
               </AppLayout>
             </RequireConfig>
           }

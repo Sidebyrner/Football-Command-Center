@@ -3,3 +3,22 @@ dist
 .env
 .env.local
 *.local
+
+# Local run state for server/ when DATA_DIR points inside the repo (the
+# documented local-dev default). In the container this lives on a bind mount
+# instead, so this only ever matches a developer's own machine.
+server/.data/
+
+# Swift Package Manager / Xcode build state for apple/
+.build/
+.swiftpm/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# macOS Finder metadata
+.DS_Store
+
+# XcodeGen build state
+apple/**/*.xcodeproj/project.xcworkspace/xcuserdata/
+apple/**/*.xcodeproj/xcuserdata/

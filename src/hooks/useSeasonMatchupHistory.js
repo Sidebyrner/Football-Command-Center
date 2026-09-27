@@ -4,6 +4,22 @@
 // each feature re-fetching the same weeks. getLeagueMatchups already existed
 // (cached per-week in sleeperService.js) but nothing looped across weeks to
 // build season history before this.
+//
+// NOT interchangeable with useRosterWeekly, which also returns weekly points.
+// Pick by what you need:
+//
+//   this hook (Sleeper matchups)   useRosterWeekly (nflverse weekly file)
+//   ---------------------------    --------------------------------------
+//   league's own official scoring   scored at runtime from the profile
+//   covers DEF and IDP             no DEF/IDP rows exist upstream
+//   who was actually STARTED       no concept of a Sleeper lineup
+//   roster-level weekly totals     per-player only
+//   rostered players only          every player, rostered or not
+//   totals only                    floor/median/ceiling/CV, last-N form
+//
+// So: lineup decisions, team totals, and anything that must include DEF/IDP
+// come from here. Player-level distributions and free-agent comparisons come
+// from useRosterWeekly.
 
 import { useState, useEffect } from 'react'
 import { getLeagueMatchupsHistorical } from '../services/sleeperService'

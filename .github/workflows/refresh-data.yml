@@ -4,7 +4,7 @@ name: Refresh nflverse data
 # iOS app downloads from that branch through raw.githubusercontent.com with ETags,
 # so new weeks of stats reach phones without an app update (brief §9).
 #
-# Runs daily through the season and on demand. The data branch is a single
+# Runs twice daily through the season (10:30 and 22:00 UTC) and on demand. The data branch is a single
 # commit, replaced on each publish, so it never accumulates history.
 #
 # GitHub only runs scheduled workflows from the default branch, so this file must
@@ -15,6 +15,8 @@ name: Refresh nflverse data
 on:
   schedule:
     - cron: "30 10 * 1,2,8,9,10,11,12 *"
+    # Evening run so Friday's practice reports and injury designations are published before the weekend.
+    - cron: "0 22 * 1,2,8,9,10,11,12 *"
   workflow_dispatch:
     inputs:
       force:

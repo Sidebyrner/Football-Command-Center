@@ -67,9 +67,9 @@ export default function BenchPoints({ myTeam, weeklyByRoster, playersById, loadi
       </ul>
 
       <p className="text-[10px] text-[var(--color-text-faint)] mt-3 leading-relaxed">
-        "Best available" sorts your roster by what they actually scored and fills your lineup slots
-        greedily — the standard approximation, which can sit a hair under true optimal when a
-        flex-eligible player could have filled two different slots.
+        "Best available" runs the same lineup optimizer the Matchup Planner uses, with points
+        actually scored as the basis — so overlapping flex slots are handled properly and
+        equal-value shuffles aren't reported as missed moves.
       </p>
     </div>
   )

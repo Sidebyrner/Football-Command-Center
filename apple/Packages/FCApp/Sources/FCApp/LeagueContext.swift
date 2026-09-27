@@ -1,0 +1,231 @@
+import Foundation
+import FCCore
+import FCData
+
+/// Where a player sits relative to the user, which is what turns a name on the
+/// acquisition board into an action.
+public enum Availability: Hashable, Sendable {
+    /// Not on any roster in the league — a waiver claim.
+    case freeAgent
+    /// On a rival's bench — a trade, and the easiest kind to ask for.
+    case rivalBench(rosterID: Int, manager: String)
+    /// In a rival's starting lineup — a trade, and a much harder ask.
+    case rivalStarter(rosterID: Int, manager: String)
+    /// Already the user's.
+    case mine
+
+    public var isAcquirable: Bool {
+        switch self {
+        case .freeAgent, .rivalBench, .rivalStarter: return true
+        case .mine: return false
+        }
+    }
+
+    /// The phrasing the board uses. Naming the *kind* of move matters more than
+    /// the player's rank — a claim and a trade are not the same action.
+    public var label: String {
+        switch self {
+        case .freeAgent: return "Free agent"
+        case .rivalBench(_, let manager): return "\(manager)'s bench"
+        case .rivalStarter(_, let manager): return "\(manager)'s starter"
+        case .mine: return "Yours"
+        }
+    }
+}
+
+/// One team in the league, resolved down to what the algorithms need.
+public struct LeagueTeam: Hashable, Sendable, Identifiable {
+    public let rosterID: Int
+    /// Sleeper's user id for the manager, which is how draft picks are
+    /// attributed — a pick belongs to whoever made it, not to whichever roster
+    /// later ended up with the player.
+    public let ownerID: String?
+    public let manager: String
+    public let isUser: Bool
+    /// Every rostered player, with the position and team the crunch needs.
+    public let roster: [RosterEntry]
+    /// Starters with unset slots removed.
+    public let starterIDs: [String]
+    /// Starters exactly as Sleeper sent them, `"0"` included. Kept alongside
+    /// the filtered list because the count of `"0"` entries is the only way to
+    /// know how many slots are still unset (§3.1).
+    public let rawStarters: [String]
+    /// Record and points, which Sleeper returns with the roster itself.
+    public let settings: SleeperRoster.Settings?
+    /// Players parked in IR slots. They are in `roster` too; this says which.
+    public var reserveIDs: [String] = []
+
+    public var id: Int { rosterID }
+
+    /// Rostered, not starting, not on IR — the players a claim would drop.
+    public var benchIDs: [String] {
+        let starting = Set(starterIDs)
+        let reserve = Set(reserveIDs)
+        return roster.map(\.id).filter { !starting.contains($0) && !reserve.contains($0) }
+    }
+}
+
+/// Everything the screens read from, assembled once.
+///
+/// This is the join point for the three feeds, and therefore where every
+/// dialect has already been translated: Sleeper ids on the rosters, gsis ids on
+/// the production data, nflverse team spellings throughout.
+public struct LeagueContext: Sendable {
+    public let league: SleeperLeague
+    /// The season the schedule, byes and opponents come from — the current one.
+    public let scheduleSeason: Int
+    /// The season the production numbers come from. Early in a year this is
+    /// last season, because a weekly file cannot exist before games are played.
+    public let statsSeason: Int
+    /// Weeks of games the schedule season has in the stats manifest — 0 before
+    /// its weekly file exists.
+    public let currentSeasonWeeks: Int
+    public let template: SlotTemplate
+    public let scoring: SleeperScoringTranslation
+    public let teams: [LeagueTeam]
+    public let userRosterID: Int
+    public let byeCalendar: ByeCalendar
+    /// When each team kicks off each week; Sleeper locks a slot at kickoff.
+    public let kickoffs: KickoffCalendar
+    /// The app's clock. Read it fresh each time — a context is reused for up to
+    /// a minute, and locks change at kickoff, not at load.
+    public let now: @Sendable () -> Date
+    /// The schedule-season file itself, for opponents and recorded lines.
+    public let schedule: ScheduleFile
+    /// The stats-season weekly file, for anything computed across the whole
+    /// league rather than per rostered player — defense-vs-position, today.
+    public let weekly: WeeklyFile
+    public let currentWeek: Int
+    public let seasonWeeks: [Int]
+    /// Season production for every player the weekly file covers, already
+    /// scored under this league's own rules.
+    public let seasonProfiles: [SeasonProfile]
+    public let baselines: [Position: PositionBaseline]
+    /// gsis id → Sleeper id, for putting a production row back on a roster.
+    public let sleeperIDsByGSIS: [String: String]
+    /// Where each rostered Sleeper id sits.
+    public let availabilityBySleeperID: [String: Availability]
+    /// Positions in this league's starting lineup that the weekly file has no
+    /// data for — DEF and IDP. Stated, never papered over (§3.2).
+    public let unsupportedPositions: [Position]
+    /// The trimmed player pool, kept so screens can name a player and read an
+    /// injury tag without another lookup layer.
+    public let players: PlayerIndex
+    /// The weakest provenance of everything that went into this.
+    public let provenance: Provenance
+    /// The weakest of the Sleeper reads alone — league, rosters, managers,
+    /// players, the current week.
+    public let sleeperProvenance: Provenance
+    /// The weakest of the static nflverse files — schedule and recorded lines,
+    /// weekly stats, crosswalk.
+    public let staticProvenance: Provenance
+
+    /// Waiver system, FAAB, deadline, playoffs — read live, never assumed.
+    public var leagueFacts: LeagueFacts = .unknown
+    /// Projections, current-season Sleeper stats, practice reports, depth
+    /// charts, usage and team context. Every part optional; see `InSeasonData`.
+    public var inSeason: InSeasonData = .empty
+
+    /// What a starting position can be valued from in this context. DEF and
+    /// IDP have no nflverse rows, but once Sleeper's own weekly lines are in
+    /// hand they are covered — by a different, labelled source (§3.2).
+    public func coverage(of position: Position) -> PositionCoverage {
+        if position.hasWeeklyProductionData { return .nflverseWeekly }
+        let anyLine = inSeason.weekStats.values.contains { lines in
+            lines.values.contains { $0.position == position }
+        }
+        return anyLine ? .sleeperStats : .none
+    }
+
+    /// The official practice report for a rostered player this week, joined
+    /// back through the crosswalk. `nil` when he is not on the report.
+    public func practiceReport(sleeperID: String) -> PracticeReport? {
+        guard let gsis = gsisIDsBySleeper[sleeperID] else { return nil }
+        return inSeason.practiceReports[gsis]
+    }
+
+    /// Reverse of `sleeperIDsByGSIS`, built lazily-once per context.
+    public var gsisIDsBySleeper: [String: String] {
+        Dictionary(sleeperIDsByGSIS.map { ($0.value, $0.key) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    /// Rotowire's projected points for a player this week under this league's
+    /// scoring; `nil` when there is no projection, never zero.
+    public func projectedPoints(_ sleeperID: String) -> Double? {
+        inSeason.projectedPoints(sleeperID: sleeperID, scoring: league.scoringSettings ?? [:])
+    }
+
+    /// Points per game this season from Sleeper's own stat lines, under this
+    /// league's scoring. The production number DEF and IDP otherwise lack.
+    public func sleeperPointsPerGame(_ sleeperID: String) -> Double? {
+        inSeason.sleeperPointsPerGame(sleeperID: sleeperID, scoring: league.scoringSettings ?? [:])
+    }
+
+    /// A player's display name, or `nil` when the pool has never heard of them.
+    public func playerName(_ id: String) -> String? {
+        players[id]?.name
+    }
+
+    public func position(_ id: String) -> Position? {
+        players[id]?.position
+    }
+
+    /// Sleeper's injury tag, only when there is actually one to report.
+    public func injuryStatus(_ id: String) -> String? {
+        guard let player = players[id], player.hasInjuryDesignation else { return nil }
+        return player.injuryStatus
+    }
+
+    /// Said out loud whenever production is from a different season than the
+    /// schedule, so last year's points per game are never read as this year's
+    /// (§6). `nil` when they match.
+    public var statsSeasonNote: String? {
+        guard statsSeason != scheduleSeason else { return nil }
+        guard currentSeasonWeeks > 0 else {
+            return "Production numbers are from the \(statsSeason) season — there is no \(scheduleSeason) weekly data yet."
+        }
+        let minimum = LeagueContextLoader.minimumWeeksForStatsSeason
+        return "Production numbers are from the \(statsSeason) season until \(scheduleSeason) has \(minimum) weeks of games "
+            + "(it has \(currentSeasonWeeks))."
+    }
+
+    public var userTeam: LeagueTeam? {
+        teams.first { $0.rosterID == userRosterID }
+    }
+
+    public var rivals: [LeagueTeam] {
+        teams.filter { $0.rosterID != userRosterID }
+    }
+
+    /// Weeks from the current one to the end of the regular season — the range
+    /// the planning grid covers, because past byes are not a plan.
+    public var remainingWeeks: [Int] {
+        seasonWeeks.filter { $0 >= currentWeek }
+    }
+
+    /// A player's NFL team in nflverse spelling; a team defense's id is its team.
+    public func nflTeam(of id: String) -> String? {
+        let player = players[id]
+        return player?.nflverseTeam ?? player?.team ?? (player?.position == .def ? id : nil)
+    }
+
+    /// Whether this player's game has kicked off this week, locking his slot.
+    public func isLocked(_ id: String) -> Bool {
+        kickoffs.isLocked(team: nflTeam(of: id), week: currentWeek, now: now())
+    }
+
+    /// Whether this player's game may be in progress right now.
+    public func isLive(_ id: String) -> Bool {
+        kickoffs.isLive(team: nflTeam(of: id), week: currentWeek, now: now())
+    }
+
+    public func availability(ofSleeperID id: String) -> Availability {
+        availabilityBySleeperID[id] ?? .freeAgent
+    }
+
+    /// Where a production row's player sits, going back through the crosswalk.
+    public func availability(ofGSIS gsisID: String) -> Availability {
+        guard let sleeperID = sleeperIDsByGSIS[gsisID] else { return .freeAgent }
+        return availability(ofSleeperID: sleeperID)
+    }
+}

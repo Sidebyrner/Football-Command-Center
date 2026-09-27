@@ -4,6 +4,7 @@ import Header from '../components/layout/Header'
 import ResearchCard from '../components/research/ResearchCard'
 import ResearchItemForm from '../components/research/ResearchItemForm'
 import NewsSummaryPanel from '../components/research/NewsSummaryPanel'
+import DefenseVsPositionPanel from '../components/matchup/DefenseVsPositionPanel'
 import useResearchStore from '../store/useResearchStore'
 import useWatchlistStore from '../store/useWatchlistStore'
 import useMockDraftStore from '../store/useMockDraftStore'
@@ -91,6 +92,11 @@ export default function Research() {
       <Header title="Research" />
 
       <NewsSummaryPanel items={items} relevantPlayerIds={relevantPlayerIds} />
+
+      {/* Matchup research — needs no API key, so it sits above the note feed */}
+      <div className="flex-shrink-0 px-4 py-4 border-b border-[var(--color-border)]">
+        <DefenseVsPositionPanel />
+      </div>
 
       {/* Filter bar */}
       <div className="flex-shrink-0 px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface)] flex flex-wrap items-center gap-2">

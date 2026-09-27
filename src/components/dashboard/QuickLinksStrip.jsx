@@ -1,10 +1,9 @@
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { BarChart3, ArrowLeftRight, TrendingUp } from 'lucide-react'
 import { GRADE_COLOR, findTradeOpportunities } from '../../utils/teamGrades'
-import { impliedTotalForLineup } from '../../utils/oddsHelpers'
-import { useOdds } from '../../hooks/useOdds'
-import useAppStore from '../../store/useAppStore'
+import { lineupImpliedTotal } from '../../utils/oddsHelpers'
+import { useImpliedTotals } from '../../hooks/useImpliedTotals'
 
 function LinkCard({ to, icon: Icon, label, value, valueColor }) {
   return (
@@ -28,14 +27,8 @@ function LinkCard({ to, icon: Icon, label, value, valueColor }) {
  * linking to the page that actually explains them. Deliberately stays a
  * single row, not a content section.
  */
-export default function QuickLinksStrip({ teams, myTeam, playersById }) {
-  const oddsApiKey = useAppStore((s) => s.oddsApiKey)
-  const { odds, fetchOdds } = useOdds(oddsApiKey)
-
-  useEffect(() => {
-    if (oddsApiKey && odds.length === 0) fetchOdds()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [oddsApiKey])
+export default function QuickLinksStrip({ teams, myTeam, playersById, week }) {
+  const { impliedForTeam, source } = useImpliedTotals(week)
 
   const opportunities = useMemo(
     () => (myTeam ? findTradeOpportunities(myTeam, teams) : []),
@@ -43,8 +36,8 @@ export default function QuickLinksStrip({ teams, myTeam, playersById }) {
   )
 
   const vegas = useMemo(
-    () => (myTeam ? impliedTotalForLineup(odds, myTeam.starterIds, playersById) : null),
-    [myTeam, odds, playersById]
+    () => (myTeam ? lineupImpliedTotal(myTeam.starterIds, playersById, impliedForTeam) : null),
+    [myTeam, playersById, impliedForTeam]
   )
 
   if (!myTeam) return null
@@ -69,8 +62,8 @@ export default function QuickLinksStrip({ teams, myTeam, playersById }) {
       <LinkCard
         to="/odds"
         icon={TrendingUp}
-        label="Vegas total (starters)"
-        value={vegas?.total != null ? vegas.total.toFixed(1) : oddsApiKey ? '—' : 'no key'}
+        label={source === 'schedule' ? 'Implied total (recorded)' : 'Vegas total (starters)'}
+        value={vegas?.total != null ? vegas.total.toFixed(1) : source ? '—' : 'no lines'}
       />
     </div>
   )

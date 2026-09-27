@@ -30,6 +30,17 @@ export const DEFAULT_PROFILE = {
   receivingFirstDown: 1,
   receiving100Bonus: 3,
   receiving200Bonus: 6,
+  // ── Turnovers & conversions (all positions) ──────────────────────────────
+  // Fumbles lost are the most common cause of "the projection said 14, I
+  // scored 12" — they were missing here, so profileFromSleeperScoring dumped
+  // fum_lost into `unmapped` and every total silently ran high.
+  fumbleLost: -2,
+  passing2pt: 2,
+  rushing2pt: 2,
+  receiving2pt: 2,
+  // A kick/punt return TD by a skill player. Scored separately from rush/rec
+  // TDs in every feed, so it needs its own field or it silently vanishes.
+  specialTeamsTD: 6,
   // ── Kicker ───────────────────────────────────────────────────────────────
   fg0to39: 3,
   fg40to49: 4,
@@ -76,6 +87,12 @@ const EVENT_ALIASES = {
   'rec_yd': 'receivingYardsPerPoint',
   'rec_td': 'receivingTD',
   'rec_fd': 'receivingFirstDown',
+  'fum_lost': 'fumbleLost',
+  'fumble_lost': 'fumbleLost',
+  'pass_2pt': 'passing2pt',
+  'rush_2pt': 'rushing2pt',
+  'rec_2pt': 'receiving2pt',
+  'st_td': 'specialTeamsTD',
   'fg_0_39': 'fg0to39',
   'fg_40_49': 'fg40to49',
   'fg_50_59': 'fg50to59',

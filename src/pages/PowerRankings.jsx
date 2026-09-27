@@ -1,4 +1,5 @@
 import { Loader2, TrendingUp } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import Header from '../components/layout/Header'
 import TeamGradeRow from '../components/draft/TeamGradeRow'
 import PowerRankingsChart from '../components/rankings/PowerRankingsChart'
@@ -60,6 +61,14 @@ export default function PowerRankings() {
               <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-faint)] mb-3 flex items-center gap-1.5">
                 <TrendingUp size={12} />
                 This week's matchups
+                {/* Deliberately a league-wide scan, not a lineup tool. The
+                    slot-by-slot version of your own matchup lives on /matchup. */}
+                <Link
+                  to="/matchup"
+                  className="ml-auto normal-case tracking-normal font-normal text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-text)] underline"
+                >
+                  Plan your own matchup slot by slot →
+                </Link>
               </h2>
               <WeeklyMatchupOdds teams={teams} playersById={playersById} />
             </section>

@@ -10,6 +10,7 @@ import { usePlayerScores } from '../hooks/usePlayerScores'
 import { useLeagueTeamRosters } from '../hooks/useLeagueTeamRosters'
 import { useOdds } from '../hooks/useOdds'
 import useAppStore from '../store/useAppStore'
+import { findMyTeam } from '../utils/leagueTeams'
 
 const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']
 
@@ -26,12 +27,14 @@ export default function SitStart() {
   const leagueId = useAppStore((s) => s.leagueId)
   const sleeperUserId = useAppStore((s) => s.sleeperUserId)
   const oddsApiKey = useAppStore((s) => s.oddsApiKey)
+  const season = useAppStore((s) => s.season)
+  const currentWeek = useAppStore((s) => s.currentWeek)
 
   const { players } = useDraftPlayers()
   const { cohorts } = useCohorts()
   const { scores } = usePlayerScores(players, cohorts)
   const { teams, loading: rostersLoading } = useLeagueTeamRosters(leagueId)
-  const { odds, fetchOdds, loading: oddsLoading } = useOdds(oddsApiKey)
+  const { odds, fetchOdds, loading: oddsLoading } = useOdds(oddsApiKey, season, currentWeek)
 
   const [selected, setSelected] = useState([])
 
@@ -41,7 +44,7 @@ export default function SitStart() {
     return map
   }, [players])
 
-  const myTeam = teams.find((t) => t.id === sleeperUserId)
+  const myTeam = findMyTeam(teams, sleeperUserId)
 
   const byPosition = useMemo(() => {
     if (!myTeam) return {}
@@ -175,7 +178,7 @@ export default function SitStart() {
                       {s?.available ? (
                         <>
                           <p className="text-2xl font-bold tabular-nums text-[var(--color-text)]">{s.score}</p>
-                          <p className="text-[10px] text-[var(--color-text-faint)]">{s.tierLabel} · {s.coverage}% real data</p>
+                          <p className="text-[10px] text-[var(--color-text-faint)]">{s.tierLabel} · {Math.round(s.coverage * 100)}% real data</p>
                         </>
                       ) : (
                         <p className="text-xs text-[var(--color-text-faint)]">{s?.reason ?? 'Not scoreable'}</p>

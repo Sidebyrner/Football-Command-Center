@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { sleeperApi } from '../utils/sleeperApi'
-import { cacheGet, cacheSet, cacheClear, TTL } from '../utils/cache'
+import { cacheGet, cacheGetEntry, cacheSet, cacheClear, TTL } from '../utils/cache'
+import { distinctFantasyPositions } from '../utils/slotEligibility'
+import { useGameDay } from './useGameDay'
 import {
   loadMarketData, buildAdpNameIndex, buildDstTeamIndex, lookupMarket, gsisIdFor,
 } from '../services/marketService'
@@ -8,7 +10,9 @@ import {
 // v2: we now cache the TRIMMED player list, not Sleeper's raw ~5 MB /players/nfl
 // blob. The raw payload does not reliably fit in localStorage (~5 MB cap), so the
 // old cache silently failed its write and refetched megabytes on every load.
-const PLAYER_CACHE = 'fcc-draft-players-v2'
+// v3 adds fantasyPositions (slot eligibility).
+const PLAYER_CACHE = 'fcc-draft-players-v3'
+const PREVIOUS_PLAYER_CACHE = 'fcc-draft-players-v2'
 const TRENDING_CACHE = 'sleeper-draft-trending-v1'
 const LEGACY_PLAYER_CACHE = 'sleeper-players-v1'
 
@@ -22,7 +26,16 @@ function normalizeName(p) {
   return parts.length ? parts.join(' ') : p.player_id
 }
 
-export function useDraftPlayers() {
+/**
+ * @param {object} [opts]
+ * @param {number} [opts.maxAgeMs] refetch when the cached pool is older than
+ *   this. Defaults to the game-day rule: injury tags live in this pool, so
+ *   within six hours before and four after a kickoff the pool may be at most
+ *   three hours old, and a day otherwise (see utils/gameClock.js).
+ */
+export function useDraftPlayers({ maxAgeMs: requestedMaxAge } = {}) {
+  const { playersMaxAgeMs } = useGameDay()
+  const maxAgeMs = requestedMaxAge ?? playersMaxAgeMs
   const [players, setPlayers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -37,12 +50,13 @@ export function useDraftPlayers() {
     // One-time eviction of the oversized legacy blob, which otherwise squats on
     // most of the origin's storage budget and starves every other cache write.
     cacheClear(LEGACY_PLAYER_CACHE)
+    cacheClear(PREVIOUS_PLAYER_CACHE)
 
     try {
-      const cached = !force ? cacheGet(PLAYER_CACHE) : null
-      if (cached) {
-        setPlayers(cached)
-        setLastUpdated(Date.now())
+      const cached = !force ? cacheGetEntry(PLAYER_CACHE) : null
+      if (cached && cached.ageMs < maxAgeMs) {
+        setPlayers(cached.data)
+        setLastUpdated(Date.now() - cached.ageMs)
         setLoading(false)
         return
       }
@@ -78,6 +92,7 @@ export function useDraftPlayers() {
             id: p.player_id,
             name: normalizeName(p),
             position: p.position,
+            fantasyPositions: distinctFantasyPositions(p.position, p.fantasy_positions),
             team: p.team || 'FA',
             searchRank: typeof p.search_rank === 'number' ? p.search_rank : null,
             injuryStatus: p.injury_status ?? null,
@@ -109,7 +124,7 @@ export function useDraftPlayers() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [maxAgeMs])
 
   useEffect(() => { load() }, [load])
 

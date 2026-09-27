@@ -15,6 +15,7 @@ import BenchPoints from '../components/dashboard/BenchPoints'
 import WeeklyScoringTrend from '../components/dashboard/WeeklyScoringTrend'
 import { Link } from 'react-router-dom'
 import useAppStore from '../store/useAppStore'
+import { findMyTeam } from '../utils/leagueTeams'
 
 function Card({ title, children, className = '' }) {
   return (
@@ -146,7 +147,7 @@ export default function Dashboard() {
     weeklyTotalsByRoster, weeklyByRoster, weeksLoaded, loading: historyLoading,
   } = useSeasonMatchupHistory(leagueId, throughWeek)
 
-  const myTeam = teams.find((t) => t.id === sleeperUserId)
+  const myTeam = findMyTeam(teams, sleeperUserId)
   const myMatchup = myTeam ? matchups.find((m) => m.sides.some((s) => s.rosterId === myTeam.rosterId)) : null
   const mySide = myMatchup?.sides.find((s) => s.rosterId === myTeam?.rosterId)
   const opponentSide = myMatchup?.sides.find((s) => s.rosterId !== myTeam?.rosterId)
@@ -173,7 +174,7 @@ export default function Dashboard() {
 
       <LineupAlerts myTeam={myTeam} playersById={playersById} currentWeek={week} />
       <TeamNews myTeam={myTeam} playersById={playersById} />
-      <QuickLinksStrip teams={teams} myTeam={myTeam} playersById={playersById} />
+      <QuickLinksStrip teams={teams} myTeam={myTeam} playersById={playersById} week={week} />
 
       <main className="flex-1 overflow-auto p-6 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

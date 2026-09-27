@@ -1,15 +1,15 @@
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { Loader2 } from 'lucide-react'
 import { GRADE_COLOR_HEX, TEXT_FAINT_HEX } from '../../utils/chartColors'
-import { impliedTotalForLineup } from '../../utils/oddsHelpers'
+import { lineupImpliedTotal } from '../../utils/oddsHelpers'
 import { useLeagueMatchups } from '../../hooks/useLeagueMatchups'
-import { useOdds } from '../../hooks/useOdds'
+import { useImpliedTotals } from '../../hooks/useImpliedTotals'
 import useAppStore from '../../store/useAppStore'
 
-function TeamSide({ team, playersById, odds, align }) {
+function TeamSide({ team, playersById, impliedForTeam, align }) {
   const vegas = useMemo(
-    () => (team ? impliedTotalForLineup(odds, team.starterIds, playersById) : null),
-    [team, playersById, odds]
+    () => (team ? lineupImpliedTotal(team.starterIds, playersById, impliedForTeam) : null),
+    [team, playersById, impliedForTeam]
   )
 
   if (!team) {
@@ -37,12 +37,12 @@ function TeamSide({ team, playersById, odds, align }) {
         {vegas?.total != null ? (
           <>Vegas: <span className="font-semibold text-[var(--color-text)]">{vegas.total.toFixed(1)}</span> implied pts across {gamesFound} team{gamesFound === 1 ? '' : 's'}</>
         ) : (
-          <span className="text-[var(--color-text-faint)]">Vegas: no odds loaded</span>
+          <span className="text-[var(--color-text-faint)]">Vegas: no lines loaded</span>
         )}
       </p>
       {vegas?.missing.length > 0 && (
         <p className="text-[9px] text-[var(--color-text-faint)] mt-0.5">
-          {vegas.missing.length} starter team{vegas.missing.length === 1 ? '' : 's'} not in odds yet ({vegas.missing.join(', ')})
+          {vegas.missing.length} starter team{vegas.missing.length === 1 ? '' : 's'} with no line ({vegas.missing.join(', ')})
         </p>
       )}
     </div>
@@ -60,18 +60,9 @@ function TeamSide({ team, playersById, odds, align }) {
 export default function WeeklyMatchupOdds({ teams, playersById }) {
   const leagueId = useAppStore((s) => s.leagueId)
   const currentWeek = useAppStore((s) => s.currentWeek)
-  const oddsApiKey = useAppStore((s) => s.oddsApiKey)
 
   const { matchups, loading: matchupsLoading, error: matchupsError } = useLeagueMatchups(leagueId, currentWeek)
-  const { odds, loading: oddsLoading, fetchOdds } = useOdds(oddsApiKey)
-
-  // Same "fetch once on mount if a key exists" decision Odds.jsx makes —
-  // useOdds is manual-trigger by design (it's a quota'd call), this is the
-  // one place per page that decides page-load counts as asking for it.
-  useEffect(() => {
-    if (oddsApiKey && odds.length === 0) fetchOdds()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [oddsApiKey])
+  const { impliedForTeam, source, loading: oddsLoading } = useImpliedTotals(currentWeek)
 
   const teamByRosterId = useMemo(() => {
     const map = {}
@@ -87,14 +78,20 @@ export default function WeeklyMatchupOdds({ teams, playersById }) {
 
   return (
     <div className="space-y-2">
-      {!oddsApiKey && (
+      {source === null && !oddsLoading && (
         <p className="text-xs text-[var(--color-caution)] mb-2">
-          No Odds API key configured — add one in Settings to see Vegas' side of each matchup.
+          No lines available — add an Odds API key in Settings, or run{' '}
+          <code>npm run preprocess-nflverse</code> for the free recorded lines.
         </p>
       )}
-      {oddsApiKey && oddsLoading && odds.length === 0 && (
+      {source === 'schedule' && (
+        <p className="text-[10px] text-[var(--color-text-faint)] mb-2">
+          Implied totals from the preprocessed schedule's recorded lines, not live odds.
+        </p>
+      )}
+      {oddsLoading && (
         <p className="text-xs text-[var(--color-text-muted)] flex items-center gap-1.5 mb-2">
-          <Loader2 size={11} className="animate-spin" /> Loading odds…
+          <Loader2 size={11} className="animate-spin" /> Loading lines…
         </p>
       )}
       {matchups.map((m) => {
@@ -106,9 +103,9 @@ export default function WeeklyMatchupOdds({ teams, playersById }) {
             key={m.matchupId}
             className="border border-[var(--color-border)] rounded bg-[var(--color-surface)] px-4 py-3 flex items-center gap-4"
           >
-            <TeamSide team={teamA} playersById={playersById} odds={odds} />
+            <TeamSide team={teamA} playersById={playersById} impliedForTeam={impliedForTeam} />
             <span className="text-[10px] text-[var(--color-text-faint)] flex-shrink-0">vs</span>
-            <TeamSide team={teamB} playersById={playersById} odds={odds} align="right" />
+            <TeamSide team={teamB} playersById={playersById} impliedForTeam={impliedForTeam} align="right" />
           </div>
         )
       })}
