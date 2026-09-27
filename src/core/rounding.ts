@@ -13,3 +13,8 @@ export function roundHalfUp(value: number, places: number): number {
 export function finite(value: number | null | undefined): number {
   return value !== null && value !== undefined && Number.isFinite(value) ? value : 0
 }
+
+/** Swift's default `.rounded()`: ties away from zero (unlike `Math.round`). */
+export function roundAwayFromZero(value: number): number {
+  return Math.sign(value) * Math.round(Math.abs(value))
+}
