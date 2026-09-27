@@ -18,9 +18,15 @@ export class StubTransport implements HTTPTransport {
     return this.on(match, makeResponse(status, body, headers))
   }
 
+  /**
+   * Every request containing `match` throws, checked before any route — as the
+   * Swift harness's `fail`, so a later `fail` beats an earlier route.
+   */
   fail(match: string, error: Error = new Error('offline')): this {
-    return this.on(match, error)
+    this.failures.set(match, error)
+    return this
   }
+  private readonly failures = new Map<string, Error>()
 
   /** Puts a new answer in front of an existing route for the same fragment. */
   override(match: string, body: string, status = 200): this {
@@ -46,6 +52,7 @@ export class StubTransport implements HTTPTransport {
 
   async send(request: HTTPRequest): Promise<HTTPResponse> {
     this.requests.push(request)
+    for (const [match, error] of this.failures) if (request.url.includes(match)) throw error
     for (const entry of this.scripted) {
       if (!request.url.includes(entry.match) || entry.results.length === 0) continue
       const result = entry.results.length === 1 ? entry.results[0]! : entry.results.shift()!
