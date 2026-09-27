@@ -21,3 +21,8 @@ export function hasFixture(pkg: SwiftPackage, name: string): boolean {
 export function readFixture<T = unknown>(pkg: SwiftPackage, name: string): T {
   return JSON.parse(readFileSync(fixturePath(pkg, name), 'utf8')) as T
 }
+
+/** The raw text of a fixture, for feeding a stub transport. */
+export function fixtureText(pkg: SwiftPackage, name: string): string {
+  return readFileSync(fixturePath(pkg, name), 'utf8')
+}
