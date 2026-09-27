@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronUp, ChevronDown, X, Plus, CornerDownRight } from 'lucide-react'
 import PlayerPicker from './PlayerPicker'
+import '../draft/draft.css'
 
 /**
  * One draft target: your priority, your note, and the fallbacks to pivot to if
@@ -27,138 +28,137 @@ export default function TargetCard({
   }
 
   return (
-    <li className={`rounded border border-[var(--color-border)] bg-[var(--color-surface-2)] p-2 ${isGone ? 'opacity-55' : ''}`}>
-      <div className="flex items-start gap-2">
-        <span className="text-[10px] font-bold tabular-nums text-[var(--color-text-faint)] w-4 flex-shrink-0 pt-0.5">
-          {index + 1}
-        </span>
+    <li className={`inset dd-target${isGone ? ' gone' : ''}`}>
+      <span className="dd-target-rank t-meta">{index + 1}</span>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className={`text-xs font-semibold text-[var(--color-text)] ${isGone ? 'line-through' : ''}`}>
-              {target.playerName}
+      <div className="dd-target-main">
+        <div className="dd-target-title">
+          <span className={`t-body${isGone ? ' dd-strike' : ''}`} style={{ fontWeight: 600 }}>
+            {target.playerName}
+          </span>
+          <span className="t-meta faint" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {target.playerTeam}
+            {target.adp != null && ` · ADP ${Math.round(target.adp)}`}
+            {target.bye != null && ` · Bye ${target.bye}`}
+          </span>
+          {isGone && (
+            <span className="dd-tag gone">
+              {takenBy ? `Gone — ${takenBy.by}` : 'Gone'}
             </span>
-            <span className="text-[10px] text-[var(--color-text-faint)] tabular-nums">
-              {target.playerTeam}
-              {target.adp != null && ` · ADP ${Math.round(target.adp)}`}
-              {target.bye != null && ` · Bye ${target.bye}`}
-            </span>
-            {isGone && (
-              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-[var(--color-sit)]/15 text-[var(--color-sit)]">
-                {takenBy ? `GONE — ${takenBy.by}` : 'GONE'}
-              </span>
-            )}
-          </div>
-
-          {/* Note */}
-          {editingNote ? (
-            <div className="mt-1.5">
-              <textarea
-                value={noteDraft}
-                onChange={(e) => setNoteDraft(e.target.value)}
-                onBlur={saveNote}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote()
-                  if (e.key === 'Escape') { setNoteDraft(target.note ?? ''); setEditingNote(false) }
-                }}
-                rows={2}
-                autoFocus
-                placeholder="Why this player? Ceiling, role, risk…"
-                className="w-full text-[11px] bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-2 py-1 text-[var(--color-text)] placeholder:text-[var(--color-text-faint)] focus:outline-none focus:border-[var(--color-accent)]"
-              />
-            </div>
-          ) : (
-            <button
-              onClick={() => setEditingNote(true)}
-              className="mt-0.5 text-left text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
-            >
-              {target.note || <span className="text-[var(--color-text-faint)] italic">Add a note…</span>}
-            </button>
-          )}
-
-          {/* Fallbacks */}
-          {target.fallbacks.length > 0 && (
-            <ul className="mt-1.5 space-y-0.5">
-              {target.fallbacks.map((f) => {
-                const fGone = draftedIds?.has(f.playerId) ?? false
-                const isPivot = !isGone ? false : liveFallback?.playerId === f.playerId
-                return (
-                  <li key={f.playerId} className="flex items-center gap-1.5 group">
-                    <CornerDownRight size={10} className="text-[var(--color-text-faint)] flex-shrink-0" />
-                    <span className={`text-[11px] ${
-                      fGone ? 'text-[var(--color-text-faint)] line-through'
-                        : isPivot ? 'text-[var(--color-accent)] font-semibold'
-                        : 'text-[var(--color-text-muted)]'
-                    }`}>
-                      {f.playerName}
-                    </span>
-                    <span className="text-[10px] text-[var(--color-text-faint)] tabular-nums">
-                      {f.adp != null && `${Math.round(f.adp)}`}
-                    </span>
-                    {isPivot && (
-                      <span className="text-[9px] font-semibold text-[var(--color-accent)]">← PIVOT HERE</span>
-                    )}
-                    <button
-                      onClick={() => onRemoveFallback(f.playerId)}
-                      className="opacity-0 group-hover:opacity-100 text-[var(--color-text-faint)] hover:text-[var(--color-sit)] transition-all"
-                      aria-label={`Remove fallback ${f.playerName}`}
-                    >
-                      <X size={10} />
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-
-          {addingFallback ? (
-            <div className="mt-1.5">
-              <PlayerPicker
-                players={players}
-                position={target.playerPosition}
-                excludeIds={new Set([target.playerId, ...target.fallbacks.map((f) => f.playerId)])}
-                placeholder={`Fallback ${target.playerPosition}…`}
-                onSelect={onAddFallback}
-                onClose={() => setAddingFallback(false)}
-              />
-            </div>
-          ) : (
-            <button
-              onClick={() => setAddingFallback(true)}
-              className="mt-1 flex items-center gap-1 text-[10px] text-[var(--color-text-faint)] hover:text-[var(--color-text)] transition-colors"
-            >
-              <Plus size={9} />
-              Fallback
-            </button>
           )}
         </div>
 
-        {/* Reorder / remove */}
-        <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+        {/* Note */}
+        {editingNote ? (
+          <textarea
+            value={noteDraft}
+            onChange={(e) => setNoteDraft(e.target.value)}
+            onBlur={saveNote}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote()
+              if (e.key === 'Escape') { setNoteDraft(target.note ?? ''); setEditingNote(false) }
+            }}
+            rows={2}
+            autoFocus
+            aria-label={`Note for ${target.playerName}`}
+            placeholder="Why this player? Ceiling, role, risk…"
+            className="dd-field t-meta"
+            style={{ background: 'var(--card)' }}
+          />
+        ) : (
           <button
-            onClick={() => onMove(-1)}
-            disabled={isFirst}
-            className="text-[var(--color-text-faint)] hover:text-[var(--color-text)] disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
-            aria-label="Move up"
+            type="button"
+            onClick={() => setEditingNote(true)}
+            className="dd-note-button t-meta"
+            aria-label={target.note ? `Edit note for ${target.playerName}: ${target.note}` : `Add a note for ${target.playerName}`}
           >
-            <ChevronUp size={13} />
+            {target.note || <span className="placeholder">Add a note…</span>}
           </button>
+        )}
+
+        {/* Fallbacks */}
+        {target.fallbacks.length > 0 && (
+          <ul className="dd-list-plain" style={{ gap: 2 }} aria-label="Fallbacks">
+            {target.fallbacks.map((f) => {
+              const fGone = draftedIds?.has(f.playerId) ?? false
+              const isPivot = !isGone ? false : liveFallback?.playerId === f.playerId
+              return (
+                <li key={f.playerId} className={`dd-fallback t-meta${fGone ? ' gone' : isPivot ? ' pivot' : ''}`}>
+                  <CornerDownRight size={12} className="icon" aria-hidden />
+                  <span className="name dd-truncate">{f.playerName}</span>
+                  {fGone && <span className="dd-sr-only">(gone)</span>}
+                  <span className="faint" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {f.adp != null && `${Math.round(f.adp)}`}
+                  </span>
+                  {isPivot && (
+                    <span className="t-micro" style={{ color: 'var(--accent)' }}>← Pivot here</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onRemoveFallback(f.playerId)}
+                    className="dd-icon-button danger"
+                    style={{ minWidth: 24, minHeight: 24 }}
+                    aria-label={`Remove fallback ${f.playerName}`}
+                  >
+                    <X size={12} aria-hidden />
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+
+        {addingFallback ? (
+          <PlayerPicker
+            players={players}
+            position={target.playerPosition}
+            excludeIds={new Set([target.playerId, ...target.fallbacks.map((f) => f.playerId)])}
+            placeholder={`Fallback ${target.playerPosition}…`}
+            onSelect={onAddFallback}
+            onClose={() => setAddingFallback(false)}
+          />
+        ) : (
           <button
-            onClick={() => onMove(1)}
-            disabled={isLast}
-            className="text-[var(--color-text-faint)] hover:text-[var(--color-text)] disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
-            aria-label="Move down"
+            type="button"
+            onClick={() => setAddingFallback(true)}
+            className="dd-text-button quiet t-meta"
+            style={{ alignSelf: 'flex-start' }}
+            aria-label={`Add a fallback for ${target.playerName}`}
           >
-            <ChevronDown size={13} />
+            <Plus size={12} aria-hidden />
+            Fallback
           </button>
-          <button
-            onClick={onRemove}
-            className="text-[var(--color-text-faint)] hover:text-[var(--color-sit)] transition-colors mt-0.5"
-            aria-label={`Remove ${target.playerName}`}
-          >
-            <X size={12} />
-          </button>
-        </div>
+        )}
+      </div>
+
+      {/* Reorder / remove */}
+      <div className="dd-target-controls">
+        <button
+          type="button"
+          onClick={() => onMove(-1)}
+          disabled={isFirst}
+          className="dd-icon-button"
+          aria-label={`Move ${target.playerName} up`}
+        >
+          <ChevronUp size={15} aria-hidden />
+        </button>
+        <button
+          type="button"
+          onClick={() => onMove(1)}
+          disabled={isLast}
+          className="dd-icon-button"
+          aria-label={`Move ${target.playerName} down`}
+        >
+          <ChevronDown size={15} aria-hidden />
+        </button>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="dd-icon-button danger"
+          aria-label={`Remove ${target.playerName}`}
+        >
+          <X size={14} aria-hidden />
+        </button>
       </div>
     </li>
   )

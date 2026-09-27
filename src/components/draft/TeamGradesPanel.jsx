@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react'
 import { ChevronDown, ChevronUp, Trophy } from 'lucide-react'
-import { computeAllTeamGrades, GRADE_COLOR } from '../../utils/teamGrades'
+import { computeAllTeamGrades } from '../../utils/teamGrades'
 import { useMissingPlayerMeta } from '../../hooks/useMissingPlayerMeta'
-import TeamGradeRow from './TeamGradeRow'
+import TeamGradeRow, { GradeBadge } from './TeamGradeRow'
 
 /**
  * Grades every team in the live draft — not just yours — using value-vs-
@@ -56,31 +56,27 @@ export default function TeamGradesPanel({ picks, pickByPlayer, sleeperUserId, pl
   const myTeam = teams.find((t) => t.isMe)
 
   return (
-    <div className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+    <section className="card dd-panel" aria-label="Team grades">
       <button
+        type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-[var(--color-surface-2)] transition-colors"
+        className="dd-disclosure"
+        aria-expanded={expanded}
+        aria-controls="dd-team-grades"
       >
-        <Trophy size={12} className="text-[var(--color-text-faint)] flex-shrink-0" />
-        <span className="text-[var(--color-text-muted)] font-medium flex-shrink-0">Team grades</span>
-        {myTeam?.grade && (
-          <span
-            className="text-[10px] font-bold px-1.5 py-0.5 rounded tabular-nums"
-            style={{ color: GRADE_COLOR[myTeam.grade], backgroundColor: `${GRADE_COLOR[myTeam.grade]}20` }}
-          >
-            You: {myTeam.grade}
-          </span>
-        )}
-        <span className="ml-auto text-[var(--color-text-faint)] flex-shrink-0">
-          {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        <Trophy size={16} color="var(--hue-team)" aria-hidden />
+        <span className="t-section">Team grades</span>
+        {myTeam?.grade && <GradeBadge grade={myTeam.grade} label={`You: ${myTeam.grade}`} />}
+        <span className="dd-disclosure-trailing" aria-hidden>
+          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </span>
       </button>
 
       {expanded && (
-        <div className="px-4 pb-3 space-y-1">
+        <div id="dd-team-grades" className="dd-panel-body" style={{ gap: 2 }}>
           {teams.map((t) => <TeamGradeRow key={t.id} team={t} />)}
         </div>
       )}
-    </div>
+    </section>
   )
 }

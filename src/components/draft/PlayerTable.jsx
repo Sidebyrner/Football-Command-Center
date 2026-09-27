@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
-import { ChevronUp, ChevronDown, ChevronsUpDown, Star } from 'lucide-react'
-import { getStatusColor, getStatusLabel, getPositionColor } from '../../utils/playerHelpers'
+import { ChevronUp, ChevronDown, ChevronsUpDown, Star, TrendingUp, TrendingDown } from 'lucide-react'
+import { getStatusLabel } from '../../utils/playerHelpers'
+import { injuryTone } from './injuryTone'
+import { PositionChip } from '@ui/components/Player'
 import { POSITION_ORDER } from '../../hooks/useDraftPlayers'
 import TableSkeleton from './TableSkeleton'
 
@@ -14,15 +16,15 @@ const COLUMNS = [
   { key: 'bye', label: 'Bye', align: 'right', sortable: true },
   { key: 'injuryStatus', label: 'Injury', align: 'left', sortable: true },
   { key: 'trending', label: 'Trend', align: 'left', sortable: true },
-  { key: 'research', label: '', align: 'center', sortable: false },
-  { key: 'watchlist', label: '', align: 'center', sortable: false },
+  { key: 'research', label: '', srLabel: 'Research', align: 'center', sortable: false },
+  { key: 'watchlist', label: '', srLabel: 'Watchlist', align: 'center', sortable: false },
 ]
 
 function SortIcon({ col, sort }) {
-  if (sort.col !== col) return <ChevronsUpDown size={12} className="opacity-30" />
+  if (sort.col !== col) return <ChevronsUpDown size={12} style={{ opacity: 0.4 }} aria-hidden />
   return sort.dir === 'asc'
-    ? <ChevronUp size={12} className="text-[var(--color-accent)]" />
-    : <ChevronDown size={12} className="text-[var(--color-accent)]" />
+    ? <ChevronUp size={12} color="var(--accent)" aria-hidden />
+    : <ChevronDown size={12} color="var(--accent)" aria-hidden />
 }
 
 function defaultCompare(a, b, col, dir) {
@@ -71,17 +73,12 @@ function sortPlayers(players, sort) {
 }
 
 function TrendBadge({ value }) {
-  if (!value) return <span className="text-[var(--color-text-faint)] text-xs">—</span>
+  if (!value) return <span className="faint">—</span>
   const isAdd = value === 'add'
+  const Icon = isAdd ? TrendingUp : TrendingDown
   return (
-    <span
-      className={`inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded ${
-        isAdd
-          ? 'bg-emerald-500/15 text-emerald-400'
-          : 'bg-rose-500/15 text-rose-400'
-      }`}
-    >
-      {isAdd ? '▲' : '▼'} {isAdd ? 'Add' : 'Drop'}
+    <span className={`dd-trend ${isAdd ? 'add' : 'drop'}`}>
+      <Icon size={12} aria-hidden /> {isAdd ? 'Add' : 'Drop'}
     </span>
   )
 }
@@ -89,11 +86,11 @@ function TrendBadge({ value }) {
 // A name-matched ADP is a best-effort join, not a confirmed one — mark it so a
 // mismatched player can be spotted rather than silently trusted on draft day.
 function AdpCell({ player }) {
-  if (player.adp == null) return <span className="text-[var(--color-text-faint)]">—</span>
+  if (player.adp == null) return <span className="faint">—</span>
   const uncertain = player.matchedBy === 'name'
   return (
     <span
-      className={uncertain ? 'text-[var(--color-caution)]' : undefined}
+      style={uncertain ? { color: 'var(--caution)' } : undefined}
       title={
         uncertain
           ? 'Matched by name, not player ID — verify before drafting'
@@ -115,12 +112,13 @@ const MIN_CONFIDENT_COVERAGE = 0.5
 
 function ScoreCell({ player }) {
   if (player.score == null) {
-    return <span className="text-[var(--color-text-faint)]" title="No score — insufficient real data for this player">—</span>
+    return <span className="faint" title="No score — insufficient real data for this player">—</span>
   }
   const thin = (player.scoreCoverage ?? 1) < MIN_CONFIDENT_COVERAGE
   return (
     <span
-      className={thin ? 'text-[var(--color-text-faint)]' : 'text-[var(--color-text)] font-medium'}
+      className={thin ? 'faint' : undefined}
+      style={thin ? undefined : { color: 'var(--text)', fontWeight: 600 }}
       title={thin ? `Low data coverage (${Math.round((player.scoreCoverage ?? 0) * 100)}%)` : undefined}
     >
       {player.score}
@@ -130,15 +128,15 @@ function ScoreCell({ player }) {
 
 function ValueCell({ player }) {
   if (player.value == null) {
-    return <span className="text-[var(--color-text-faint)]">—</span>
+    return <span className="faint">—</span>
   }
   if (player.value === 0) {
-    return <span className="text-[var(--color-text-faint)]">0</span>
+    return <span className="faint">0</span>
   }
   const positive = player.value > 0
   return (
     <span
-      className={positive ? 'text-[var(--color-start)]' : 'text-[var(--color-sit)]'}
+      style={{ color: positive ? 'var(--start)' : 'var(--sit)', fontWeight: 600 }}
       title={
         positive
           ? `This league's rules rank this player ${player.value} spots above where consensus ADP has them (within position)`
@@ -151,14 +149,11 @@ function ValueCell({ player }) {
 }
 
 function InjuryCell({ status }) {
-  const color = getStatusColor(status)
+  const color = injuryTone(status)
   const label = getStatusLabel(status)
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
-      <span
-        className="inline-block rounded-full flex-shrink-0"
-        style={{ width: 7, height: 7, backgroundColor: color }}
-      />
+    <span className="dd-status-dot">
+      <span className="dd-dot" style={{ background: color }} aria-hidden />
       {label}
     </span>
   )
@@ -178,6 +173,7 @@ export default function PlayerTable({
   scores = {},
   scoring = false,
   valueDeltas = {},
+  footer,
 }) {
   // Flatten the scores/valueDeltas maps onto each row so the comparator can
   // read them like any other field. `score` stays null (not 0) when the
@@ -209,154 +205,159 @@ export default function PlayerTable({
   const isEmpty = !loading && players.length === 0
 
   return (
-    <div className="flex-1 overflow-auto">
-      <table className="w-full text-sm border-collapse min-w-[760px]">
-        <thead>
-          <tr className="sticky top-0 z-10 bg-[var(--color-surface)] border-b border-[var(--color-border)]">
-            {COLUMNS.map((col) => (
-              <th
-                key={col.key}
-                onClick={() => col.sortable && handleSort(col.key)}
-                title={col.title}
-                className={`px-3 py-2 text-xs font-semibold text-[var(--color-text-faint)] uppercase tracking-wide whitespace-nowrap select-none ${
-                  col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
-                } ${col.sortable ? 'cursor-pointer hover:text-[var(--color-text)] transition-colors' : ''}`}
-              >
-                <span className="inline-flex items-center gap-1">
-                  {col.label}
-                  {col.sortable && <SortIcon col={col.key} sort={sort} />}
-                </span>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {loading ? (
-            <TableSkeleton rows={20} />
-          ) : isEmpty ? (
+    <section className="card dd-table-card" aria-label="Player board">
+      <div className="dd-table-scroll" tabIndex={0} aria-label="Player board, scrolls sideways">
+        <table className="dd-table" aria-busy={loading || undefined}>
+          <thead>
             <tr>
-              <td colSpan={COLUMNS.length} className="px-4 py-16 text-center text-[var(--color-text-faint)] text-sm">
-                No players match the current filters.
-              </td>
-            </tr>
-          ) : (
-            sorted.map((p) => {
-              const isWatched = watchlist.has(p.id)
-              const isDrafted = draftedIds?.has(p.id) ?? false
-              const pick = pickByPlayer?.[p.id]
-              const researchCount =
-                (researchIndex?.[p.id] || 0) +
-                (researchIndex?.[`name:${p.name.toLowerCase()}`] || 0)
-
-              return (
-                <tr
-                  key={p.id}
-                  onClick={() => onSelectPlayer?.(p)}
-                  className={`border-b border-[var(--color-border)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer ${
-                    isDrafted ? 'opacity-45' : ''
-                  }`}
-                >
-                  {/* Player name */}
-                  <td className="px-3 py-2 font-medium text-[var(--color-text)] whitespace-nowrap">
-                    <span className={isDrafted ? 'line-through' : undefined}>{p.name}</span>
-                    {pick && (
-                      <span
-                        className={`ml-2 text-[9px] font-semibold px-1.5 py-0.5 rounded align-middle ${
-                          pick.isMine
-                            ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]'
-                            : 'bg-[var(--color-surface-2)] text-[var(--color-text-faint)]'
-                        }`}
-                        title={`Pick ${pick.pickNo ?? '?'} — ${pick.by}`}
+              {COLUMNS.map((col) => {
+                const alignClass = col.align === 'right' ? 'num' : col.align === 'center' ? 'center' : ''
+                const active = sort.col === col.key
+                return (
+                  <th
+                    key={col.key}
+                    scope="col"
+                    title={col.title}
+                    className={`t-micro ${alignClass}`}
+                    aria-sort={col.sortable && active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
+                  >
+                    {col.sortable ? (
+                      <button
+                        type="button"
+                        className={`dd-th dd-sort${active ? ' on' : ''}`}
+                        onClick={() => handleSort(col.key)}
                       >
-                        {pick.isMine ? 'YOURS' : pick.by}
+                        {col.label}
+                        <SortIcon col={col.key} sort={sort} />
+                      </button>
+                    ) : (
+                      <span className="dd-th">
+                        {col.label}
+                        {col.srLabel && <span className="dd-sr-only">{col.srLabel}</span>}
                       </span>
                     )}
-                  </td>
+                  </th>
+                )
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <TableSkeleton rows={20} />
+            ) : isEmpty ? (
+              <tr>
+                <td colSpan={COLUMNS.length} className="dd-table-empty t-body">
+                  No players match the current filters.
+                </td>
+              </tr>
+            ) : (
+              sorted.map((p) => {
+                const isWatched = watchlist.has(p.id)
+                const isDrafted = draftedIds?.has(p.id) ?? false
+                const pick = pickByPlayer?.[p.id]
+                const researchCount =
+                  (researchIndex?.[p.id] || 0) +
+                  (researchIndex?.[`name:${p.name.toLowerCase()}`] || 0)
 
-                  {/* Position */}
-                  <td className="px-3 py-2">
-                    <span
-                      className="text-xs font-bold px-1.5 py-0.5 rounded"
-                      style={{
-                        color: getPositionColor(p.position),
-                        backgroundColor: `${getPositionColor(p.position)}20`,
-                      }}
-                    >
-                      {p.position}
-                    </span>
-                  </td>
+                return (
+                  <tr
+                    key={p.id}
+                    onClick={() => onSelectPlayer?.(p)}
+                    className={isDrafted ? 'drafted' : undefined}
+                  >
+                    {/* Player name — a real button so the drawer opens from the keyboard */}
+                    <td>
+                      <button
+                        type="button"
+                        className={`dd-name-button${isDrafted ? ' dd-strike' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); onSelectPlayer?.(p) }}
+                        aria-label={`${p.name}${isDrafted ? ', drafted' : ''} — open details`}
+                      >
+                        {p.name}
+                      </button>
+                      {pick && (
+                        <span className={`dd-tag${pick.isMine ? ' mine' : ''}`} title={`Pick ${pick.pickNo ?? '?'} — ${pick.by}`}>
+                          {pick.isMine ? 'Yours' : pick.by}
+                        </span>
+                      )}
+                    </td>
 
-                  {/* Team */}
-                  <td className="px-3 py-2 text-[var(--color-text-muted)] tabular-nums">
-                    {p.team}
-                  </td>
+                    {/* Position */}
+                    <td>
+                      <PositionChip position={p.position} />
+                    </td>
 
-                  {/* Consensus rank (ADP) */}
-                  <td className="px-3 py-2 text-right tabular-nums text-[var(--color-text-muted)]">
-                    <AdpCell player={p} />
-                  </td>
+                    {/* Team */}
+                    <td style={{ fontVariantNumeric: 'tabular-nums' }}>{p.team}</td>
 
-                  {/* Model score — within-position percentile composite under
-                      this league's scoring rules. Never compare across positions. */}
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    <ScoreCell player={p} />
-                  </td>
+                    {/* Consensus rank (ADP) */}
+                    <td className="num">
+                      <AdpCell player={p} />
+                    </td>
 
-                  {/* Value vs. ADP — positional rank delta */}
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    <ValueCell player={p} />
-                  </td>
+                    {/* Model score — within-position percentile composite under
+                        this league's scoring rules. Never compare across positions. */}
+                    <td className="num">
+                      <ScoreCell player={p} />
+                    </td>
 
-                  {/* Bye week */}
-                  <td className="px-3 py-2 text-right tabular-nums text-[var(--color-text-muted)]">
-                    {p.bye != null ? p.bye : <span className="text-[var(--color-text-faint)]">—</span>}
-                  </td>
+                    {/* Value vs. ADP — positional rank delta */}
+                    <td className="num">
+                      <ValueCell player={p} />
+                    </td>
 
-                  {/* Injury */}
-                  <td className="px-3 py-2">
-                    <InjuryCell status={p.injuryStatus} />
-                  </td>
+                    {/* Bye week */}
+                    <td className="num">
+                      {p.bye != null ? p.bye : <span className="faint">—</span>}
+                    </td>
 
-                  {/* Trending */}
-                  <td className="px-3 py-2">
-                    <TrendBadge value={p.trending} />
-                  </td>
+                    {/* Injury */}
+                    <td>
+                      <InjuryCell status={p.injuryStatus} />
+                    </td>
 
-                  {/* Research indicator */}
-                  <td className="px-3 py-2 text-center">
-                    {researchCount > 0 ? (
-                      <span className="inline-flex items-center justify-center w-4 h-4 text-[9px] font-bold rounded-full bg-[var(--color-accent)] text-black tabular-nums">
-                        {researchCount > 9 ? '9+' : researchCount}
-                      </span>
-                    ) : null}
-                  </td>
+                    {/* Trending */}
+                    <td>
+                      <TrendBadge value={p.trending} />
+                    </td>
 
-                  {/* Watchlist */}
-                  <td className="px-3 py-2 text-center">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onToggleWatch(p.id) }}
-                      className={`transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent)] rounded ${
-                        isWatched
-                          ? 'text-[var(--color-accent)]'
-                          : 'text-[var(--color-text-faint)] hover:text-[var(--color-text-muted)]'
-                      }`}
-                      aria-label={isWatched ? 'Remove from watchlist' : 'Add to watchlist'}
-                    >
-                      <Star size={14} fill={isWatched ? 'currentColor' : 'none'} />
-                    </button>
-                  </td>
-                </tr>
-              )
-            })
-          )}
-        </tbody>
-      </table>
+                    {/* Research indicator */}
+                    <td className="center">
+                      {researchCount > 0 ? (
+                        <span className="dd-research-badge" title={`${researchCount} saved research item${researchCount === 1 ? '' : 's'}`}>
+                          <span aria-hidden>{researchCount > 9 ? '9+' : researchCount}</span>
+                          <span className="dd-sr-only">{researchCount} research items</span>
+                        </span>
+                      ) : null}
+                    </td>
 
-      {!loading && !isEmpty && (
-        <div className="px-4 py-2 text-xs text-[var(--color-text-faint)] border-t border-[var(--color-border)]">
-          {sorted.length.toLocaleString()} player{sorted.length !== 1 ? 's' : ''}
+                    {/* Watchlist */}
+                    <td className="center">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onToggleWatch(p.id) }}
+                        className={`dd-icon-button${isWatched ? ' on' : ''}`}
+                        aria-label={isWatched ? `Remove ${p.name} from watchlist` : `Add ${p.name} to watchlist`}
+                        aria-pressed={isWatched}
+                      >
+                        <Star size={15} fill={isWatched ? 'currentColor' : 'none'} aria-hidden />
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {((!loading && !isEmpty) || footer) && (
+        <div className="dd-table-footer t-meta">
+          {!loading && !isEmpty && `${sorted.length.toLocaleString()} player${sorted.length !== 1 ? 's' : ''}`}
+          {!loading && !isEmpty && footer && ' · '}
+          {footer}
         </div>
       )}
-    </div>
+    </section>
   )
 }

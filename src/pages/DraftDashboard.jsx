@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle } from 'lucide-react'
-import Header from '../components/layout/Header'
+import { AlertTriangle, ListOrdered, RefreshCw } from 'lucide-react'
+import { ScreenHero, Callout } from '@ui/components/Screen'
 import DraftFilters from '../components/draft/DraftFilters'
 import PlayerTable from '../components/draft/PlayerTable'
 import PlayerDrawer from '../components/draft/PlayerDrawer'
@@ -21,6 +21,7 @@ import useAppStore from '../store/useAppStore'
 import useWatchlistStore from '../store/useWatchlistStore'
 import useScoringProfileStore from '../store/useScoringProfileStore'
 import useResearchStore, { buildResearchIndex } from '../store/useResearchStore'
+import '../components/draft/draft.css'
 
 const DEFAULT_FILTERS = {
   search: '',
@@ -33,6 +34,19 @@ const DEFAULT_FILTERS = {
 }
 
 const DEFAULT_SORT = { col: 'position', dir: 'asc' }
+
+// The hero's one answer: where the draft stands for you right now.
+function heroAnswer(draft) {
+  if (draft.isLive) {
+    if (draft.picksUntilMyTurn === 0) return "You're on the clock"
+    if (draft.picksUntilMyTurn != null) {
+      return `${draft.picksUntilMyTurn} pick${draft.picksUntilMyTurn === 1 ? '' : 's'} until you`
+    }
+    return 'Draft is live'
+  }
+  if (draft.draft?.status === 'complete') return 'Draft complete'
+  return 'Draft board'
+}
 
 function matchesInjuryFilter(injuryStatus, filter) {
   if (!filter) return true
@@ -168,27 +182,49 @@ export default function DraftDashboard() {
     })
   }, [players, filters, watchlist, draft.isLive, draft.draftedIds])
 
+  const busy = refreshing || loading
+  const heroDetail = loading
+    ? 'Loading the player pool from Sleeper…'
+    : `${players.length.toLocaleString()} players · this league's scoring vs. consensus ADP`
+
   return (
-    <div className="flex flex-col h-screen">
-      <Header
-        title="Draft Dashboard"
-        onRefresh={handleRefresh}
-        refreshing={refreshing || loading}
+    <div className="dd-page">
+      <div className="dd-toolbar">
+        <PracticeDraftControl />
+        <span className="dd-toolbar-spacer" />
+        <button
+          type="button"
+          className="button dd-small"
+          onClick={handleRefresh}
+          disabled={busy}
+          aria-label="Refresh player data and draft"
+        >
+          <RefreshCw size={14} aria-hidden className={busy ? 'dd-spin' : undefined} />
+          {busy ? 'Refreshing…' : 'Refresh'}
+        </button>
+      </div>
+
+      <ScreenHero
+        overline="Tools · Draft"
+        icon={ListOrdered}
+        hue="var(--hue-team)"
+        answer={heroAnswer(draft)}
+        detail={heroDetail}
       />
 
-      <PracticeDraftControl />
-
       {isDefaultScoring && (
-        <div className="flex items-center gap-2 px-4 py-2 text-xs text-[var(--color-caution)] bg-[var(--color-caution)]/10 border-b border-[var(--color-caution)]/30">
-          <AlertTriangle size={13} className="flex-shrink-0" />
-          <span>
-            Scores are using assumed default scoring, not your league's real rules —{' '}
-            <Link to="/classic/settings" className="underline font-semibold hover:text-[var(--color-caution)]">
-              pull your league's scoring from Sleeper in Settings
-            </Link>{' '}
-            before you draft.
-          </span>
-        </div>
+        <Callout tone="caution">
+          <div className="dd-callout-row t-meta">
+            <AlertTriangle size={15} color="var(--caution)" aria-hidden />
+            <span>
+              Scores are using assumed default scoring, not your league's real rules —{' '}
+              <Link to="/classic/settings" className="dd-link">
+                pull your league's scoring from Sleeper in Settings
+              </Link>{' '}
+              before you draft.
+            </span>
+          </div>
+        </Callout>
       )}
 
       <DraftStatusBar draft={draft} />
@@ -220,15 +256,21 @@ export default function DraftDashboard() {
       />
 
       {error && (
-        <div className="px-4 py-2 text-xs text-[var(--color-sit)] bg-[var(--color-surface)] border-b border-[var(--color-border)]">
-          Failed to load player data: {error}
-        </div>
+        <Callout tone="sit">
+          <div className="dd-callout-row t-meta" role="alert">
+            <AlertTriangle size={15} color="var(--sit)" aria-hidden />
+            <span>Failed to load player data: {error}</span>
+          </div>
+        </Callout>
       )}
 
       {marketError && (
-        <div className="px-4 py-2 text-xs text-[var(--color-caution)] bg-[var(--color-surface)] border-b border-[var(--color-border)]">
-          ADP and bye weeks unavailable: {marketError}
-        </div>
+        <Callout tone="caution">
+          <div className="dd-callout-row t-meta">
+            <AlertTriangle size={15} color="var(--caution)" aria-hidden />
+            <span>ADP and bye weeks unavailable: {marketError}</span>
+          </div>
+        </Callout>
       )}
 
       <PlayerTable
@@ -245,13 +287,10 @@ export default function DraftDashboard() {
         scores={scores}
         scoring={scoring}
         valueDeltas={valueDeltas}
+        footer={lastUpdated && !loading
+          ? `Player data from Sleeper · Updated ${new Date(lastUpdated).toLocaleTimeString()}`
+          : null}
       />
-
-      {lastUpdated && !loading && (
-        <div className="px-4 py-1.5 text-xs text-[var(--color-text-faint)] bg-[var(--color-surface)] border-t border-[var(--color-border)]">
-          Player data from Sleeper · Updated {new Date(lastUpdated).toLocaleTimeString()}
-        </div>
-      )}
 
       {selectedPlayer && (
         <PlayerDrawer

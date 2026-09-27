@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Star, AlertTriangle, Info, TrendingDown, BookOpen, Plus, Cpu, BarChart2, Loader2, Database, ListChecks, Activity } from 'lucide-react'
-import { getStatusColor, getStatusLabel, getPositionColor } from '../../utils/playerHelpers'
+import { X, Star, AlertTriangle, Info, TrendingDown, TrendingUp, BookOpen, Plus, Cpu, BarChart2, Loader2, Database, ListChecks, Activity } from 'lucide-react'
+import { getStatusLabel } from '../../utils/playerHelpers'
+import { injuryTone } from './injuryTone'
+import { PositionChip, PlayerAvatar, TeamLogo } from '@ui/components/Player'
+import { FilterChip, SegmentBar } from '@ui/components/Screen'
+import './draft.css'
 import useResearchStore, { selectPlayerItems } from '../../store/useResearchStore'
 import ResearchCard from '../research/ResearchCard'
 import ResearchItemForm from '../research/ResearchItemForm'
@@ -64,9 +68,9 @@ function deriveWatchFactors(player, researchItems) {
 }
 
 function FactorIcon({ level }) {
-  if (level === 'high') return <AlertTriangle size={12} className="text-[var(--color-sit)] flex-shrink-0 mt-px" />
-  if (level === 'mid') return <AlertTriangle size={12} className="text-[var(--color-caution)] flex-shrink-0 mt-px" />
-  return <Info size={12} className="text-[var(--color-text-faint)] flex-shrink-0 mt-px" />
+  if (level === 'high') return <AlertTriangle size={14} color="var(--sit)" aria-label="High concern" />
+  if (level === 'mid') return <AlertTriangle size={14} color="var(--caution)" aria-label="Worth watching" />
+  return <Info size={14} color="var(--text-3)" aria-label="Note" />
 }
 
 // ---------------------------------------------------------------------------
@@ -76,9 +80,9 @@ function FactorIcon({ level }) {
 function ContextPill({ label, value }) {
   if (!value && value !== 0) return null
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[10px] text-[var(--color-text-faint)] uppercase tracking-wide">{label}</span>
-      <span className="text-xs font-medium text-[var(--color-text)] tabular-nums">{value}</span>
+    <div className="dd-context-item">
+      <span className="t-micro faint">{label}</span>
+      <span className="t-body" style={{ fontWeight: 600 }}>{value}</span>
     </div>
   )
 }
@@ -96,7 +100,7 @@ function expLabel(yearsExp) {
 
 function SectionHeader({ children }) {
   return (
-    <h3 className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-faint)] mb-2">
+    <h3 className="t-micro faint" style={{ margin: 0 }}>
       {children}
     </h3>
   )
@@ -118,17 +122,17 @@ function fmtPct(v) {
 
 function StatRow({ label, value, highlight }) {
   return (
-    <div className={`flex justify-between items-center py-1.5 border-b border-[var(--color-border)] last:border-0 ${highlight ? 'opacity-100' : ''}`}>
-      <span className="text-xs text-[var(--color-text-muted)]">{label}</span>
-      <span className="text-xs font-semibold tabular-nums text-[var(--color-text)]">{value}</span>
+    <div className={`dd-stat-row t-meta${highlight ? ' highlight' : ''}`}>
+      <span className="muted">{label}</span>
+      <span className="value">{value}</span>
     </div>
   )
 }
 
 function StatSection({ title, children }) {
   return (
-    <div className="rounded bg-[var(--color-surface-2)] p-3">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-faint)] mb-1.5">{title}</p>
+    <div className="card" style={{ padding: 'var(--space-m) var(--space-l)' }}>
+      <p className="t-micro faint" style={{ margin: '0 0 4px' }}>{title}</p>
       {children}
     </div>
   )
@@ -228,7 +232,7 @@ function SeasonStats({ seasonData, position }) {
   if (pos === 'RB') return <RBStats s={seasonData} />
   if (pos === 'WR' || pos === 'TE') return <WRTEStats s={seasonData} />
   return (
-    <p className="text-xs text-[var(--color-text-faint)]">
+    <p className="t-meta faint" style={{ margin: 0 }}>
       No stat breakdown available for {position}.
     </p>
   )
@@ -247,37 +251,31 @@ function StatsTab({ player }) {
 
   if (!player.gsisId) {
     return (
-      <div className="flex flex-col items-center py-10 text-center gap-2">
-        <Database size={20} className="text-[var(--color-text-faint)]" />
-        <p className="text-xs text-[var(--color-text-faint)]">Player ID unavailable.</p>
-        <p className="text-[10px] text-[var(--color-text-faint)] max-w-48 leading-relaxed">
-          No GSIS ID in Sleeper metadata for this player.
-        </p>
+      <div className="dd-empty">
+        <Database size={22} aria-hidden />
+        <p className="t-body muted" style={{ margin: 0 }}>Player ID unavailable.</p>
+        <p className="t-meta" style={{ margin: 0 }}>No GSIS ID in Sleeper metadata for this player.</p>
       </div>
     )
   }
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center py-10 gap-2">
-        <Loader2 size={18} className="text-[var(--color-accent)] animate-spin" />
-        <p className="text-xs text-[var(--color-text-faint)]">Loading historical stats…</p>
+      <div className="dd-empty" role="status">
+        <Loader2 size={20} color="var(--accent)" className="dd-spin" aria-hidden />
+        <p className="t-meta" style={{ margin: 0 }}>Loading historical stats…</p>
       </div>
     )
   }
 
   if (error && error.includes('preprocess')) {
     return (
-      <div className="flex flex-col items-center py-8 text-center gap-2 px-2">
-        <Database size={20} className="text-[var(--color-text-faint)]" />
-        <p className="text-xs text-[var(--color-text-muted)] font-semibold">Historical data not loaded</p>
-        <p className="text-[10px] text-[var(--color-text-faint)] leading-relaxed max-w-56">
-          Run the preprocessing script to populate nflverse stats:
-        </p>
-        <code className="text-[10px] bg-[var(--color-surface-2)] text-[var(--color-accent)] px-2 py-1 rounded border border-[var(--color-border)]">
-          npm run preprocess-nflverse
-        </code>
-        <p className="text-[10px] text-[var(--color-text-faint)] leading-relaxed max-w-56">
+      <div className="dd-empty">
+        <Database size={22} aria-hidden />
+        <p className="t-body muted" style={{ margin: 0, fontWeight: 600 }}>Historical data not loaded</p>
+        <p className="t-meta" style={{ margin: 0 }}>Run the preprocessing script to populate nflverse stats:</p>
+        <code className="dd-code">npm run preprocess-nflverse</code>
+        <p className="t-meta" style={{ margin: 0 }}>
           This downloads and preprocesses nflverse player_stats for 2023–2024.
         </p>
       </div>
@@ -286,18 +284,20 @@ function StatsTab({ player }) {
 
   if (error) {
     return (
-      <p className="text-xs text-[var(--color-sit)] py-4">{error}</p>
+      <p className="dd-callout-row t-meta" style={{ margin: 0, color: 'var(--sit)' }} role="alert">
+        <AlertTriangle size={14} aria-hidden /> <span>{error}</span>
+      </p>
     )
   }
 
   if (!hasData) {
     return (
-      <div className="flex flex-col items-center py-10 text-center gap-2">
-        <Database size={20} className="text-[var(--color-text-faint)]" />
-        <p className="text-xs text-[var(--color-text-faint)]">No historical data for this player.</p>
-        <p className="text-[10px] text-[var(--color-text-faint)] max-w-48 leading-relaxed">
+      <div className="dd-empty">
+        <Database size={22} aria-hidden />
+        <p className="t-body muted" style={{ margin: 0 }}>No historical data for this player.</p>
+        <p className="t-meta" style={{ margin: 0 }}>
           Could be a rookie or player not found in nflverse. Run{' '}
-          <code className="text-[var(--color-accent)]">npm run preprocess-nflverse</code> to refresh.
+          <code className="dd-code">npm run preprocess-nflverse</code> to refresh.
         </p>
       </div>
     )
@@ -307,43 +307,33 @@ function StatsTab({ player }) {
   const seasonData = history[String(currentSeason)]
 
   return (
-    <div className="space-y-4">
+    <section>
       {/* Season selector */}
       {seasons.length > 1 && (
-        <div className="flex gap-1.5">
+        <div className="dd-chip-row" role="group" aria-label="Season">
           {seasons.map((yr) => (
-            <button
-              key={yr}
-              onClick={() => setActiveSeason(yr)}
-              className={`px-2.5 py-1 text-xs font-semibold rounded transition-colors ${
-                currentSeason === yr
-                  ? 'bg-[var(--color-accent)] text-black'
-                  : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)]'
-              }`}
-            >
-              {yr}
-            </button>
+            <FilterChip key={yr} label={String(yr)} selected={currentSeason === yr} onClick={() => setActiveSeason(yr)} />
           ))}
         </div>
       )}
 
       {/* Team context line */}
       {seasonData?.team && (
-        <p className="text-[10px] text-[var(--color-text-faint)]">
+        <p className="t-meta faint" style={{ margin: 0 }}>
           {currentSeason} · {seasonData.team}
         </p>
       )}
 
       {/* Stats breakdown by position */}
-      <div className="space-y-3">
+      <div className="dd-list" style={{ gap: 'var(--space-m)' }}>
         <SeasonStats seasonData={seasonData} position={player.position} />
       </div>
 
       {/* Source attribution */}
-      <p className="text-[10px] text-[var(--color-text-faint)] pt-1">
+      <p className="t-caption faint" style={{ margin: 0 }}>
         Source: nflverse player_stats · Regular season only
       </p>
-    </div>
+    </section>
   )
 }
 
@@ -363,28 +353,28 @@ function WeeklyTab({ player }) {
 
   if (!player?.gsisId) {
     return (
-      <p className="text-xs text-[var(--color-text-faint)]">
+      <p className="t-meta faint" style={{ margin: 0 }}>
         No nflverse id for this player, so there's no game log to score.
       </p>
     )
   }
   if (loading) {
     return (
-      <p className="text-xs text-[var(--color-text-muted)] flex items-center gap-1.5">
-        <Loader2 size={12} className="animate-spin" /> Loading weekly game log…
+      <p className="dd-callout-row t-meta muted" style={{ margin: 0 }} role="status">
+        <Loader2 size={14} className="dd-spin" aria-hidden /> Loading weekly game log…
       </p>
     )
   }
   if (error) {
     return (
-      <p className="text-xs text-[var(--color-sit)]">
-        {error}
+      <p className="dd-callout-row t-meta" style={{ margin: 0, color: 'var(--sit)' }} role="alert">
+        <AlertTriangle size={14} aria-hidden /> <span>{error}</span>
       </p>
     )
   }
   if (!hasData) {
     return (
-      <p className="text-xs text-[var(--color-text-faint)]">
+      <p className="t-meta faint" style={{ margin: 0 }}>
         No {active ?? ''} game log for this player yet.
         {manifestSeasons.length === 0 && ' Run: npm run preprocess-nflverse'}
       </p>
@@ -392,21 +382,16 @@ function WeeklyTab({ player }) {
   }
 
   return (
-    <section className="space-y-5">
+    <section style={{ gap: 'var(--space-l)' }}>
       {manifestSeasons.length > 1 && (
-        <div className="flex gap-1">
+        <div className="dd-chip-row" role="group" aria-label="Season">
           {manifestSeasons.map((s) => (
-            <button
+            <FilterChip
               key={s.season}
+              label={`${s.season}${!s.complete ? ` (${s.weeks} wk)` : ''}`}
+              selected={active === s.season}
               onClick={() => setSeason(s.season)}
-              className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
-                active === s.season
-                  ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)] font-semibold'
-                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-              }`}
-            >
-              {s.season}{!s.complete ? ` (${s.weeks} wk)` : ''}
-            </button>
+            />
           ))}
         </div>
       )}
@@ -425,7 +410,7 @@ function WeeklyTab({ player }) {
         seasonMeta={seasonMeta}
       />
 
-      <p className="text-[10px] text-[var(--color-text-faint)] pt-1 border-t border-[var(--color-border)]">
+      <p className="t-caption faint" style={{ margin: 0, paddingTop: 'var(--space-s)', borderTop: '0.5px solid var(--stroke)' }}>
         Source: nflverse weekly player stats · regular season only
       </p>
     </section>
@@ -474,8 +459,7 @@ export default function PlayerDrawer({ player, watchlist, onToggleWatch, onClose
   const addTarget = useMockDraftStore((s) => s.addTarget)
   const planTargets = useMockDraftStore((s) => s.targets)
   const inPlan = (planTargets[player.position] ?? []).some((t) => t.playerId === player.id)
-  const injuryColor = getStatusColor(player.injuryStatus)
-  const posColor = getPositionColor(player.position)
+  const injuryColor = injuryTone(player.injuryStatus)
   const watchFactors = deriveWatchFactors(player, playerItems)
 
   function handleSaveItem(fields) {
@@ -487,118 +471,81 @@ export default function PlayerDrawer({ player, watchlist, onToggleWatch, onClose
     updateNote(player.id, e.target.value)
   }
 
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-black/50"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+  const tabKeys = TABS.map((t) => t.key)
+  const tabLabel = (key) => TABS.find((t) => t.key === key)?.label ?? key
 
-      {/* Drawer panel */}
+  return (
+    <div className="dd-drawer-scrim" onClick={onClose}>
       <aside
         ref={drawerRef}
-        className="fixed right-0 top-0 h-full z-50 flex flex-col bg-[var(--color-surface)] border-l border-[var(--color-border)] shadow-2xl"
-        style={{ width: 'min(420px, 100vw)' }}
+        className="dd-drawer"
+        role="dialog"
+        aria-modal="true"
         aria-label={`Player details: ${player.name}`}
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Sticky header */}
-        <div className="flex-shrink-0 px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-0.5">
-                <span
-                  className="text-xs font-bold px-1.5 py-0.5 rounded flex-shrink-0"
-                  style={{ color: posColor, backgroundColor: `${posColor}20` }}
-                >
-                  {player.position}
-                </span>
-                <span className="text-xs text-[var(--color-text-muted)] truncate">
-                  {player.team}
-                </span>
-                {player.number && (
-                  <span className="text-xs text-[var(--color-text-faint)]">#{player.number}</span>
-                )}
-              </div>
-              <h2 className="font-display font-semibold text-base text-[var(--color-text)] leading-tight truncate">
-                {player.name}
-              </h2>
-              <div className="flex items-center gap-1.5 mt-1">
-                <span
-                  className="inline-block rounded-full flex-shrink-0"
-                  style={{ width: 7, height: 7, backgroundColor: injuryColor }}
-                />
-                <span className="text-xs text-[var(--color-text-muted)]">
-                  {getStatusLabel(player.injuryStatus)}
-                </span>
-                {player.trending === 'add' && (
-                  <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded">▲ Add</span>
-                )}
-                {player.trending === 'drop' && (
-                  <span className="text-[10px] font-semibold text-rose-400 bg-rose-500/15 px-1.5 py-0.5 rounded">▼ Drop</span>
-                )}
-              </div>
-            </div>
+        <div className="dd-drawer-grabber" aria-hidden />
 
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <button
-                onClick={() => !inPlan && addTarget(player)}
-                disabled={inPlan}
-                title={inPlan ? 'Already in your draft plan' : 'Add to draft plan'}
-                className={`p-1.5 rounded transition-colors ${
-                  inPlan
-                    ? 'text-[var(--color-start)] cursor-default'
-                    : 'text-[var(--color-text-faint)] hover:text-[var(--color-text)]'
-                }`}
-              >
-                <ListChecks size={16} />
-              </button>
-              <button
-                onClick={() => onToggleWatch(player.id)}
-                title={isWatched ? 'Remove from watchlist' : 'Add to watchlist'}
-                className={`p-1.5 rounded transition-colors ${
-                  isWatched
-                    ? 'text-[var(--color-accent)]'
-                    : 'text-[var(--color-text-faint)] hover:text-[var(--color-text)]'
-                }`}
-              >
-                <Star size={16} fill={isWatched ? 'currentColor' : 'none'} />
-              </button>
-              <button
-                onClick={onClose}
-                className="p-1.5 rounded text-[var(--color-text-faint)] hover:text-[var(--color-text)] transition-colors"
-                aria-label="Close drawer"
-              >
-                <X size={16} />
-              </button>
+        {/* Header */}
+        <header className="dd-drawer-head">
+          <PlayerAvatar sleeperID={player.id} name={player.name} position={player.position} size={48} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="dd-chip-row t-meta" style={{ gap: 6 }}>
+              <PositionChip position={player.position} />
+              <TeamLogo code={player.team} size={16} />
+              <span className="muted">{player.team}</span>
+              {player.number && <span className="faint">#{player.number}</span>}
+            </div>
+            <h2 className="t-title dd-truncate">{player.name}</h2>
+            <div className="dd-chip-row t-meta" style={{ gap: 8, marginTop: 4 }}>
+              <span className="dd-status-dot">
+                <span className="dd-dot" style={{ background: injuryColor }} aria-hidden />
+                <span className="muted">{getStatusLabel(player.injuryStatus)}</span>
+              </span>
+              {player.trending === 'add' && (
+                <span className="dd-trend add"><TrendingUp size={12} aria-hidden /> Add</span>
+              )}
+              {player.trending === 'drop' && (
+                <span className="dd-trend drop"><TrendingDown size={12} aria-hidden /> Drop</span>
+              )}
             </div>
           </div>
-        </div>
+
+          <div className="dd-drawer-actions">
+            <button
+              type="button"
+              onClick={() => !inPlan && addTarget(player)}
+              disabled={inPlan}
+              title={inPlan ? 'Already in your draft plan' : 'Add to draft plan'}
+              aria-label={inPlan ? 'Already in your draft plan' : 'Add to draft plan'}
+              className={`dd-icon-button large${inPlan ? ' done' : ''}`}
+              style={inPlan ? { opacity: 1 } : undefined}
+            >
+              <ListChecks size={17} aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => onToggleWatch(player.id)}
+              title={isWatched ? 'Remove from watchlist' : 'Add to watchlist'}
+              aria-label={isWatched ? 'Remove from watchlist' : 'Add to watchlist'}
+              aria-pressed={isWatched}
+              className={`dd-icon-button large${isWatched ? ' on' : ''}`}
+            >
+              <Star size={17} fill={isWatched ? 'currentColor' : 'none'} aria-hidden />
+            </button>
+            <button type="button" onClick={onClose} className="dd-icon-button large" aria-label="Close drawer">
+              <X size={17} aria-hidden />
+            </button>
+          </div>
+        </header>
 
         {/* Tab navigation */}
-        <div className="flex-shrink-0 flex border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-          {TABS.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors relative ${
-                activeTab === key
-                  ? 'text-[var(--color-accent)]'
-                  : 'text-[var(--color-text-faint)] hover:text-[var(--color-text-muted)]'
-              }`}
-            >
-              {Icon && <Icon size={11} />}
-              {label}
-              {activeTab === key && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-accent)] rounded-t" />
-              )}
-            </button>
-          ))}
+        <div className="dd-drawer-tabs">
+          <SegmentBar options={tabKeys} value={activeTab} label={tabLabel} onChange={setActiveTab} ariaLabel="Player details sections" />
         </div>
 
         {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+        <div className="dd-drawer-body">
 
           {/* ── Overview tab ─────────────────────────────────── */}
           {activeTab === 'overview' && (
@@ -606,7 +553,7 @@ export default function PlayerDrawer({ player, watchlist, onToggleWatch, onClose
               {/* Context grid */}
               <section>
                 <SectionHeader>Context</SectionHeader>
-                <div className="grid grid-cols-4 gap-3 p-3 rounded bg-[var(--color-surface-2)]">
+                <div className="card dd-context-grid">
                   <ContextPill label="ADP" value={player.adp != null ? Math.round(player.adp) : '—'} />
                   <ContextPill label="Bye" value={player.bye ?? '—'} />
                   <ContextPill label="Age" value={player.age ?? '—'} />
@@ -615,9 +562,9 @@ export default function PlayerDrawer({ player, watchlist, onToggleWatch, onClose
                     <ContextPill label="Depth" value={`#${player.depthChartOrder}`} />
                   )}
                   {player.college && (
-                    <div className="col-span-3 flex flex-col gap-0.5">
-                      <span className="text-[10px] text-[var(--color-text-faint)] uppercase tracking-wide">College</span>
-                      <span className="text-xs font-medium text-[var(--color-text)] truncate">{player.college}</span>
+                    <div className="dd-context-item wide">
+                      <span className="t-micro faint">College</span>
+                      <span className="t-body dd-truncate" style={{ fontWeight: 600 }}>{player.college}</span>
                     </div>
                   )}
                 </div>
@@ -627,29 +574,32 @@ export default function PlayerDrawer({ player, watchlist, onToggleWatch, onClose
               {watchFactors.length > 0 && (
                 <section>
                   <SectionHeader>Watch Factors</SectionHeader>
-                  <ul className="space-y-1.5">
-                    {watchFactors.map((f, i) => (
-                      <li key={i} className="flex items-start gap-2 text-xs text-[var(--color-text-muted)]">
-                        <FactorIcon level={f.level} />
-                        {f.text}
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="card">
+                    <ul className="dd-list-plain">
+                      {watchFactors.map((f, i) => (
+                        <li key={i} className="dd-factor t-meta">
+                          <FactorIcon level={f.level} />
+                          <span>{f.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </section>
               )}
 
               {/* Personal notes */}
               <section>
-                <SectionHeader>Your Notes</SectionHeader>
+                <label htmlFor="dd-player-note" className="t-micro faint">Your Notes</label>
                 <textarea
+                  id="dd-player-note"
                   value={note}
                   onChange={handleNoteChange}
                   placeholder="Add notes about this player…"
                   rows={4}
-                  className="w-full px-2.5 py-2 text-xs bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded text-[var(--color-text)] placeholder-[var(--color-text-faint)] focus:outline-none focus:border-[var(--color-accent)] transition-colors resize-none"
+                  className="dd-field"
                 />
                 {notes[player.id]?.updatedAt && (
-                  <p className="text-[10px] text-[var(--color-text-faint)] mt-1">
+                  <p className="t-caption faint" style={{ margin: 0 }}>
                     Last edited {new Date(notes[player.id].updatedAt).toLocaleString()}
                   </p>
                 )}
@@ -675,48 +625,40 @@ export default function PlayerDrawer({ player, watchlist, onToggleWatch, onClose
           {/* ── Research tab ──────────────────────────────────── */}
           {activeTab === 'research' && (
             <section>
-              <div className="flex items-center justify-between mb-2">
+              <div className="dd-section-label">
                 <SectionHeader>
                   Research
                   {playerItems.length > 0 && (
-                    <span className="ml-1.5 text-[10px] text-[var(--color-accent)] font-bold normal-case tracking-normal">
+                    <span className="count t-meta" style={{ marginLeft: 6, color: 'var(--accent)' }}>
                       {playerItems.length}
                     </span>
                   )}
                 </SectionHeader>
                 {!addingItem && (
-                  <button
-                    onClick={() => setAddingItem(true)}
-                    className="flex items-center gap-1 text-xs text-[var(--color-text-faint)] hover:text-[var(--color-accent)] transition-colors mb-2"
-                  >
-                    <Plus size={12} /> Add
+                  <button type="button" onClick={() => setAddingItem(true)} className="dd-text-button t-meta">
+                    <Plus size={13} aria-hidden /> Add
                   </button>
                 )}
               </div>
 
               {addingItem && (
-                <div className="mb-3">
-                  <ResearchItemForm
-                    player={{ id: player.id, name: player.name, team: player.team, position: player.position }}
-                    onSave={handleSaveItem}
-                    onCancel={() => setAddingItem(false)}
-                  />
-                </div>
+                <ResearchItemForm
+                  player={{ id: player.id, name: player.name, team: player.team, position: player.position }}
+                  onSave={handleSaveItem}
+                  onCancel={() => setAddingItem(false)}
+                />
               )}
 
               {playerItems.length === 0 && !addingItem ? (
-                <div className="flex flex-col items-center py-8 text-center">
-                  <BookOpen size={20} className="text-[var(--color-text-faint)] mb-2" />
-                  <p className="text-xs text-[var(--color-text-faint)]">No research saved yet.</p>
-                  <button
-                    onClick={() => setAddingItem(true)}
-                    className="mt-2 text-xs text-[var(--color-accent)] hover:underline"
-                  >
+                <div className="dd-empty">
+                  <BookOpen size={22} aria-hidden />
+                  <p className="t-meta" style={{ margin: 0 }}>No research saved yet.</p>
+                  <button type="button" onClick={() => setAddingItem(true)} className="dd-text-button t-meta">
                     Add your first note
                   </button>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="dd-list" style={{ gap: 'var(--space-s)' }}>
                   {playerItems.map((item) => (
                     <ResearchCard
                       key={item.id}
@@ -733,6 +675,6 @@ export default function PlayerDrawer({ player, watchlist, onToggleWatch, onClose
           )}
         </div>
       </aside>
-    </>
+    </div>
   )
 }

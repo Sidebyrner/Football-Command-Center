@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { AlertTriangle } from 'lucide-react'
-import { getPositionColor } from '../../utils/playerHelpers'
+import { Callout } from '@ui/components/Screen'
+import { PositionChip } from '@ui/components/Player'
 
 const POSITIONS = ['QB', 'RB', 'WR', 'TE']
 const THIN_THRESHOLD = 2
@@ -30,22 +31,23 @@ export default function ScarcityIndicator({ players, scores, draftedIds }) {
   if (thin.length === 0) return null
 
   return (
-    <div className="flex items-center gap-2 px-4 py-1.5 text-xs bg-[var(--color-caution)]/10 border-b border-[var(--color-caution)]/30 overflow-x-auto">
-      <AlertTriangle size={12} className="text-[var(--color-caution)] flex-shrink-0" />
-      <span className="text-[var(--color-caution)] font-medium flex-shrink-0">Thinning:</span>
-      <div className="flex items-center gap-3">
-        {thin.map(({ pos, count }) => (
-          <span
-            key={pos}
-            className="flex items-center gap-1 flex-shrink-0 whitespace-nowrap"
-          >
-            <span className="font-semibold" style={{ color: getPositionColor(pos) }}>{pos}</span>
-            <span className="text-[var(--color-text-faint)] tabular-nums">
-              {count === 0 ? 'none left in top tiers' : `${count} left in top tiers`}
-            </span>
-          </span>
-        ))}
+    <Callout tone="caution">
+      <div className="dd-callout-row t-meta">
+        <AlertTriangle size={15} color="var(--caution)" aria-hidden />
+        <div>
+          <div style={{ fontWeight: 600, color: 'var(--caution)' }}>Thinning in the top tiers</div>
+          <div className="dd-thin-list">
+            {thin.map(({ pos, count }) => (
+              <span key={pos}>
+                <PositionChip position={pos} />
+                <span className="muted">
+                  {count === 0 ? 'none left in top tiers' : `${count} left in top tiers`}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
-    </div>
+    </Callout>
   )
 }

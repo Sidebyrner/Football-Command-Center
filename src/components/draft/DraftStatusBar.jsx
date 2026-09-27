@@ -1,13 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Radio, CheckCircle, Clock, AlertTriangle } from 'lucide-react'
+import { StatValue } from '@ui/components/Screen'
 
 function Stat({ label, value, tone }) {
-  return (
-    <div className="flex flex-col leading-tight">
-      <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-faint)]">{label}</span>
-      <span className={`text-xs font-semibold tabular-nums ${tone ?? 'text-[var(--color-text)]'}`}>{value}</span>
-    </div>
-  )
+  return <StatValue value={String(value)} label={label} tint={tone} />
 }
 
 /**
@@ -48,9 +44,9 @@ export default function DraftStatusBar({ draft }) {
 
   if (error) {
     return (
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-        <AlertTriangle size={12} className="text-[var(--color-caution)]" />
-        <span className="text-xs text-[var(--color-text-muted)]">Draft sync unavailable: {error}</span>
+      <div className="card dd-callout-row t-meta" role="status">
+        <AlertTriangle size={14} color="var(--caution)" aria-hidden />
+        <span className="muted">Draft sync unavailable: {error}</span>
       </div>
     )
   }
@@ -60,26 +56,22 @@ export default function DraftStatusBar({ draft }) {
   const onTheClock = picksUntilMyTurn === 0
 
   return (
-    <div
-      className={`flex items-center gap-5 px-4 py-2 border-b border-[var(--color-border)] ${
-        onTheClock ? 'bg-[var(--color-accent)]/10' : 'bg-[var(--color-surface)]'
-      }`}
-    >
-      <div className="flex items-center gap-1.5">
+    <section className={`card dd-status${onTheClock ? ' on-clock' : ''}`} aria-label="Draft status">
+      <div className="dd-status-state t-body">
         {isLive ? (
           <>
-            <Radio size={12} className="text-[var(--color-start)] animate-pulse" />
-            <span className="text-xs font-semibold text-[var(--color-start)]">Live</span>
+            <Radio size={15} color="var(--start)" className="dd-pulse" aria-hidden />
+            <span style={{ color: 'var(--start)' }}>Live</span>
           </>
         ) : complete ? (
           <>
-            <CheckCircle size={12} className="text-[var(--color-text-faint)]" />
-            <span className="text-xs text-[var(--color-text-muted)]">Draft complete</span>
+            <CheckCircle size={15} color="var(--text-3)" aria-hidden />
+            <span className="muted">Draft complete</span>
           </>
         ) : (
           <>
-            <Clock size={12} className="text-[var(--color-text-faint)]" />
-            <span className="text-xs text-[var(--color-text-muted)]">Pre-draft</span>
+            <Clock size={15} color="var(--text-3)" aria-hidden />
+            <span className="muted">Pre-draft</span>
           </>
         )}
       </div>
@@ -90,9 +82,9 @@ export default function DraftStatusBar({ draft }) {
           {onClockName && <Stat label="On the clock" value={onClockName} />}
           {clockRemaining != null && (
             <Stat
-              label="Clock"
+              label={clockRemaining <= 60 ? 'Clock · running low' : 'Clock'}
               value={formatClock(clockRemaining)}
-              tone={clockRemaining <= 30 ? 'text-[var(--color-sit)]' : clockRemaining <= 60 ? 'text-[var(--color-caution)]' : undefined}
+              tone={clockRemaining <= 30 ? 'var(--sit)' : clockRemaining <= 60 ? 'var(--caution)' : undefined}
             />
           )}
           {userSlot && <Stat label="Your slot" value={userSlot} />}
@@ -101,8 +93,8 @@ export default function DraftStatusBar({ draft }) {
               label="Until you"
               value={onTheClock ? "You're up" : `${picksUntilMyTurn} pick${picksUntilMyTurn === 1 ? '' : 's'}`}
               tone={
-                onTheClock ? 'text-[var(--color-accent)]'
-                  : picksUntilMyTurn <= 3 ? 'text-[var(--color-caution)]'
+                onTheClock ? 'var(--accent)'
+                  : picksUntilMyTurn <= 3 ? 'var(--caution)'
                   : undefined
               }
             />
@@ -112,6 +104,6 @@ export default function DraftStatusBar({ draft }) {
       )}
 
       {!isLive && picks.length > 0 && <Stat label="Picks made" value={picks.length} />}
-    </div>
+    </section>
   )
 }

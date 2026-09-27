@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { ChevronDown, ChevronUp, Users, AlertTriangle } from 'lucide-react'
-import { getPositionColor } from '../../utils/playerHelpers'
+import { PositionChip } from '@ui/components/Player'
 
 const BYE_COLLISION_THRESHOLD = 3
 
@@ -55,32 +55,29 @@ export default function MyRosterPanel({ picks, userId, playersById }) {
   ]
 
   return (
-    <div className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+    <section className="card dd-panel" aria-label="My roster">
       <button
+        type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-[var(--color-surface-2)] transition-colors"
+        className="dd-disclosure"
+        aria-expanded={expanded}
+        aria-controls="dd-my-roster"
       >
-        <Users size={12} className="text-[var(--color-text-faint)] flex-shrink-0" />
-        <span className="text-[var(--color-text-muted)] font-medium flex-shrink-0">My roster</span>
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <Users size={16} color="var(--hue-team)" aria-hidden />
+        <span className="t-section">My roster</span>
+        <span className="dd-chip-row">
           {positions.map((pos) => (
-            <span
-              key={pos}
-              className="text-[10px] font-semibold px-1.5 py-0.5 rounded tabular-nums"
-              style={{ color: getPositionColor(pos), backgroundColor: `${getPositionColor(pos)}20` }}
-            >
-              {pos} {byPosition[pos].length}
-            </span>
+            <PositionChip key={pos} position={POSITION_ORDER.includes(pos) ? pos : undefined} label={`${pos} ${byPosition[pos].length}`} />
           ))}
-        </div>
-        <span className="ml-auto text-[var(--color-text-faint)] flex-shrink-0">
-          {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        </span>
+        <span className="dd-disclosure-trailing" aria-hidden>
+          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </span>
       </button>
 
       {byeCollisions.length > 0 && (
-        <div className="flex items-center gap-1.5 px-4 pb-2 text-[10px] text-[var(--color-caution)]">
-          <AlertTriangle size={10} className="flex-shrink-0" />
+        <div className="dd-panel-note t-meta">
+          <AlertTriangle size={13} aria-hidden />
           {byeCollisions.map(({ week, count }) => (
             <span key={week}>{count} players on bye week {week}</span>
           ))}
@@ -88,32 +85,27 @@ export default function MyRosterPanel({ picks, userId, playersById }) {
       )}
 
       {expanded && (
-        <div className="px-4 pb-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-2">
-          {positions.map((pos) => (
-            <div key={pos}>
-              <div className="text-[9px] uppercase tracking-wide text-[var(--color-text-faint)] mb-1">{pos}</div>
-              <ul className="space-y-0.5">
-                {byPosition[pos].map((pick) => (
-                  <li
-                    key={pick.pick_no ?? pick.player_id}
-                    className="text-xs text-[var(--color-text)] flex items-center gap-1.5"
-                  >
-                    <span className="text-[10px] text-[var(--color-text-faint)] tabular-nums w-6 flex-shrink-0">
-                      {pick.pick_no ?? '–'}
-                    </span>
-                    <span className="truncate">{pick.player?.name ?? 'Unknown player'}</span>
-                    {pick.player?.bye != null && (
-                      <span className="text-[10px] text-[var(--color-text-faint)] tabular-nums flex-shrink-0">
-                        bye {pick.player.bye}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+        <div id="dd-my-roster" className="dd-panel-body">
+          <div className="dd-roster-grid">
+            {positions.map((pos) => (
+              <div key={pos}>
+                <div className="t-micro faint" style={{ marginBottom: 4 }}>{pos}</div>
+                <ul>
+                  {byPosition[pos].map((pick) => (
+                    <li key={pick.pick_no ?? pick.player_id} className="dd-roster-pick t-meta">
+                      <span className="num">{pick.pick_no ?? '–'}</span>
+                      <span className="dd-truncate">{pick.player?.name ?? 'Unknown player'}</span>
+                      {pick.player?.bye != null && (
+                        <span className="faint" style={{ flex: 'none' }}>bye {pick.player.bye}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
       )}
-    </div>
+    </section>
   )
 }

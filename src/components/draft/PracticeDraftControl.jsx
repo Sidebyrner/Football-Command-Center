@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FlaskConical, X } from 'lucide-react'
+import { AlertTriangle, FlaskConical, X } from 'lucide-react'
 import useAppStore from '../../store/useAppStore'
 
 // Sleeper draft/league IDs are long numeric snowflake-style strings — pulling
@@ -44,17 +44,12 @@ export default function PracticeDraftControl() {
 
   if (practiceDraftId) {
     return (
-      <div className="flex items-center gap-2 px-4 py-1.5 text-xs bg-[var(--color-accent)]/15 border-b border-[var(--color-accent)]/30">
-        <FlaskConical size={12} className="text-[var(--color-accent)] flex-shrink-0" />
-        <span className="font-semibold text-[var(--color-accent)]">PRACTICE MODE</span>
-        <span className="text-[var(--color-text-faint)] tabular-nums truncate">
-          following draft {practiceDraftId}
-        </span>
-        <button
-          onClick={() => setPracticeDraftId(null)}
-          className="ml-auto flex-shrink-0 flex items-center gap-1 text-[var(--color-text-faint)] hover:text-[var(--color-text)] transition-colors"
-        >
-          <X size={12} />
+      <div className="dd-practice on t-meta" role="status">
+        <FlaskConical size={14} color="var(--accent)" aria-hidden />
+        <span className="dd-practice-label">Practice mode</span>
+        <span className="dd-truncate muted">following draft {practiceDraftId}</span>
+        <button type="button" className="dd-text-button quiet" onClick={() => setPracticeDraftId(null)}>
+          <X size={13} aria-hidden />
           Exit practice mode
         </button>
       </div>
@@ -63,42 +58,42 @@ export default function PracticeDraftControl() {
 
   if (!editing) {
     return (
-      <button
-        onClick={() => setEditing(true)}
-        className="w-full px-4 py-1 text-[11px] text-[var(--color-text-faint)] hover:text-[var(--color-text)] transition-colors text-left"
-      >
-        Practice with a Sleeper mock draft →
+      <button type="button" className="button dd-small" onClick={() => setEditing(true)}>
+        <FlaskConical size={14} aria-hidden />
+        Practice with a Sleeper mock draft
       </button>
     )
   }
 
   return (
-    <div className="flex items-center gap-2 px-4 py-1.5 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+    <form
+      className="dd-practice-form"
+      onSubmit={(e) => { e.preventDefault(); handleSubmit() }}
+      aria-label="Follow a Sleeper mock draft"
+    >
+      <label className="dd-sr-only" htmlFor="dd-practice-input">Sleeper mock draft URL or ID</label>
       <input
+        id="dd-practice-input"
         autoFocus
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') handleSubmit()
           if (e.key === 'Escape') cancel()
         }}
         placeholder="Paste your Sleeper mock draft URL or ID…"
-        className="flex-1 text-xs bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded px-2 py-1 text-[var(--color-text)] placeholder-[var(--color-text-faint)] focus:outline-none focus:border-[var(--color-accent)]"
+        className="dd-field"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? 'dd-practice-error' : undefined}
       />
-      <button
-        onClick={handleSubmit}
-        className="flex-shrink-0 text-xs px-2.5 py-1 rounded bg-[var(--color-accent)] text-black font-semibold hover:bg-[var(--color-accent-hover)] transition-colors"
-      >
-        Follow
+      <button type="submit" className="button primary dd-small">Follow</button>
+      <button type="button" className="dd-icon-button large" onClick={cancel} aria-label="Cancel">
+        <X size={15} aria-hidden />
       </button>
-      <button
-        onClick={cancel}
-        className="flex-shrink-0 text-[var(--color-text-faint)] hover:text-[var(--color-text)] transition-colors"
-        aria-label="Cancel"
-      >
-        <X size={13} />
-      </button>
-      {error && <span className="text-[10px] text-[var(--color-sit)] flex-shrink-0">{error}</span>}
-    </div>
+      {error && (
+        <span id="dd-practice-error" className="dd-practice-error t-meta" role="alert">
+          <AlertTriangle size={13} aria-hidden /> {error}
+        </span>
+      )}
+    </form>
   )
 }

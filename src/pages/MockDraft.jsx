@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
-import { Plus, ArrowDownWideNarrow, Trash2, Radio, Star } from 'lucide-react'
-import Header from '../components/layout/Header'
+import { Plus, ArrowDownWideNarrow, Trash2, Star, ClipboardList } from 'lucide-react'
+import { ScreenHero } from '@ui/components/Screen'
+import { PositionChip } from '@ui/components/Player'
+import { LoadingPlaceholder } from '@ui/components/State'
 import PlayerPicker from '../components/mockdraft/PlayerPicker'
 import TargetCard from '../components/mockdraft/TargetCard'
 import useMockDraftStore, { POSITIONS } from '../store/useMockDraftStore'
@@ -8,7 +10,7 @@ import useAppStore from '../store/useAppStore'
 import useWatchlistStore from '../store/useWatchlistStore'
 import { useDraftPlayers } from '../hooks/useDraftPlayers'
 import { useLiveDraft } from '../hooks/useLiveDraft'
-import { getPositionColor } from '../utils/playerHelpers'
+import '../components/draft/draft.css'
 
 // Watchlisted players for this position who aren't in the plan yet, and
 // haven't already been drafted by someone else. Suggestion only — adding
@@ -27,27 +29,26 @@ function WatchlistSuggestions({ pos, players, targets, watchlistIds, draftedIds,
   if (suggestions.length === 0) return null
 
   return (
-    <div className="mb-2 rounded border border-[var(--color-accent)]/25 bg-[var(--color-accent)]/5 p-2">
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <Star size={10} className="text-[var(--color-accent)]" fill="currentColor" />
-        <span className="text-[9px] font-bold uppercase tracking-wide text-[var(--color-accent)]">
-          From your watchlist
-        </span>
+    <div className="dd-suggest">
+      <div className="dd-suggest-title">
+        <Star size={12} fill="currentColor" aria-hidden />
+        <span className="t-micro">From your watchlist</span>
       </div>
-      <ul className="space-y-0.5">
+      <ul className="dd-list-plain" style={{ gap: 2 }}>
         {suggestions.map((p) => (
-          <li key={p.id} className="flex items-center gap-2">
-            <span className="text-xs text-[var(--color-text)] truncate flex-1">{p.name}</span>
-            <span className="text-[10px] text-[var(--color-text-faint)] tabular-nums flex-shrink-0">
+          <li key={p.id} className="t-meta">
+            <span className="dd-truncate" style={{ flex: 1, color: 'var(--text)' }}>{p.name}</span>
+            <span className="faint" style={{ flex: 'none', fontVariantNumeric: 'tabular-nums' }}>
               {p.team}{p.adp != null && ` · ${Math.round(p.adp)}`}
             </span>
             <button
+              type="button"
               onClick={() => onAdd(p)}
-              className="flex-shrink-0 text-[var(--color-text-faint)] hover:text-[var(--color-accent)] transition-colors"
+              className="dd-icon-button"
               aria-label={`Add ${p.name} to plan`}
               title="Add to plan"
             >
-              <Plus size={13} />
+              <Plus size={14} aria-hidden />
             </button>
           </li>
         ))}
@@ -58,30 +59,26 @@ function WatchlistSuggestions({ pos, players, targets, watchlistIds, draftedIds,
 
 function PositionColumn({ pos, targets, players, watchlistIds, draftedIds, pickByPlayer, store }) {
   const [adding, setAdding] = useState(false)
-  const color = getPositionColor(pos)
   const goneCount = targets.filter((t) => draftedIds?.has(t.playerId)).length
 
   return (
-    <section className="flex flex-col min-w-0">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span
-            className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-            style={{ color, backgroundColor: `${color}20` }}
-          >
-            {pos}
-          </span>
-          <span className="text-[10px] text-[var(--color-text-faint)] tabular-nums">
-            {targets.length}
+    <section className="card dd-column" aria-label={`${pos} targets`}>
+      <div className="dd-column-head">
+        <div>
+          <PositionChip position={pos} />
+          <span className="t-meta faint" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {targets.length} target{targets.length === 1 ? '' : 's'}
             {goneCount > 0 && ` · ${goneCount} gone`}
           </span>
         </div>
         <button
+          type="button"
           onClick={() => setAdding((v) => !v)}
-          className="text-[var(--color-text-faint)] hover:text-[var(--color-text)] transition-colors"
+          className={`dd-icon-button large${adding ? ' on' : ''}`}
           aria-label={`Add ${pos} target`}
+          aria-expanded={adding}
         >
-          <Plus size={14} />
+          <Plus size={16} aria-hidden />
         </button>
       </div>
 
@@ -95,24 +92,22 @@ function PositionColumn({ pos, targets, players, watchlistIds, draftedIds, pickB
       />
 
       {adding && (
-        <div className="mb-2">
-          <PlayerPicker
-            players={players}
-            position={pos}
-            excludeIds={new Set(targets.map((t) => t.playerId))}
-            placeholder={`Add ${pos}…`}
-            onSelect={(p) => store.addTarget(p)}
-            onClose={() => setAdding(false)}
-          />
-        </div>
+        <PlayerPicker
+          players={players}
+          position={pos}
+          excludeIds={new Set(targets.map((t) => t.playerId))}
+          placeholder={`Add ${pos}…`}
+          onSelect={(p) => store.addTarget(p)}
+          onClose={() => setAdding(false)}
+        />
       )}
 
       {targets.length === 0 ? (
-        <p className="text-[10px] text-[var(--color-text-faint)] italic px-1 py-3">
+        <p className="t-meta faint" style={{ margin: 0, padding: '8px 2px' }}>
           No {pos} targets yet.
         </p>
       ) : (
-        <ul className="space-y-1.5">
+        <ul className="dd-list-plain">
           {targets.map((t, i) => (
             <TargetCard
               key={t.id}
@@ -162,63 +157,72 @@ export default function MockDraft() {
     [targets, draftedIds]
   )
 
-  return (
-    <div className="flex flex-col h-screen">
-      <Header title="Draft Plan" />
+  const answer = total === 0
+    ? 'No targets yet'
+    : isLive
+      ? `${total - goneTotal} of ${total} targets left`
+      : `${total} target${total !== 1 ? 's' : ''} planned`
+  const detail = isLive
+    ? 'The draft is live — gone targets strike through and the next fallback on the board is marked.'
+    : 'Rank targets per position with notes and fallbacks; they stay live once the draft starts.'
 
-      <div className="flex items-center gap-4 px-4 py-2 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-        <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
-          {total} target{total !== 1 ? 's' : ''}
-        </span>
-        {isLive && (
-          <span className="flex items-center gap-1.5 text-xs">
-            <Radio size={11} className="text-[var(--color-start)] animate-pulse" />
-            <span className="text-[var(--color-text-muted)]">
-              {goneTotal} of {total} gone
-            </span>
-          </span>
-        )}
-        <div className="flex-1" />
+  return (
+    <div className="dd-page">
+      <div className="dd-toolbar">
+        <span className="dd-toolbar-spacer" />
         <button
+          type="button"
           onClick={store.sortByAdp}
           disabled={total === 0}
-          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors disabled:opacity-40"
+          className="button dd-small"
         >
-          <ArrowDownWideNarrow size={12} />
+          <ArrowDownWideNarrow size={14} aria-hidden />
           Sort by ADP
         </button>
         <button
+          type="button"
           onClick={() => {
             if (confirm('Clear every target from your draft plan? This cannot be undone.')) store.clearAll()
           }}
           disabled={total === 0}
-          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded border border-[var(--color-border)] text-[var(--color-text-faint)] hover:text-[var(--color-sit)] transition-colors disabled:opacity-40"
+          className="button dd-small dd-danger"
         >
-          <Trash2 size={12} />
+          <Trash2 size={14} aria-hidden />
           Clear
         </button>
       </div>
 
-      <main className="flex-1 overflow-auto p-4">
-        {loading ? (
-          <p className="text-xs text-[var(--color-text-faint)]">Loading players…</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-5 gap-y-6">
-            {POSITIONS.map((pos) => (
-              <PositionColumn
-                key={pos}
-                pos={pos}
-                targets={targets[pos] ?? []}
-                players={players}
-                watchlistIds={watchlistIds}
-                draftedIds={draftedIds}
-                pickByPlayer={pickByPlayer}
-                store={store}
-              />
-            ))}
-          </div>
-        )}
-      </main>
+      <ScreenHero
+        overline="Tools · Draft plan"
+        icon={ClipboardList}
+        hue="var(--hue-team)"
+        answer={answer}
+        detail={detail}
+        stats={isLive && total > 0 ? [
+          { value: String(total), label: 'targets' },
+          { value: String(goneTotal), label: 'gone' },
+        ] : []}
+        trailing={isLive ? <span className="dd-live t-micro"><span className="dd-dot dd-pulse" aria-hidden /> Live</span> : undefined}
+      />
+
+      {loading ? (
+        <LoadingPlaceholder label="Loading players…" cards={3} />
+      ) : (
+        <div className="dd-plan-grid">
+          {POSITIONS.map((pos) => (
+            <PositionColumn
+              key={pos}
+              pos={pos}
+              targets={targets[pos] ?? []}
+              players={players}
+              watchlistIds={watchlistIds}
+              draftedIds={draftedIds}
+              pickByPlayer={pickByPlayer}
+              store={store}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

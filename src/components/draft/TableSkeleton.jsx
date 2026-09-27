@@ -1,42 +1,22 @@
+// Placeholder rows shaped like the board's columns while players load.
+const WIDTHS = [128, 34, 40, 28, 28, 28, 24, 64, 56, 0, 16]
+const ALIGN_RIGHT = new Set([3, 4, 5, 6])
+
 export default function TableSkeleton({ rows = 20 }) {
   return (
     <>
       {Array.from({ length: rows }).map((_, i) => (
-        <tr key={i} className="border-b border-[var(--color-border)]">
-          {/* Player name */}
-          <td className="px-3 py-2.5">
-            <div className="h-3.5 w-32 rounded bg-[var(--color-surface-2)] animate-pulse" />
-          </td>
-          {/* Pos */}
-          <td className="px-3 py-2.5">
-            <div className="h-5 w-8 rounded bg-[var(--color-surface-2)] animate-pulse" />
-          </td>
-          {/* Team */}
-          <td className="px-3 py-2.5">
-            <div className="h-3.5 w-10 rounded bg-[var(--color-surface-2)] animate-pulse" />
-          </td>
-          {/* Rank */}
-          <td className="px-3 py-2.5 text-right">
-            <div className="h-3.5 w-8 rounded bg-[var(--color-surface-2)] animate-pulse ml-auto" />
-          </td>
-          {/* Bye */}
-          <td className="px-3 py-2.5 text-right">
-            <div className="h-3.5 w-6 rounded bg-[var(--color-surface-2)] animate-pulse ml-auto" />
-          </td>
-          {/* Injury */}
-          <td className="px-3 py-2.5">
-            <div className="h-3.5 w-16 rounded bg-[var(--color-surface-2)] animate-pulse" />
-          </td>
-          {/* Trending */}
-          <td className="px-3 py-2.5">
-            <div className="h-5 w-14 rounded bg-[var(--color-surface-2)] animate-pulse" />
-          </td>
-          {/* Research indicator */}
-          <td className="px-3 py-2.5 text-center" />
-          {/* Watchlist */}
-          <td className="px-3 py-2.5 text-center">
-            <div className="h-4 w-4 rounded bg-[var(--color-surface-2)] animate-pulse mx-auto" />
-          </td>
+        <tr key={i} className="dd-skel-row" aria-hidden="true">
+          {WIDTHS.map((w, c) => (
+            <td key={c}>
+              {w > 0 && (
+                <div
+                  className="dd-skel"
+                  style={{ width: w, marginLeft: ALIGN_RIGHT.has(c) || c === 10 ? 'auto' : undefined, marginRight: c === 10 ? 'auto' : undefined }}
+                />
+              )}
+            </td>
+          ))}
         </tr>
       ))}
     </>

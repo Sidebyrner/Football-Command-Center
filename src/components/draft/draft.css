@@ -1,0 +1,262 @@
+/*
+ * Draft tools (Draft board + Draft plan) on the design tokens in
+ * src/ui/tokens.css — they follow light and dark with the rest of the app.
+ * Every class is prefixed `dd-` so nothing here leaks into other screens.
+ */
+.dd-page { display: flex; flex-direction: column; gap: var(--space-l); min-width: 0; }
+
+/* Toolbar above the hero: small neutral buttons, like the Board's. */
+.dd-toolbar { display: flex; align-items: center; gap: var(--space-s); flex-wrap: wrap; }
+.dd-toolbar-spacer { flex: 1; }
+.button.dd-small { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8125rem; padding: 6px 11px; border-radius: 8px; }
+.button.dd-danger { color: var(--sit); }
+.dd-spin { animation: dd-spin 1s linear infinite; }
+@keyframes dd-spin { to { transform: rotate(360deg); } }
+.dd-pulse { animation: dd-pulse 1.6s ease-in-out infinite; }
+@keyframes dd-pulse { 50% { opacity: 0.35; } }
+
+/* Text-only controls */
+.dd-link { color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.dd-text-button {
+  appearance: none; border: 0; background: none; padding: 0; font: inherit; cursor: pointer;
+  color: var(--accent); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;
+}
+.dd-text-button.quiet { color: var(--text-2); font-weight: 500; }
+.dd-text-button.quiet:hover { color: var(--text); }
+.dd-text-button:disabled { opacity: 0.45; cursor: default; }
+.dd-icon-button {
+  appearance: none; border: 0; background: transparent; color: var(--text-3); cursor: pointer;
+  display: inline-grid; place-items: center; min-width: 28px; min-height: 28px; border-radius: 999px; padding: 0;
+}
+.dd-icon-button:hover { color: var(--text); background: var(--inset); }
+.dd-icon-button.danger:hover { color: var(--sit); }
+.dd-icon-button.on { color: var(--accent); }
+.dd-icon-button.done { color: var(--start); cursor: default; }
+.dd-icon-button:disabled { opacity: 0.3; cursor: default; background: transparent; }
+.dd-icon-button.large { min-width: 36px; min-height: 36px; background: var(--inset); }
+
+/* Form fields */
+.dd-field {
+  appearance: none; border: 0.5px solid var(--stroke); background: var(--inset); color: var(--text);
+  border-radius: 10px; font: inherit; font-size: 0.9375rem; padding: 8px 10px; min-height: 38px; min-width: 0;
+}
+.dd-field::placeholder { color: var(--text-3); }
+.dd-field:focus-visible, .dd-search:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.dd-field:focus { outline: none; }
+textarea.dd-field { width: 100%; resize: vertical; line-height: 1.4; }
+select.dd-field {
+  padding-right: 28px; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-2) 50%), linear-gradient(135deg, var(--text-2) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%;
+  background-size: 5px 5px; background-repeat: no-repeat;
+}
+.dd-search {
+  display: flex; align-items: center; gap: 8px; padding: 0 10px; min-height: 38px;
+  background: var(--inset); border: 0.5px solid var(--stroke); border-radius: 10px; min-width: 0; color: var(--text-3);
+}
+.dd-search input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 0.9375rem; padding: 8px 0; }
+.dd-search input::placeholder { color: var(--text-3); }
+.dd-search input:focus { outline: none; }
+.dd-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* Filters */
+.dd-filters { display: flex; flex-direction: column; gap: var(--space-m); }
+.dd-filter-row { display: grid; grid-template-columns: 1fr; gap: var(--space-s); }
+.dd-filter-selects { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: var(--space-s); }
+@media (min-width: 640px) {
+  .dd-filter-row { grid-template-columns: minmax(180px, 1.2fr) 2fr; }
+}
+.dd-chip-row { display: flex; gap: var(--space-s); flex-wrap: wrap; align-items: center; }
+.dd-chip { display: inline-flex; align-items: center; gap: 6px; }
+.dd-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+/* A card with a disclosure button across its top */
+.card.dd-panel { padding: 0; overflow: hidden; }
+.dd-disclosure {
+  appearance: none; border: 0; background: transparent; color: var(--text); font: inherit; cursor: pointer;
+  width: 100%; display: flex; align-items: center; gap: var(--space-s); padding: var(--space-m) var(--space-l); text-align: left;
+}
+.dd-disclosure:hover { background: var(--inset); }
+.dd-disclosure:disabled { cursor: default; opacity: 0.6; }
+.dd-disclosure:focus-visible { outline-offset: -2px; border-radius: var(--radius-card); }
+.dd-disclosure-trailing { margin-left: auto; color: var(--text-3); display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.dd-panel-body { padding: 0 var(--space-l) var(--space-l); display: flex; flex-direction: column; gap: var(--space-s); }
+.dd-panel-note { padding: 0 var(--space-l) var(--space-m); display: flex; align-items: flex-start; gap: 6px; color: var(--caution); flex-wrap: wrap; }
+
+/* Status card */
+.dd-status { display: flex; align-items: center; gap: var(--space-l) var(--space-xl); flex-wrap: wrap; }
+.dd-status.on-clock { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+.dd-status-state { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.dd-status .stat .t-title { font-size: 1.125rem; }
+
+/* Roster & grades */
+.dd-roster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-m) var(--space-l); }
+.dd-roster-grid ul, .dd-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.dd-roster-pick { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.dd-roster-pick .num { width: 24px; flex: none; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.dd-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.dd-grade-badge {
+  display: inline-grid; place-items: center; min-width: 30px; padding: 2px 6px; border-radius: 999px;
+  font-weight: 700; font-size: 0.75rem; flex: none; font-variant-numeric: tabular-nums;
+}
+.dd-grade-row { display: flex; align-items: center; gap: var(--space-s); padding: 6px 8px; border-radius: var(--radius-small); min-width: 0; }
+.dd-grade-row.me { background: var(--inset); }
+.dd-grade-row .name { flex: 1; }
+.dd-grade-row .num { color: var(--text-3); flex: none; font-variant-numeric: tabular-nums; }
+.dd-grade-row .num.wide { min-width: 70px; text-align: right; }
+@media (max-width: 420px) { .dd-grade-row { flex-wrap: wrap; } .dd-grade-row .name { flex-basis: calc(100% - 46px); } .dd-grade-row .num:not(.wide) { margin-left: 38px; } }
+
+/* Recent picks */
+.dd-feed { display: flex; align-items: center; gap: var(--space-m); overflow-x: auto; padding: var(--space-m) var(--space-l); }
+.dd-feed ul { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--space-l); }
+.dd-feed li { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; flex: none; }
+
+/* Callout contents */
+.dd-callout-row { display: flex; gap: var(--space-s); align-items: flex-start; }
+.dd-callout-row > svg { flex: none; margin-top: 2px; }
+.dd-thin-list { display: flex; flex-wrap: wrap; gap: 6px var(--space-l); margin-top: 4px; }
+.dd-thin-list span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Player board table: scrolls sideways inside its card */
+.card.dd-table-card { padding: 0; overflow: hidden; }
+.dd-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+@media (min-width: 700px) {
+  .dd-table-scroll { max-height: min(72dvh, 900px); overflow-y: auto; }
+}
+.dd-table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 0.875rem; }
+.dd-table th {
+  position: sticky; top: 0; z-index: 1; background: var(--card); color: var(--text-3);
+  border-bottom: 0.5px solid var(--stroke); padding: 0; white-space: nowrap; font-weight: 700;
+}
+.dd-table th .dd-th { display: inline-flex; align-items: center; gap: 3px; padding: 10px 12px; }
+.dd-sort {
+  appearance: none; border: 0; background: none; font: inherit; color: inherit; cursor: pointer;
+  width: 100%; text-transform: inherit; letter-spacing: inherit; justify-content: inherit;
+}
+.dd-sort:hover, .dd-sort.on { color: var(--text); }
+.dd-sort:focus-visible { outline-offset: -2px; border-radius: 6px; }
+.dd-table td { padding: 8px 12px; border-bottom: 0.5px solid var(--stroke); color: var(--text-2); white-space: nowrap; }
+.dd-table tbody tr { cursor: pointer; }
+.dd-table tbody tr:hover { background: var(--inset); }
+.dd-table tbody tr.drafted { opacity: 0.5; }
+.dd-table tbody tr:last-child td { border-bottom: 0; }
+.dd-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.dd-table .center { text-align: center; }
+.dd-name-button {
+  appearance: none; border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--text);
+  cursor: pointer; text-align: left;
+}
+.dd-name-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.dd-strike { text-decoration: line-through; }
+.dd-tag {
+  display: inline-flex; align-items: center; gap: 3px; margin-left: 8px; padding: 1px 7px; border-radius: 999px;
+  font-size: 0.6875rem; font-weight: 700; vertical-align: middle; background: var(--inset); color: var(--text-2);
+}
+.dd-tag.mine { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.dd-tag.gone { margin-left: 0; background: color-mix(in srgb, var(--sit) 14%, transparent); color: var(--sit); }
+.dd-trend { display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 600; padding: 1px 7px; border-radius: 999px; }
+.dd-trend.add { color: var(--start); background: color-mix(in srgb, var(--start) 13%, transparent); }
+.dd-trend.drop { color: var(--sit); background: color-mix(in srgb, var(--sit) 13%, transparent); }
+.dd-status-dot { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8125rem; }
+.dd-research-badge {
+  display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px;
+  background: var(--accent); color: #fff; font-size: 0.625rem; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.dd-table-empty { padding: 48px 16px; text-align: center; color: var(--text-3); cursor: default; }
+.dd-table tbody tr.dd-skel-row { cursor: default; }
+.dd-table tbody tr.dd-skel-row:hover { background: transparent; }
+.dd-skel { height: 12px; border-radius: 6px; background: var(--stroke); animation: dd-pulse 1.4s ease-in-out infinite; }
+.dd-table-footer { padding: 8px var(--space-l); border-top: 0.5px solid var(--stroke); color: var(--text-3); }
+
+/* Player drawer: a bottom sheet on phones, a side panel on wide screens */
+.dd-drawer-scrim {
+  position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.35);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.dd-drawer {
+  position: relative; background: var(--page); color: var(--text); width: 100%; max-height: 92dvh;
+  border-radius: var(--radius-hero) var(--radius-hero) 0 0; box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.18);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.dd-drawer-grabber { width: 36px; height: 5px; border-radius: 999px; background: var(--stroke); margin: 8px auto 0; flex: none; }
+.dd-drawer-head { flex: none; padding: var(--space-m) var(--space-l); display: flex; align-items: flex-start; gap: var(--space-m); }
+.dd-drawer-head h2 { margin: 2px 0 0; }
+.dd-drawer-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.dd-drawer-tabs { flex: none; padding: 0 var(--space-l) var(--space-m); overflow-x: auto; }
+.dd-drawer-tabs .segment { padding-left: 8px; padding-right: 8px; }
+.dd-drawer-body {
+  flex: 1; overflow-y: auto; padding: 0 var(--space-l) calc(var(--space-l) + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: var(--space-l);
+}
+.dd-drawer-body > section { display: flex; flex-direction: column; gap: var(--space-s); }
+@media (min-width: 900px) {
+  .dd-drawer-scrim { justify-content: flex-end; align-items: stretch; }
+  .dd-drawer { width: min(440px, 100vw); max-height: none; height: 100%; border-radius: var(--radius-hero) 0 0 var(--radius-hero); box-shadow: -8px 0 30px rgba(0, 0, 0, 0.18); }
+  .dd-drawer-grabber { display: none; }
+  .dd-drawer-head { padding-top: var(--space-l); }
+}
+.dd-context-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-m); }
+.dd-context-grid .wide { grid-column: span 3; }
+.dd-context-item { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dd-factor { display: flex; align-items: flex-start; gap: 8px; }
+.dd-factor svg { flex: none; margin-top: 2px; }
+.dd-stat-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 0.5px solid var(--stroke); gap: var(--space-m); }
+.dd-stat-row:last-child { border-bottom: 0; }
+.dd-stat-row .value { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.dd-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 32px 12px; color: var(--text-3); }
+.dd-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; background: var(--inset); color: var(--accent); padding: 2px 6px; border-radius: 6px; }
+.dd-section-label { display: flex; align-items: center; justify-content: space-between; gap: var(--space-s); color: var(--text-3); }
+
+/* Draft plan */
+.dd-plan-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--space-l); align-items: start; }
+.dd-column { display: flex; flex-direction: column; gap: var(--space-s); min-width: 0; }
+.dd-column-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-s); }
+.dd-column-head > div { display: flex; align-items: center; gap: var(--space-s); }
+.dd-suggest { border-radius: var(--radius-small); padding: var(--space-s) var(--space-m); background: color-mix(in srgb, var(--accent) 8%, transparent); border: 0.5px solid color-mix(in srgb, var(--accent) 30%, transparent); display: flex; flex-direction: column; gap: 4px; }
+.dd-suggest-title { display: flex; align-items: center; gap: 6px; color: var(--accent); }
+.dd-suggest li, .dd-picker-result { display: flex; align-items: center; gap: var(--space-s); min-width: 0; }
+.inset.dd-target { list-style: none; padding: var(--space-s) var(--space-m); display: flex; gap: var(--space-s); align-items: flex-start; }
+.dd-target.gone { opacity: 0.6; }
+.dd-target-rank { width: 18px; flex: none; color: var(--text-3); font-weight: 700; padding-top: 2px; font-variant-numeric: tabular-nums; }
+.dd-target-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dd-target-title { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.dd-target-controls { display: flex; flex-direction: column; align-items: center; flex: none; }
+.dd-note-button { appearance: none; border: 0; background: none; padding: 0; font: inherit; text-align: left; cursor: pointer; color: var(--text-2); }
+.dd-note-button:hover { color: var(--text); }
+.dd-note-button .placeholder { color: var(--text-3); font-style: italic; }
+.dd-fallback { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.dd-fallback.gone .name { color: var(--text-3); text-decoration: line-through; }
+.dd-fallback.pivot .name { color: var(--accent); font-weight: 600; }
+.dd-fallback .icon { color: var(--text-3); flex: none; }
+.inset.dd-picker { display: flex; flex-direction: column; gap: 6px; padding: var(--space-s); }
+.dd-picker-result {
+  appearance: none; border: 0; background: none; width: 100%; font: inherit; color: var(--text); cursor: pointer;
+  padding: 6px; border-radius: var(--radius-small); text-align: left;
+}
+.dd-picker-result:hover { background: var(--card); }
+.dd-picker-result:focus-visible { outline-offset: -2px; }
+.dd-list-plain { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dd-spin, .dd-pulse, .dd-skel { animation: none; }
+}
+
+/* Practice-draft control (lives in the toolbar) */
+.dd-practice { display: inline-flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.dd-practice.on {
+  padding: 6px 12px; border-radius: 10px; flex: 1 1 100%;
+  background: color-mix(in srgb, var(--accent) 12%, transparent); border: 0.5px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.dd-practice.on .dd-truncate { flex: 1; }
+.dd-practice-label { color: var(--accent); font-weight: 700; }
+.dd-practice-form { display: flex; align-items: center; gap: var(--space-s); flex: 1 1 100%; flex-wrap: wrap; min-width: 0; }
+.dd-practice-form .dd-field { flex: 1 1 220px; }
+.dd-practice-error { color: var(--sit); display: inline-flex; align-items: center; gap: 4px; flex: 1 1 100%; }
+.dd-disclosure .dd-chip-row { flex: 1; min-width: 0; gap: 4px; }
+.dd-table th { text-align: left; }
+.dd-table th .dd-th { width: 100%; }
+.dd-table th.num .dd-th { justify-content: flex-end; }
+.dd-table th.center .dd-th { justify-content: center; }
+.dd-table-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.dd-live { display: inline-flex; align-items: center; gap: 5px; color: var(--start); }
+.dd-live .dd-dot { background: var(--start); }

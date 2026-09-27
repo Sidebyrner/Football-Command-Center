@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Sparkles, Loader2 } from 'lucide-react'
+import { Sparkles, Loader2, AlertTriangle } from 'lucide-react'
 import { API_BASE, hasApiProxy } from '../../utils/apiBase'
 
 /**
@@ -43,36 +43,40 @@ export default function StrategyBriefPanel({ players }) {
   if (!hasApiProxy) return null
 
   return (
-    <div className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+    <section className="card dd-panel" aria-label="Strategy brief">
       <button
+        type="button"
         onClick={open ? () => setOpen(false) : handleGenerate}
         disabled={loading}
-        className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-[var(--color-surface-2)] transition-colors disabled:opacity-50"
+        className="dd-disclosure"
+        aria-expanded={open}
       >
         {loading ? (
-          <Loader2 size={12} className="animate-spin text-[var(--color-text-faint)]" />
+          <Loader2 size={16} className="dd-spin" color="var(--text-3)" aria-hidden />
         ) : (
-          <Sparkles size={12} className="text-[var(--color-text-faint)]" />
+          <Sparkles size={16} color="var(--accent)" aria-hidden />
         )}
-        <span className="text-[var(--color-text-muted)] font-medium">
-          {open ? 'Hide strategy brief' : 'Generate strategy brief'}
-        </span>
-        <span className="text-[10px] text-[var(--color-text-faint)] ml-auto">via local LLM</span>
+        <span className="t-section">{open ? 'Hide strategy brief' : 'Generate strategy brief'}</span>
+        <span className="dd-disclosure-trailing t-meta">via local LLM</span>
       </button>
 
       {open && (
-        <div className="px-4 pb-3">
+        <div className="dd-panel-body" aria-live="polite">
           {loading && (
-            <p className="text-xs text-[var(--color-text-faint)]">
+            <p className="t-meta muted" style={{ margin: 0 }}>
               Thinking… local inference can take a bit longer than the rest of this app.
             </p>
           )}
-          {error && <p className="text-xs text-[var(--color-sit)]">{error}</p>}
+          {error && (
+            <p className="dd-callout-row t-meta" style={{ margin: 0, color: 'var(--sit)' }} role="alert">
+              <AlertTriangle size={14} aria-hidden /> <span>{error}</span>
+            </p>
+          )}
           {brief && !loading && (
-            <p className="text-xs text-[var(--color-text)] leading-relaxed whitespace-pre-wrap">{brief}</p>
+            <p className="t-body" style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{brief}</p>
           )}
         </div>
       )}
-    </div>
+    </section>
   )
 }

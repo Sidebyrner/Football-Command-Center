@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { Search, X } from 'lucide-react'
-import { getPositionColor } from '../../utils/playerHelpers'
+import { PositionChip } from '@ui/components/Player'
+import '../draft/draft.css'
 
 /**
  * Type-ahead player search. Used both to add a target and to attach a fallback,
@@ -28,9 +29,9 @@ export default function PlayerPicker({
   }, [players, query, position, excludeIds])
 
   return (
-    <div className="rounded border border-[var(--color-border)] bg-[var(--color-surface-2)] p-2">
-      <div className="flex items-center gap-2">
-        <Search size={13} className="text-[var(--color-text-faint)] flex-shrink-0" />
+    <div className="inset dd-picker">
+      <div className="dd-search" style={{ background: 'var(--card)' }}>
+        <Search size={14} aria-hidden />
         <input
           ref={inputRef}
           value={query}
@@ -40,31 +41,27 @@ export default function PlayerPicker({
             if (e.key === 'Enter' && results[0]) { onSelect(results[0]); onClose?.() }
           }}
           placeholder={placeholder}
-          className="flex-1 bg-transparent text-xs text-[var(--color-text)] placeholder:text-[var(--color-text-faint)] focus:outline-none"
+          aria-label={placeholder}
         />
         {onClose && (
-          <button onClick={onClose} className="text-[var(--color-text-faint)] hover:text-[var(--color-text)]" aria-label="Close search">
-            <X size={13} />
+          <button type="button" onClick={onClose} className="dd-icon-button" aria-label="Close search">
+            <X size={14} aria-hidden />
           </button>
         )}
       </div>
 
       {results.length > 0 && (
-        <ul className="mt-2 space-y-0.5">
+        <ul className="dd-list-plain" style={{ gap: 2 }}>
           {results.map((p) => (
             <li key={p.id}>
               <button
+                type="button"
                 onClick={() => { onSelect(p); onClose?.() }}
-                className="w-full flex items-center gap-2 px-1.5 py-1 rounded text-left hover:bg-[var(--color-surface)] transition-colors"
+                className="dd-picker-result t-meta"
               >
-                <span
-                  className="text-[9px] font-bold px-1 py-0.5 rounded flex-shrink-0"
-                  style={{ color: getPositionColor(p.position), backgroundColor: `${getPositionColor(p.position)}20` }}
-                >
-                  {p.position}
-                </span>
-                <span className="text-xs text-[var(--color-text)] truncate flex-1">{p.name}</span>
-                <span className="text-[10px] text-[var(--color-text-faint)] tabular-nums flex-shrink-0">
+                <PositionChip position={p.position} />
+                <span className="dd-truncate" style={{ flex: 1, fontWeight: 600 }}>{p.name}</span>
+                <span className="faint" style={{ flex: 'none', fontVariantNumeric: 'tabular-nums' }}>
                   {p.team}{p.adp != null && ` · ${Math.round(p.adp)}`}
                 </span>
               </button>
@@ -74,7 +71,7 @@ export default function PlayerPicker({
       )}
 
       {query.trim() && results.length === 0 && (
-        <p className="mt-2 px-1.5 text-[10px] text-[var(--color-text-faint)]">No matching players.</p>
+        <p className="t-meta faint" style={{ margin: 0, padding: '0 6px' }}>No matching players.</p>
       )}
     </div>
   )

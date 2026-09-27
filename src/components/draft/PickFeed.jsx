@@ -20,19 +20,19 @@ export default function PickFeed({ picks, pickByPlayer, playersById, limit = 5 }
   if (recent.length === 0) return null
 
   return (
-    <div className="px-4 py-2 border-b border-[var(--color-border)] bg-[var(--color-surface)] flex items-center gap-3 overflow-x-auto">
-      <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-faint)] flex-shrink-0">
-        Recent
-      </span>
-      <ul className="flex items-center gap-4">
-        {recent.map((pick) => (
-          <li key={pick.pickNo} className="flex items-center gap-1.5 text-xs flex-shrink-0 whitespace-nowrap">
-            <span className="text-[10px] text-[var(--color-text-faint)] tabular-nums">#{pick.pickNo}</span>
-            <span className="text-[var(--color-text)]">{pick.player?.name ?? 'Unknown player'}</span>
-            {pick.by && <span className="text-[var(--color-text-faint)]">· {pick.by}</span>}
-          </li>
-        ))}
-      </ul>
-    </div>
+    <section className="card dd-panel" aria-label="Recent picks">
+      <div className="dd-feed">
+        <span className="t-micro faint" style={{ flex: 'none' }}>Recent</span>
+        <ul>
+          {recent.map((pick) => (
+            <li key={pick.pickNo} className="t-meta">
+              <span className="faint">#{pick.pickNo}</span>
+              <span style={{ color: 'var(--text)', fontWeight: 600 }}>{pick.player?.name ?? 'Unknown player'}</span>
+              {pick.by && <span className="faint">· {pick.by}</span>}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
   )
 }
