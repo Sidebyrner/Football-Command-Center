@@ -64,6 +64,8 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 | Installable app with offline support | ✅ Release 1 |
 | Desktop workspaces: 12-column grid, drag and resize with push-and-float, panel tray and library, five presets, link colours, compare lists of four, sidebar list, ⌘[ ⌘] | ✅ Release 2 |
 | All 25 workspace panels (team, market, streams, discovery, player detail, compare, metric, trend) | ✅ Release 2 |
+| Web-only tools on the new design: Draft, Draft Plan, Research, Power Rankings, Odds (Tools sidebar; Team › Season on phones) | — web only |
+| Legacy dark-only app retired; old URLs redirect to their new screens | ✅ Phase 4 |
 
 ## Known platform differences
 
@@ -75,6 +77,10 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 - **`-0`:** a pick'em spread of exactly -0.0 prints "+-0.0" in one Swift explain line and "+0.0" on the web.
 
 ## Found while porting
+
+Data, not yet fixed (shared pipeline, needs approval):
+- **`public/data/cohorts.json` is empty.** It was built for season 2026 with `minGames 6`, so no player qualifies yet. Draft and Power Rankings scores show "—" until it's rebuilt from 2025 or the threshold is lowered.
+
 
 Fixed on both sides:
 - **Matchup live tick dropped IDP matchups** — fixed on `ios-port` (64913ba) and here: live refreshes reuse the full defense lookup.

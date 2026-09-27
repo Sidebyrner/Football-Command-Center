@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
 import { AlertTriangle, ListOrdered, RefreshCw } from 'lucide-react'
 import { ScreenHero, Callout } from '@ui/components/Screen'
 import DraftFilters from '../components/draft/DraftFilters'
@@ -217,11 +216,8 @@ export default function DraftDashboard() {
           <div className="dd-callout-row t-meta">
             <AlertTriangle size={15} color="var(--caution)" aria-hidden />
             <span>
-              Scores are using assumed default scoring, not your league's real rules —{' '}
-              <Link to="/classic/settings" className="dd-link">
-                pull your league's scoring from Sleeper in Settings
-              </Link>{' '}
-              before you draft.
+              Scores are using assumed default scoring — your league's own rules haven't loaded from
+              Sleeper yet. They're picked up automatically once your league loads.
             </span>
           </div>
         </Callout>

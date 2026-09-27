@@ -3,7 +3,7 @@
  * which team is yours; accent colour; the optional relay. Web additions: try
  * the demo league, and export/import your setup between devices.
  */
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Check, Download, FlaskConical, Palette, Server, Upload, UserRound } from 'lucide-react'
 import { ACCENT_THEMES, ACCENT_THEME_HEX, accentThemeLabel, accentThemeSharedStatus, isConfigured } from '@models/settings/AppSettings'
 import { ScreenHero, ScreenSection } from '@ui/components/Screen'
@@ -65,6 +65,15 @@ function SleeperSetup({ onReady }: { onReady: () => void }) {
   const model = useModel(services.settingsModel)
   const hue = 'var(--hue-team)'
 
+  // Like the native `.onChange(of: stage)`: setup is done when the stage
+  // reaches ready — by picking a team, or when the league's roster is found
+  // from the username and picked automatically.
+  const previousStage = useRef(model.stage)
+  useEffect(() => {
+    if (model.stage === 'ready' && previousStage.current !== 'ready') onReady()
+    previousStage.current = model.stage
+  }, [model.stage, onReady])
+
   const lookUp = (e: FormEvent) => {
     e.preventDefault()
     void model.lookUpUser()
@@ -116,7 +125,7 @@ function SleeperSetup({ onReady }: { onReady: () => void }) {
         <ScreenSection title="Which team is yours?" hue={hue}>
           <div className="card list">
             {model.teams.map((team) => (
-              <button key={team.rosterID} type="button" className="list-row" onClick={() => { model.selectTeam(team.rosterID); onReady() }}>
+              <button key={team.rosterID} type="button" className="list-row" onClick={() => model.selectTeam(team.rosterID)}>
                 <span className="t-body">{team.manager}</span>
                 {model.settings.rosterID === team.rosterID && <Check size={18} color="var(--accent)" aria-label="Selected" />}
               </button>

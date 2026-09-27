@@ -8,6 +8,8 @@
 import { useEffect, type ComponentType } from 'react'
 import { FlaskConical } from 'lucide-react'
 import useAppStore from '../../store/useAppStore'
+import useScoringProfileStore from '../../store/useScoringProfileStore'
+import { profileFromSleeperScoring } from '../../utils/sleeperScoring'
 import { isConfigured } from '@models/settings/AppSettings'
 import { screenTitle, type Screen } from '@models/navigation/screens'
 import { useApp, useModel } from '@ui/app/AppContext'
@@ -35,6 +37,19 @@ export function useLegacyStoreBridge(): boolean {
     const changed = (Object.keys(next) as (keyof typeof next)[]).some((k) => state[k] !== next[k])
     if (changed) useAppStore.setState(next)
   }, [ready, settings.sleeperUsername, settings.userID, settings.leagueID, context])
+
+  // The tools score players under a profile of their own; give them the
+  // league's real rules (the old Settings page's "Pull from Sleeper").
+  const scoring = context?.league.scoringSettings
+  const leagueName = context?.league.name
+  useEffect(() => {
+    if (!ready || !scoring) return
+    const store = useScoringProfileStore.getState()
+    const translated = profileFromSleeperScoring(scoring, leagueName ?? 'League')
+    if (!translated.profile) return
+    const same = JSON.stringify(store.activeProfile) === JSON.stringify(translated.profile)
+    if (!same) store.applyLeagueScoring(translated)
+  }, [ready, scoring, leagueName])
   return ready
 }
 
