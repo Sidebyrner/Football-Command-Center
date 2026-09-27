@@ -60,3 +60,7 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 - **Storage:** the phone keeps its cache in Application Support and secrets in the Keychain; the web uses IndexedDB and `localStorage`. Settings, Board layout and workspaces move between devices with an export file.
 - **Sort stability:** JavaScript's sort is stable and Swift's isn't. Where Swift relies on an explicit tie-break the port copies it; exact ties with no tie-break (display-only breakdown lists) may order differently.
 - **`-0`:** a pick'em spread of exactly -0.0 prints "+-0.0" in one Swift explain line and "+0.0" on the web.
+
+## Found while porting (native bugs, not fixed — the web mirrors them until the Swift side changes)
+
+- **Matchup live tick drops IDP matchups.** `MatchupModel.liveTick` rebuilds with only the nflverse defense table, so after the first live refresh IDP rows lose their defense cell and source. The stored `defenseLookup` looks like the intended input. Fix on both sides together.
