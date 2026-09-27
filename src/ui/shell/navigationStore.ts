@@ -2,7 +2,8 @@ import { create } from 'zustand'
 import { useCallback, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Router } from '@models/navigation/Router'
-import { samePlace, screenPlace, type Place } from '@models/navigation/NavigationHistory'
+import { samePlace, screenPlace, workspacePlace, type Place } from '@models/navigation/NavigationHistory'
+import { parseUUID } from '@models/workspaces/Workspace'
 import { pathFor, screenForPath, type Hub, type Screen } from '@models/navigation/screens'
 
 /**
@@ -24,24 +25,42 @@ export const useNavigationStore = create<NavigationState>((set) => ({
   set: (router) => set({ router, started: true }),
 }))
 
-function pathForPlace(place: Place): string {
+export function pathForPlace(place: Place): string {
   return place.kind === 'screen' ? pathFor(place.screen) : `/workspaces/${place.id}`
 }
 
-/** Keeps the store in step with the URL. Mount once, inside the router. */
-export function useNavigationSync(): Screen | undefined {
-  const { pathname } = useLocation()
+/** The place a path shows: a screen, or a workspace at `/workspaces/:id`. */
+export function placeForPath(pathname: string): Place | undefined {
+  const workspace = /^\/workspaces\/([^/]+)\/*$/.exec(pathname)
+  if (workspace) {
+    const raw = decodeURIComponent(workspace[1]!)
+    return workspacePlace(parseUUID(raw) ?? raw)
+  }
   const screen = screenForPath(pathname)
+  return screen ? screenPlace(screen) : undefined
+}
+
+/** Keeps the store in step with the URL. Mount once, inside the router. */
+export function useNavigationPlaceSync(): Place | undefined {
+  const { pathname } = useLocation()
+  const found = placeForPath(pathname)
+  const key = found ? (found.kind === 'screen' ? `s:${found.screen}` : `w:${found.id}`) : ''
   useEffect(() => {
-    if (!screen) return
+    const place = placeForPath(pathname)
+    if (!place) return
     const { router, started, set } = useNavigationStore.getState()
-    const place = screenPlace(screen)
     // The page you land on (a link, a bookmark, a reload) starts the trail;
     // nothing before it is somewhere you've been.
     if (!started) set(Router.at(place))
     else if (!samePlace(router.selection, place)) set(router.go(place))
-  }, [screen])
-  return screen
+  }, [key])
+  return found
+}
+
+/** The screen the URL shows; `undefined` on a workspace. */
+export function useNavigationSync(): Screen | undefined {
+  const place = useNavigationPlaceSync()
+  return place?.kind === 'screen' ? place.screen : undefined
 }
 
 /** Moves: open a screen, pick a tab, go back or forward through the trail. */
@@ -66,5 +85,31 @@ export function useNavigation() {
     goBack: useCallback(() => restore(router.goBack()), [restore, router]),
     goForward: useCallback(() => restore(router.goForward()), [restore, router]),
     goBackTo: useCallback((index: number) => restore(router.goBackTo(index)), [restore, router]),
+    /**
+     * Swift `open(workspace:)`: another workspace opens locked; the open one
+     * keeps its state. `editing` unlocks it straight away (a new, empty one).
+     */
+    openWorkspace: useCallback((id: string, options: { editing?: boolean } = {}) => {
+      const { router: current, set: save } = useNavigationStore.getState()
+      let next = current.openWorkspace(id)
+      if (options.editing) next = next.withWorkspaceEditing(true)
+      save(next)
+      navigate(pathForPlace(next.selection))
+    }, [navigate]),
+    setWorkspaceEditing: useCallback((editing: boolean) => {
+      const { router: current, set: save } = useNavigationStore.getState()
+      save(current.withWorkspaceEditing(editing))
+    }, []),
+    /**
+     * A deleted workspace: leave it for My Team if it's open, then drop it
+     * from the trail.
+     */
+    forgetWorkspace: useCallback((id: string) => {
+      const { router: current, set: save } = useNavigationStore.getState()
+      const open = current.selection.kind === 'workspace' && current.selection.id === id
+      const next = (open ? current.open('dashboard') : current).forget(id)
+      save(next)
+      if (open) navigate(pathFor('dashboard'))
+    }, [navigate]),
   }
 }

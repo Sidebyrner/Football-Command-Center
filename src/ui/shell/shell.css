@@ -16,6 +16,9 @@
 .topbar-leading { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .topbar-title { margin: 0; text-align: center; font-size: 1.0625rem; }
 .topbar > a { justify-self: end; }
+.topbar-trailing { justify-self: end; display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* A workspace uses the whole width beside the sidebar. */
+.shell-content.shell-content-workspace { max-width: none; padding-bottom: 0; }
 .icon-button {
   display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 999px;
   border: 0; background: var(--inset); color: var(--accent); cursor: pointer;

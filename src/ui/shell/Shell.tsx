@@ -1,14 +1,38 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, Settings as SettingsIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { hubs, hubScreens, hubTitle, hubFor, segmentLabel, type Screen } from '@models/navigation/screens'
-import { shortLabel, trailLabel } from '@models/navigation/NavigationHistory'
+import { shortLabel, trailLabel, type Place } from '@models/navigation/NavigationHistory'
+import { useApp, useModel } from '@ui/app/AppContext'
 import { SegmentBar } from '@ui/components/Screen'
 import { hubIcon, screenIcon } from '@ui/icons'
 import { hueForHub, hueForScreen } from '@ui/hues'
 import { useTheme } from '@ui/theme'
-import { useNavigation, useNavigationSync } from './navigationStore'
+import { useNavigation, useNavigationPlaceSync } from './navigationStore'
+import { useIsWide, WorkspaceRoute, WorkspaceToolbar } from '../../screens/workspaces/WorkspaceScreen'
+import { WorkspaceSidebarSection } from '../../screens/workspaces/WorkspaceSidebar'
 import './shell.css'
+
+/** A workspace's name for the trail and titles, looked up live so a rename shows at once. */
+function useWorkspaceName(): (id: string) => string | undefined {
+  const { services } = useApp()
+  const store = useModel(services.workspaces)
+  return (id) => store.workspace(id)?.name
+}
+
+/** Go ▸ Back ⌘[ and Forward ⌘] (Ctrl+[ and Ctrl+] off the Mac). */
+function useGoCommands() {
+  const { goBack, goForward } = useNavigation()
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || e.defaultPrevented) return
+      if (e.key === '[') { e.preventDefault(); goBack() }
+      else if (e.key === ']') { e.preventDefault(); goForward() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [goBack, goForward])
+}
 
 /**
  * The app's frame. Phones get the five tabs along the bottom and a back pill
@@ -16,19 +40,25 @@ import './shell.css'
  * hub's segments sit under the title.
  */
 export function Shell({ children, accent, overlay }: { children: (screen: Screen) => ReactNode; accent?: string; overlay?: ReactNode }) {
-  const screen = useNavigationSync() ?? 'board'
+  const place = useNavigationPlaceSync()
+  const workspaceID = place?.kind === 'workspace' ? place.id : undefined
+  // A workspace has no screen of its own; the phone's tabs show My Team under it.
+  const screen = place?.kind === 'screen' ? place.screen : workspaceID ? 'dashboard' : 'board'
   const { resolved } = useTheme()
   const hub = hubFor(screen)
-  const hue = hueForScreen(screen)
+  const hue = workspaceID ? 'var(--accent)' : hueForScreen(screen)
+  useGoCommands()
 
   return (
     <div className="fcc shell" data-theme={resolved} style={{ '--screen-hue': hue, ...(accent ? { '--accent': accent } : {}) } as CSSProperties}>
-      <Sidebar current={screen} />
+      <Sidebar current={place ?? { kind: 'screen', screen }} />
       <div className="shell-main">
-        <TopBar screen={screen} />
+        <TopBar screen={screen} workspaceID={workspaceID} />
         {/* Lineup draws its own status header, which switches sections, as on the phone. */}
-        {hubScreens[hub].length > 1 && hub !== 'lineup' && <Segments screen={screen} />}
-        <main className="shell-content">{children(screen)}</main>
+        {!workspaceID && hubScreens[hub].length > 1 && hub !== 'lineup' && <Segments screen={screen} />}
+        <main className={`shell-content${workspaceID ? ' shell-content-workspace' : ''}`}>
+          {workspaceID ? <WorkspaceRoute id={workspaceID} /> : children(screen)}
+        </main>
       </div>
       <TabBar current={screen} />
       {overlay}
@@ -36,23 +66,31 @@ export function Shell({ children, accent, overlay }: { children: (screen: Screen
   )
 }
 
-function TopBar({ screen }: { screen: Screen }) {
+function TopBar({ screen, workspaceID }: { screen: Screen; workspaceID?: string }) {
   const { router, goForward } = useNavigation()
+  const name = useWorkspaceName()
+  const wide = useIsWide()
+  const title = workspaceID
+    ? (name(workspaceID) ?? 'Workspace')
+    : screen === 'dashboard' ? 'My Team' : segmentOrTitle(screen)
   return (
     <header className="topbar">
       <div className="topbar-leading">
         <BackPill />
         {router.canGoForward && (
           <button type="button" className="icon-button wide-only" onClick={goForward} aria-label="Forward"
-            title={router.history.next ? `Forward to ${trailLabel(router.history.next)}` : 'Forward'}>
+            title={router.history.next ? `Forward to ${trailLabel(router.history.next, name)}` : 'Forward'}>
             <ChevronRight size={18} />
           </button>
         )}
       </div>
-      <h1 className="t-title topbar-title">{screen === 'dashboard' ? 'My Team' : segmentOrTitle(screen)}</h1>
-      <Link to="/settings" className="icon-button" aria-label="Settings" title="Settings">
-        <SettingsIcon size={18} />
-      </Link>
+      <h1 className="t-title topbar-title">{title}</h1>
+      <div className="topbar-trailing">
+        {workspaceID && wide && <WorkspaceToolbar id={workspaceID} />}
+        <Link to="/settings" className="icon-button" aria-label="Settings" title="Settings">
+          <SettingsIcon size={18} />
+        </Link>
+      </div>
     </header>
   )
 }
@@ -69,6 +107,7 @@ function segmentOrTitle(screen: Screen): string {
  */
 function BackPill() {
   const { router, goBack, goBackTo } = useNavigation()
+  const name = useWorkspaceName()
   const [open, setOpen] = useState(false)
   const timer = useRef<number | undefined>(undefined)
   const held = useRef(false)
@@ -84,7 +123,7 @@ function BackPill() {
         type="button"
         className="backpill"
         style={{ color: hue, background: `color-mix(in srgb, ${hue} 14%, transparent)` }}
-        aria-label={`Back to ${trailLabel(previous)}`}
+        aria-label={`Back to ${trailLabel(previous, name)}`}
         aria-haspopup="menu"
         aria-expanded={open}
         onPointerDown={() => {
@@ -97,7 +136,7 @@ function BackPill() {
         onClick={() => { if (!held.current) goBack() }}
       >
         <ChevronLeft size={16} strokeWidth={2.6} aria-hidden />
-        <span>{shortLabel(previous)}</span>
+        <span>{shortLabel(previous, name)}</span>
       </button>
       {open && (
         <>
@@ -109,7 +148,7 @@ function BackPill() {
               return (
                 <button key={index} type="button" role="menuitem" className="menu-item t-body"
                   onClick={() => { setOpen(false); goBackTo(index) }}>
-                  <Icon size={16} aria-hidden /> {trailLabel(place)}
+                  <Icon size={16} aria-hidden /> {trailLabel(place, name)}
                 </button>
               )
             })}
@@ -150,13 +189,15 @@ function TabBar({ current }: { current: Screen }) {
   )
 }
 
-function Sidebar({ current }: { current: Screen }) {
+function Sidebar({ current: place }: { current: Place }) {
   const { open } = useNavigation()
+  const current = place.kind === 'screen' ? place.screen : undefined
   return (
     <nav className="sidebar" aria-label="Sections">
       <div className="sidebar-title t-section">Command Center</div>
       {hubs.map((hub) => (
-        <div key={hub} className="sidebar-group">
+        <Fragment key={hub}>
+        <div className="sidebar-group">
           <div className="t-micro muted sidebar-heading">{hubTitle[hub]}</div>
           {hubScreens[hub].map((s) => {
             const Icon = screenIcon[s]
@@ -170,6 +211,9 @@ function Sidebar({ current }: { current: Screen }) {
             )
           })}
         </div>
+        {/* The user's workspaces sit after this week's screens, as in the Mac sidebar. */}
+        {hub === 'lineup' && <WorkspaceSidebarSection currentID={place.kind === 'workspace' ? place.id : undefined} />}
+        </Fragment>
       ))}
     </nav>
   )

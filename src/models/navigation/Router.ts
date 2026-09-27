@@ -1,4 +1,4 @@
-import { NavigationHistory, samePlace, screenPlace, type Place } from './NavigationHistory'
+import { NavigationHistory, samePlace, screenPlace, workspacePlace, type Place } from './NavigationHistory'
 import { hubFor, hubScreens, type Hub, type Screen } from './screens'
 
 /**
@@ -12,6 +12,12 @@ export class Router {
     /** The segment each hub was last on, so coming back to a hub returns there. */
     readonly hubSegments: Readonly<Partial<Record<Hub, Screen>>>,
     readonly history: NavigationHistory,
+    /**
+     * Unlocked: the open workspace's panels show drag and resize handles.
+     * Locked by default, so a finished layout can't be nudged by accident;
+     * opening a different workspace locks it again.
+     */
+    readonly workspaceEditing: boolean = false,
   ) {}
 
   static at(selection: Place): Router {
@@ -37,10 +43,26 @@ export class Router {
   get canGoBack(): boolean { return this.history.canGoBack }
   get canGoForward(): boolean { return this.history.canGoForward }
 
-  /** Any move — a link, a tile, a segment, a sidebar click — recorded as a step. */
+  /**
+   * Any move — a link, a tile, a segment, a sidebar click — recorded as a
+   * step. Arriving at a workspace from anywhere else locks its layout;
+   * reselecting the open one keeps it as it is.
+   */
   go(place: Place): Router {
     if (samePlace(place, this.selection)) return this
-    return new Router(place, remember(this.hubSegments, place), this.history.record(this.selection, place))
+    return new Router(place, remember(this.hubSegments, place), this.history.record(this.selection, place),
+      place.kind === 'workspace' ? false : this.workspaceEditing)
+  }
+
+  /** Swift `open(workspace:)`. */
+  openWorkspace(id: string): Router {
+    return this.go(workspacePlace(id))
+  }
+
+  /** Locks or unlocks the open workspace's layout. */
+  withWorkspaceEditing(editing: boolean): Router {
+    if (editing === this.workspaceEditing) return this
+    return new Router(this.selection, this.hubSegments, this.history, editing)
   }
 
   open(screen: Screen): Router {
@@ -70,12 +92,13 @@ export class Router {
   }
 
   forget(workspaceId: string): Router {
-    return new Router(this.selection, this.hubSegments, this.history.forget(workspaceId))
+    return new Router(this.selection, this.hubSegments, this.history.forget(workspaceId), this.workspaceEditing)
   }
 
-  /** A back or forward move isn't recorded as a new step. */
+  /** A back or forward move isn't recorded as a new step. Going back to another workspace locks it. */
   private restore(target: Place, history: NavigationHistory): Router {
-    return new Router(target, remember(this.hubSegments, target), history)
+    const locks = target.kind === 'workspace' && !samePlace(this.selection, target)
+    return new Router(target, remember(this.hubSegments, target), history, locks ? false : this.workspaceEditing)
   }
 }
 

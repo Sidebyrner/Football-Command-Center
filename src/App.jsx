@@ -91,7 +91,7 @@ export default function App() {
           }
         />
         <Route path="/" element={<Launch />} />
-        {['/board', '/team', '/settings', '/lineup/*', '/market/*', '/streams/*'].map((path) => (
+        {['/board', '/team', '/settings', '/lineup/*', '/market/*', '/streams/*', '/workspaces/:id'].map((path) => (
           <Route key={path} path={path} element={<NewApp />} />
         ))}
         <Route

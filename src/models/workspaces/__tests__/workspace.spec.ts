@@ -357,8 +357,20 @@ describe('AppRouter', () => {
     expect(router.selection).toEqual(screenPlace('matchup'))
   })
 
-  // Swift's AppRouter carries `workspaceEditing`, reset when a different
-  // workspace opens; the web Router (src/models/navigation) has no editing
-  // flag yet, so there is nothing to assert against.
-  it.todo('switching workspaces locks the layout (needs workspaceEditing on the web Router)')
+  it('switching workspaces locks the layout', () => {
+    const first = newUUID()
+    const second = newUUID()
+    let router = Router.at(workspacePlace(first)).withWorkspaceEditing(true)
+    expect(router.workspaceEditing).toBe(true)
+    // Reselecting the same workspace keeps it unlocked.
+    router = router.openWorkspace(first)
+    expect(router.workspaceEditing).toBe(true)
+    // A different one locks it.
+    router = router.openWorkspace(second)
+    expect(router.workspaceEditing).toBe(false)
+    // Going back to the first locks it too.
+    router = router.withWorkspaceEditing(true).goBack()
+    expect(router.selection).toEqual(workspacePlace(first))
+    expect(router.workspaceEditing).toBe(false)
+  })
 })
