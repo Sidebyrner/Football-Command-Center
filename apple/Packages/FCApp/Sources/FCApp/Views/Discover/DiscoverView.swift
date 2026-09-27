@@ -48,6 +48,12 @@ struct DiscoverView: View {
     private var list: some View {
         List {
             Section {
+                hero
+                    .listRowInsets(EdgeInsets(top: Space.s, leading: Space.l, bottom: Space.m, trailing: Space.l))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+            }
+            Section {
                 SlidingPicker(options: Scope.allCases, selection: $scope) { $0.rawValue }
                     .listRowSeparator(.hidden)
                 if scope == .freeAgents {
@@ -62,6 +68,24 @@ struct DiscoverView: View {
             }
         }
         .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Surface.page.ignoresSafeArea())
+    }
+
+    /// The answer: the best free agent on the current sort, and how deep the
+    /// pool is.
+    private var hero: some View {
+        let top = model.visible.first
+        return ScreenHero(
+            overline: "Market · Discover",
+            systemImage: "binoculars",
+            answer: top.map { StreamFormat.shortName($0.name) } ?? "No free agents",
+            detail: top.map { row in
+                let where_ = [row.position.rawValue, row.team].compactMap { $0 }.joined(separator: " · ")
+                return value(row).map { "\(where_) · \($0) \(model.sort.unit ?? ""), best by \(model.sort.label.lowercased())" } ?? where_
+            } ?? "Nobody at the positions your league starts.",
+            stats: [("\(model.visible.count)", "free agents"), ("\(model.filterablePositions.count)", "positions")]
+        )
     }
 
     private var positionChips: some View {
@@ -78,15 +102,7 @@ struct DiscoverView: View {
     }
 
     private func chip(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.caption.weight(selected ? .bold : .medium))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .foregroundStyle(selected ? Color.white : .primary)
-                .background(Capsule().fill(selected ? Color.accentColor : Palette.surface))
-        }
-        .buttonStyle(.plain)
+        FilterChip(title: label, isSelected: selected, action: action)
     }
 
     private var freeAgents: some View {
@@ -314,17 +330,9 @@ private struct DiscoverPlayerPage: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 6) {
                             ForEach(metrics) { option in
-                                Button {
+                                FilterChip(title: option.label, isSelected: option == metric) {
                                     withAnimation(Motion.snappy) { metric = option }
-                                } label: {
-                                    Text(option.label)
-                                        .font(.caption.weight(option == metric ? .bold : .medium))
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 5)
-                                        .foregroundStyle(option == metric ? Color.white : .primary)
-                                        .background(Capsule().fill(option == metric ? Color.accentColor : Palette.surface))
                                 }
-                                .buttonStyle(.plain)
                             }
                         }
                     }

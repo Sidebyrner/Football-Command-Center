@@ -20,7 +20,7 @@ public struct PlanningView: View {
 
     public var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: Space.xl) {
                 if let error = model.errorMessage, model.context != nil {
                     InlineErrorBanner(message: error)
                 }
@@ -33,6 +33,7 @@ public struct PlanningView: View {
                         Text(error).font(.footnote).foregroundStyle(.secondary)
                     }
                 } else if let context = model.context {
+                    hero(context: context)
                     if !introSeen {
                         PlanningIntroCard(onDismiss: onDismissIntro)
                             .transition(.opacity.combined(with: .move(edge: .top)))
@@ -58,7 +59,7 @@ public struct PlanningView: View {
                     .id(model.mode)
                     .transition(.opacity)
 
-                    VStack(alignment: .leading, spacing: 4) {
+                    AboutThisData {
                         FreshnessBanner(provenance: context.provenance)
                         if let note = context.statsSeasonNote {
                             CoverageNote(text: note)
@@ -69,14 +70,34 @@ public struct PlanningView: View {
                     }
                 }
             }
-            .padding()
+            .padding(.horizontal, Space.l)
+            .padding(.vertical, Space.m)
             .frame(maxWidth: .infinity, alignment: .leading)
             .motion(Motion.snappy, value: model.mode)
             .motion(Motion.smooth, value: introSeen)
         }
+        .background(Surface.page.ignoresSafeArea())
         .refreshable { await model.refresh() }
         .sensoryFeedback(.success, trigger: model.refreshCount)
         .navigationTitle("Planning")
+    }
+
+    /// The answer: the next week you can't field a full lineup, or that you're
+    /// covered.
+    private func hero(context: LeagueContext) -> some View {
+        let short = model.userShortWeeks()
+        let next = short.min { $0.week < $1.week }
+        return ScreenHero(
+            overline: "Market · Planning",
+            systemImage: "calendar.badge.exclamationmark",
+            answer: next.map { "Week \($0.week): \($0.shortfall) short" } ?? "Covered",
+            detail: next.map { cell in
+                let positions = cell.shortPositions.map(\.rawValue).joined(separator: ", ")
+                return positions.isEmpty ? "Your first bye crunch." : "Your first bye crunch — \(positions)."
+            } ?? "You can field a full lineup in every remaining week.",
+            stats: [("\(short.count)", "short weeks"), ("\(context.remainingWeeks.count)", "weeks left")],
+            tone: next == nil ? .start : .caution
+        )
     }
 }
 
@@ -103,14 +124,14 @@ struct PlanningIntroCard: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 } icon: {
-                    Image(systemName: mode.systemImage).foregroundStyle(Color.accentColor)
+                    Image(systemName: mode.systemImage).foregroundStyle(HubStyle.market)
                 }
             }
             Button("Got it", action: onDismiss)
                 .buttonStyle(.borderedProminent)
                 .padding(.top, 2)
         }
-        .card(fill: Color.accentColor.opacity(0.10))
+        .card()
     }
 }
 
@@ -124,10 +145,8 @@ struct ByesSection: View {
         let short = model.userShortWeeks()
         VStack(alignment: .leading, spacing: 12) {
             if short.isEmpty {
-                Label("You can field a full lineup in every remaining week.", systemImage: "checkmark.seal.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Palette.start)
-                    .card(fill: Palette.start.opacity(0.10))
+                StatusLabel(tone: .start, text: "You can field a full lineup in every remaining week.")
+                    .card()
             } else {
                 Text("Short in \(short.count) of \(context.remainingWeeks.count) remaining weeks. Tap a week to fix it.")
                     .font(.footnote)
@@ -297,10 +316,8 @@ struct TradesSection: View {
                 .disabled(model.context == nil)
 
             if model.userShortWeeks().isEmpty {
-                Label("No short weeks — the wizard can still find an upgrade.", systemImage: "checkmark.seal.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.start)
-                    .card(fill: Palette.start.opacity(0.10))
+                StatusLabel(tone: .start, text: "No short weeks — the wizard can still find an upgrade.")
+                    .card()
             } else if model.tradeTargets.isEmpty {
                 Text("No rival has a spare bench player who plays in your short weeks.")
                     .font(.subheadline)

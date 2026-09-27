@@ -15,7 +15,7 @@ public struct WaiverBoardView: View {
 
     public var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Space.xl) {
                 if let error = model.errorMessage, model.context != nil {
                     InlineErrorBanner(message: error)
                 }
@@ -28,21 +28,29 @@ public struct WaiverBoardView: View {
                         Text(error).font(.footnote).foregroundStyle(.secondary)
                     }
                 } else if let context = model.context {
-                    if let facts = model.facts { WaiverFactsStrip(facts: facts) }
-                    controls
-                    boardList(context: context)
+                    hero
+                    ScreenSection(title: "Rank by", systemImage: "arrow.up.arrow.down") { controls }
+                    ScreenSection(title: "Free agents", systemImage: "tray.and.arrow.down",
+                                  count: model.rows.isEmpty ? nil : min(model.rows.count, 60)) {
+                        boardList(context: context)
+                    }
                     dropSection
-                    VStack(alignment: .leading, spacing: 4) {
+                    AboutThisData {
+                        if let facts = model.facts {
+                            CoverageNote(text: WaiverFactsStrip.detail(facts))
+                        }
                         FreshnessBanner(provenance: context.provenance)
                         ForEach(model.sourceNotes, id: \.self) { CoverageNote(text: $0) }
                     }
                 }
             }
-            .padding()
+            .padding(.horizontal, Space.l)
+            .padding(.vertical, Space.m)
             .frame(maxWidth: .infinity, alignment: .leading)
             .motion(Motion.snappy, value: model.sort)
             .motion(Motion.snappy, value: model.positionFilter)
         }
+        .background(Surface.page.ignoresSafeArea())
         .refreshable { await model.refresh() }
         .sensoryFeedback(.success, trigger: model.refreshCount)
         .navigationTitle("Waivers")
@@ -50,6 +58,37 @@ public struct WaiverBoardView: View {
         .sheet(item: $adding) { row in
             AddDropSheet(model: model, add: row)
         }
+    }
+
+    // MARK: - Hero
+
+    /// The answer: who to claim first, and what your league lets you spend.
+    private var hero: some View {
+        let top = model.rows.first
+        var stats: [(value: String, label: String)] = []
+        if let facts = model.facts {
+            if facts.system != .unknown { stats.append((WaiverFactsStrip.systemShort(facts), "system")) }
+            if let faab = facts.faabRemaining { stats.append(("$\(faab)", "FAAB left")) }
+            if let position = facts.waiverPosition { stats.append(("#\(position)", "priority")) }
+        }
+        return ScreenHero(
+            overline: "Market · Waivers",
+            systemImage: "tray.and.arrow.down",
+            answer: top.map { StreamFormat.shortName($0.name) } ?? "Nobody yet",
+            detail: top.map { row in
+                let where_ = [row.position.rawValue, row.team].compactMap { $0 }.joined(separator: " · ")
+                guard let value = row.value(model.sort) else { return "\(where_) · top by \(model.sort.label.lowercased())" }
+                return "\(where_) · \(Self.valueText(value, model.sort)) \(model.sort.unit)"
+            } ?? "No free agent has this measure yet.",
+            stats: stats
+        )
+    }
+
+    static func valueText(_ value: Double, _ sort: WaiverSort) -> String {
+        if sort.isPercent { return value.formatted(.percent.precision(.fractionLength(0))) }
+        if sort == .trending { return value.formatted(.number.notation(.compactName)) }
+        if sort == .projectedOverLine { return (value >= 0 ? "+" : "") + value.formatted(.number.precision(.fractionLength(1))) }
+        return value.formatted(.number.precision(.fractionLength(1)))
     }
 
     // MARK: - Controls
@@ -97,14 +136,7 @@ public struct WaiverBoardView: View {
     }
 
     private func filterChip(label: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.caption.weight(selected ? .semibold : .regular))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(selected ? Color.accentColor.opacity(0.2) : Palette.surface))
-        }
-        .buttonStyle(.plain)
+        FilterChip(title: label, isSelected: selected, action: action)
     }
 
     // MARK: - Board
@@ -269,10 +301,12 @@ struct WaiverFactsStrip: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .card(fill: Color.accentColor.opacity(0.08))
+        .card()
     }
 
-    private var systemShort: String {
+    private var systemShort: String { Self.systemShort(facts) }
+
+    static func systemShort(_ facts: WaiverFacts) -> String {
         switch facts.system {
         case .rolling: return "Rolling"
         case .reverseStandings: return "Rev. standings"
@@ -281,7 +315,9 @@ struct WaiverFactsStrip: View {
         }
     }
 
-    private var detail: String {
+    private var detail: String { Self.detail(facts) }
+
+    static func detail(_ facts: WaiverFacts) -> String {
         var parts = [facts.system.label]
         if let day = facts.processingDay { parts.append("claims process \(day)") }
         parts.append("read live from your league settings")

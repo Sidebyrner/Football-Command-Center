@@ -159,7 +159,7 @@ struct WideDesk: View {
                 .padding()
             }
             .frame(width: 400)
-            .background(Palette.surface.opacity(0.5))
+            .background(Surface.inset)
 
             Divider()
 
@@ -183,6 +183,7 @@ struct WideDesk: View {
                 .frame(maxWidth: .infinity)
             }
         }
+        .background(Surface.page)
         .motion(Motion.snappy, value: model.step)
         .task { await model.prepare() }
     }
@@ -199,9 +200,11 @@ private struct StepScroll<Content: View>: View {
                 DeskHeader(model: model)
                 content
             }
-            .padding()
+            .padding(.horizontal, Space.l)
+            .padding(.vertical, Space.m)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .background(Surface.page.ignoresSafeArea())
         .sensoryFeedback(.selection, trigger: model.step)
         .task { await model.prepare() }
     }
@@ -211,10 +214,15 @@ private struct StepScroll<Content: View>: View {
 
 private struct DeskHeader: View {
     @ObservedObject var model: TradeWizardModel
+    @Environment(\.hubTint) private var hubTint
 
     var body: some View {
+        let tint = hubTint ?? HubStyle.market
         VStack(alignment: .leading, spacing: 8) {
-            StepProgress(step: model.step)
+            Label("Market · Trade desk", systemImage: "arrow.triangle.swap")
+                .textStyle(.micro)
+                .foregroundStyle(tint)
+            StepProgress(step: model.step, tint: tint)
             if let label = model.window.label {
                 Label(label, systemImage: model.window.isClosed ? "lock.fill" : "clock")
                     .font(.footnote.weight(.semibold))
@@ -232,25 +240,29 @@ private struct DeskHeader: View {
                 CoverageNote(text: note)
             }
         }
+        .padding(Space.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(ScreenHeroBackground(tint: tint))
     }
 }
 
 private struct StepProgress: View {
     let step: TradeStep
+    var tint: Color = .accentColor
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 4) {
                 ForEach(TradeStep.allCases) { item in
                     Capsule()
-                        .fill(item.rawValue <= step.rawValue ? Color.accentColor : Palette.surfaceRaised)
+                        .fill(item.rawValue <= step.rawValue ? tint : Palette.surfaceRaised)
                         .frame(height: 4)
                 }
             }
             .accessibilityHidden(true)
             HStack(alignment: .firstTextBaseline) {
                 Text(step.title)
-                    .font(.title2.weight(.bold))
+                    .textStyle(.title)
                 Spacer()
                 Text("Step \(step.rawValue + 1) of \(TradeStep.allCases.count)")
                     .font(.caption.monospacedDigit())
@@ -278,17 +290,15 @@ struct GoalStep: View {
                     Label("Trades are closed for the season. You can still look around.", systemImage: "lock.fill")
                         .font(.subheadline)
                         .foregroundStyle(Palette.sit)
-                        .card(fill: Palette.sit.opacity(0.08))
+                        .callout(.sit)
                 }
                 if model.goals.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Label("No short weeks and no starter below the start line.", systemImage: "checkmark.seal.fill")
-                            .font(.subheadline)
-                            .foregroundStyle(Palette.start)
+                        StatusLabel(tone: .start, text: "No short weeks and no starter below the start line.")
                         Button("Browse the Waiver Board instead") { openScreen(.waivers) }
                             .font(.caption)
                     }
-                    .card(fill: Palette.start.opacity(0.10))
+                    .card()
                 } else {
                     SectionHeader(title: "From your roster",
                                   subtitle: "Weeks you can't fill, and starters below the league's start line — superflex counted.")
@@ -346,7 +356,7 @@ private struct GoalRow: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.tertiary)
         }
-        .card(fill: selected ? Color.accentColor.opacity(0.12) : Palette.surface)
+        .modifier(SelectableCard(selected: selected))
         .contentShape(Rectangle())
     }
 }
@@ -507,7 +517,7 @@ private struct PartnerCard: View {
                     .labelStyle(FactLabelStyle())
             }
         }
-        .card(fill: selected ? Color.accentColor.opacity(0.12) : Palette.surface)
+        .modifier(SelectableCard(selected: selected))
         .contentShape(Rectangle())
     }
 }
@@ -658,7 +668,7 @@ private struct DealComparison: View {
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .card(fill: Color.accentColor.opacity(0.06))
+        .card()
     }
 
     private func side(_ title: String, side: DealSide, gets ids: Set<String>) -> some View {
@@ -804,14 +814,7 @@ private struct PlayerPicker: View {
     }
 
     private func chip(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.caption.weight(selected ? .semibold : .regular))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(selected ? Color.accentColor.opacity(0.2) : Palette.surface))
-        }
-        .buttonStyle(.plain)
+        FilterChip(title: label, isSelected: selected, action: action)
     }
 }
 
@@ -988,7 +991,7 @@ struct ApproachStep: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .card(fill: Color.accentColor.opacity(0.08))
+            .card()
             .motion(Motion.smooth, value: shown)
 
             ViewThatFits(in: .horizontal) {
@@ -1056,5 +1059,19 @@ struct ApproachStep: View {
             .buttonStyle(.bordered)
             .disabled(model.isPolishing)
         }
+    }
+}
+
+/// A raised card that shows it's the chosen one with an outline in the
+/// screen's hue — selection isn't an action, so no accent wash.
+struct SelectableCard: ViewModifier {
+    let selected: Bool
+    @Environment(\.hubTint) private var hubTint
+
+    func body(content: Content) -> some View {
+        content
+            .card()
+            .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                .strokeBorder((hubTint ?? .accentColor).opacity(selected ? 0.8 : 0), lineWidth: 2))
     }
 }
