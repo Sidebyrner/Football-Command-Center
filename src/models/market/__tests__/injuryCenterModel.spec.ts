@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LeagueContextLoader } from '../../league/LeagueContextLoader'
 import { InjuryCenterModel, InjurySeverity, injuredPlayerHeadline } from '../InjuryCenterModel'
+import { DashboardModel } from '../../team/DashboardModel'
 import { makeHarness, standardTransport, TestClock } from '../../../../tests/appHarness'
 import type { StubTransport } from '../../../../tests/stubTransport'
 import { fixtureText } from '../../../../tests/swiftFixtures'
@@ -192,9 +193,14 @@ describe('InjuryCenterModel', () => {
     expect(m.sourceNotes.some((n) => n.includes('Unavailable') && n.includes('projections'))).toBe(true)
   })
 
-  /**
-   * My Team's alert now carries the report detail, not just the tag.
-   * Needs FCApp `DashboardModel`, which is not ported in this slice.
-   */
-  it.todo('dashboard alert carries practice detail ("Out · Hamstring · Did not practice") — needs DashboardModel port')
+  /** My Team's alert now carries the report detail, not just the tag. */
+  it('dashboard alert carries practice detail', async () => {
+    const { sleeper, staticData } = makeHarness(transport())
+    const loader = new LeagueContextLoader(sleeper, staticData, TestClock.beforeKickoffs)
+    const dashboard = new DashboardModel(loader, sleeper, undefined)
+    await dashboard.load('L1', 1)
+    const alert = dashboard.alerts.find((a) => a.playerID === COLLINS)
+    expect(alert).toBeDefined()
+    expect(alert!.detail).toBe('Out · Hamstring · Did not practice')
+  })
 })

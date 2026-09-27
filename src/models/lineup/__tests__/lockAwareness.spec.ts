@@ -3,7 +3,8 @@ import { formatCountdown, sleeperTeamLink } from '../../league/GameDayWindow'
 import { LeagueContextLoader } from '../../league/LeagueContextLoader'
 import { MatchupModel } from '../MatchupModel'
 import { SitStartModel } from '../SitStartModel'
-import { makeHarness, standardTransport, TestClock } from '../../../../tests/appHarness'
+import { DashboardModel, LineupAlertKind } from '../../team/DashboardModel'
+import { dashboardTransport, makeHarness, standardTransport, TestClock } from '../../../../tests/appHarness'
 import { MatchupFixture, SitStartFixture } from './lineupFixtures'
 
 /**
@@ -19,6 +20,14 @@ async function sitStart(now: () => number): Promise<SitStartModel> {
     .override('/players/nfl', SitStartFixture.players)
   const { sleeper, staticData } = makeHarness(transport)
   const model = new SitStartModel(new LeagueContextLoader(sleeper, staticData, now))
+  await model.load('L1', 1, 2025)
+  if (model.errorMessage !== undefined) throw new Error(`load failed: ${model.errorMessage}`)
+  return model
+}
+
+async function dashboard(now: () => number): Promise<DashboardModel> {
+  const { sleeper, staticData } = makeHarness(dashboardTransport())
+  const model = new DashboardModel(new LeagueContextLoader(sleeper, staticData, now), sleeper)
   await model.load('L1', 1, 2025)
   if (model.errorMessage !== undefined) throw new Error(`load failed: ${model.errorMessage}`)
   return model
@@ -73,8 +82,25 @@ describe('Lock awareness', () => {
 
   // MARK: - Dashboard
 
-  it.todo('alerts for locked starters are dropped … needs DashboardModel')
-  it.todo('dashboard shows the next lineup lock … needs DashboardModel')
+  /**
+   * The questionable receiver plays for MIN, whose 1pm game has started:
+   * nothing can be done about him now, so no alert. The bye starters and the
+   * empty slot can still be fixed, so those alerts remain.
+   */
+  it('alerts for locked starters are dropped', async () => {
+    const before = await dashboard(TestClock.beforeKickoffs)
+    expect(before.alerts.some((a) => a.kind === LineupAlertKind.injured), 'fixture precondition').toBe(true)
+
+    const during = await dashboard(TestClock.week7MidSunday)
+    expect(during.alerts.some((a) => a.kind === LineupAlertKind.injured)).toBe(false)
+    expect(during.alerts.some((a) => a.kind === LineupAlertKind.onBye && a.playerName === 'Starter QB')).toBe(true)
+    expect(during.alerts.some((a) => a.kind === LineupAlertKind.emptySlot)).toBe(true)
+  })
+
+  it('dashboard shows the next lineup lock', async () => {
+    const model = await dashboard(TestClock.week7MidSunday)
+    expect(model.nextLock).toBe(Date.parse('2025-10-19T20:25:00Z'))
+  })
 
   // MARK: - Matchup
 
