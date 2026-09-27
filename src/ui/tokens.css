@@ -1,0 +1,119 @@
+/*
+ * Design tokens — the same values as the native app's Theme/Tokens.swift and
+ * Palette.swift, so both read as one product. Scoped to .fcc (the new shell)
+ * so legacy pages keep their own look until they move over.
+ *
+ * Rules the tokens keep: contrast comes from elevation and size (a recessed
+ * page, raised cards, insets), not from more colours; each colour has one
+ * job — the accent is for things you press, status colours are verdicts with
+ * an icon, each tab has a hue; type follows the user's text size.
+ */
+.fcc {
+  /* Surfaces */
+  --page: #f2f2f7;
+  --card: #ffffff;
+  --inset: rgba(120, 120, 128, 0.08);
+  --stroke: rgba(60, 60, 67, 0.18);
+  --reversed: #ffffff;
+  --text: #000000;
+  --text-2: rgba(60, 60, 67, 0.78);
+  --text-3: rgba(60, 60, 67, 0.45);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+
+  /* Accent: indigo, clear of every status colour */
+  --accent: #6366f1;
+
+  /* Status — verdicts only, always with an icon; deeper in light mode */
+  --start: #047857;
+  --caution: #b45309;
+  --sit: #be123c;
+
+  /* Tab hues */
+  --hue-board: #6366f1;
+  --hue-team: #3b82f6;
+  --hue-lineup: #14b8a6;
+  --hue-market: #9333ea;
+
+  /* Positions */
+  --pos-qb: #2563eb;
+  --pos-rb: #059669;
+  --pos-wr: #7c3aed;
+  --pos-te: #ea580c;
+  --pos-k: #db2777;
+  --pos-def: #64748b;
+  --pos-lb: #0284c7;
+  --pos-dl: #dc2626;
+  --pos-db: #a16207;
+
+  /* Shape and rhythm */
+  --radius-small: 8px;
+  --radius-card: 14px;
+  --radius-hero: 22px;
+  --space-xs: 4px;
+  --space-s: 8px;
+  --space-m: 12px;
+  --space-l: 16px;
+  --space-xl: 24px;
+  --space-tier: 32px;
+
+  /* Type roles — rem, so they follow the browser's text size */
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter, system-ui, sans-serif;
+  --font-rounded: ui-rounded, 'SF Pro Rounded', -apple-system, 'Nunito', system-ui, sans-serif;
+
+  color-scheme: light;
+  background: var(--page);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+
+.fcc[data-theme='dark'] {
+  --page: #000000;
+  --card: #1c1c1e;
+  --inset: rgba(120, 120, 128, 0.16);
+  --stroke: rgba(84, 84, 88, 0.6);
+  --reversed: #000000;
+  --text: #ffffff;
+  --text-2: rgba(235, 235, 245, 0.72);
+  --text-3: rgba(235, 235, 245, 0.4);
+  --shadow: none;
+  --start: #10b981;
+  --caution: #f59e0b;
+  --sit: #fb7185;
+  --pos-qb: #60a5fa;
+  --pos-rb: #34d399;
+  --pos-wr: #a78bfa;
+  --pos-te: #fb923c;
+  --pos-k: #f472b6;
+  --pos-def: #94a3b8;
+  --pos-lb: #38bdf8;
+  --pos-dl: #f87171;
+  --pos-db: #facc15;
+  color-scheme: dark;
+}
+
+/* Type roles */
+.t-display { font-family: var(--font-rounded); font-size: 2.125rem; font-weight: 700; line-height: 1.1; letter-spacing: -0.01em; }
+.t-title { font-family: var(--font-rounded); font-size: 1.375rem; font-weight: 700; line-height: 1.2; }
+.t-section { font-size: 1.0625rem; font-weight: 600; line-height: 1.3; }
+.t-body { font-size: 0.9375rem; line-height: 1.4; }
+.t-meta { font-size: 0.75rem; line-height: 1.35; }
+.t-micro { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.muted { color: var(--text-2); }
+.faint { color: var(--text-3); }
+
+/* Surfaces */
+.card {
+  background: var(--card);
+  border: 0.5px solid var(--stroke);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow);
+  padding: var(--space-l);
+}
+.inset { background: var(--inset); border-radius: var(--radius-small); padding: var(--space-m); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fcc * { transition: none !important; animation: none !important; }
+}

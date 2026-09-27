@@ -1,4 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Shell } from '@ui/shell/Shell'
+import { Placeholder } from './screens/Placeholder'
+import { launchScreen, pathFor } from '@models/navigation/screens'
+import '@ui/tokens.css'
+import '@ui/components/components.css'
 import useAppStore from './store/useAppStore'
 import { usePlanSync } from './hooks/usePlanSync'
 import ErrorBoundary from './components/layout/ErrorBoundary'
@@ -39,6 +44,17 @@ function AppLayout({ children }) {
   )
 }
 
+/** The new app: the five hubs, ported from the native app screen by screen. */
+function NewApp() {
+  return <Shell>{(screen) => <Placeholder screen={screen} />}</Shell>
+}
+
+/** Board on a phone, My Team on a wider screen — as on the native app. */
+function Launch() {
+  const isPhone = window.matchMedia?.('(max-width: 899px)').matches ?? true
+  return <Navigate to={pathFor(launchScreen(isPhone))} replace />
+}
+
 export default function App() {
   // Runs regardless of which route is active — the drawer's "add to plan"
   // action is reachable from the draft board, not just the /plan page, so
@@ -46,7 +62,7 @@ export default function App() {
   usePlanSync()
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         <Route
           path="/settings"
@@ -56,8 +72,12 @@ export default function App() {
             </AppLayout>
           }
         />
+        <Route path="/" element={<Launch />} />
+        {['/board', '/team', '/lineup/*', '/market/*', '/streams/*'].map((path) => (
+          <Route key={path} path={path} element={<NewApp />} />
+        ))}
         <Route
-          path="/"
+          path="/classic"
           element={
             <RequireConfig>
               <AppLayout>
