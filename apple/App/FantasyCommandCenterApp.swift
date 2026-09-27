@@ -19,6 +19,7 @@ struct FantasyCommandCenterApp: App {
         #endif
         .commands {
             WorkspaceCommands(router: composition.router, store: composition.services.workspaces)
+            GoCommands(router: composition.router)
         }
     }
 }

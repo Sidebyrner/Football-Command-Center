@@ -16,6 +16,7 @@ struct PhoneHubView<Content: View>: View {
                 let shown = screen == current
                 NavigationStack {
                     root(screen)
+                        .modifier(BackPillToolbar(router: router))
                         .safeAreaInset(edge: .top, spacing: 0) {
                             // Only the visible stack carries the bar, so there's
                             // one set of segment buttons on screen.

@@ -498,6 +498,17 @@ the section switcher. Injuries is grouped: **Act now** (starters ruled out,
 with a link to swap them in Sit/Start), **Keep an eye on** (questionable
 starters and hurt bench players), **Fill-ins** and **Around the league**.
 
+**A way back from anywhere.** Every screen change — tab, segment, Board
+tile, in-app link, sidebar click, workspace — goes into one browser-style
+history on `AppRouter`, so an accidental tap is one step from undone. On
+iPhone a pill at the top-left of each tab's screen ("‹ Board", in that
+screen's hue) goes back on tap and shows the whole trail on press-and-hold;
+pushed pages keep the system back button. On Mac and iPad, back and forward
+chevrons sit in the toolbar (click-and-hold for the trail), the Go menu has
+Back ⌘[ and Forward ⌘], and the window subtitle says where you came from.
+Settings is never a step, a straight A → B → A bounce counts as going back,
+and deleted workspaces drop out of the trail.
+
 **The Board** is the week at a glance as tiles: the live matchup score, your
 players' NFL games (quarter, clock, possession, red zone; before kickoff the
 channel, spread and wind), lineup readiness, injuries, the best stream at

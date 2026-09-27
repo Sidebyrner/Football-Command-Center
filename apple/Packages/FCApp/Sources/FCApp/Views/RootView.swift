@@ -192,6 +192,12 @@ public struct RootView: View {
         } detail: {
             NavigationStack {
                 detail(for: router.selection)
+                    .toolbar {
+                        ToolbarItemGroup(placement: .navigation) {
+                            HistoryButtons(router: router, store: services.workspaces)
+                        }
+                    }
+                    .modifier(CameFromSubtitle(router: router, store: services.workspaces))
             }
             #if os(macOS)
             .frame(minWidth: 620)
