@@ -327,6 +327,19 @@ function qualifies(metric, s) {
   return true
 }
 
+// A season is usable when every kept position has at least one cohort that
+// survived the qualifiers.
+function pickCohortSeason(seasonIndex, seasons) {
+  const ordered = [...seasons].sort((a, b) => b - a)
+  for (const season of ordered) {
+    const cohorts = buildCohorts(seasonIndex, season)
+    const positions = Object.values(cohorts)
+    if (positions.length === KEEP_POSITIONS.size && positions.every((m) => Object.keys(m).length > 0)) return { season, cohorts }
+    console.log(`  · ${season}: too few games for cohorts yet, trying the season before`)
+  }
+  return { season: ordered[0], cohorts: buildCohorts(seasonIndex, ordered[0]) }
+}
+
 function buildCohorts(seasonIndex, season) {
   const cohorts = {}
   for (const perSeason of Object.values(seasonIndex)) {
@@ -613,10 +626,12 @@ async function main() {
     console.error(`  ✗ schedule failed: ${err.message} (continuing)`)
   }
 
-  // ── 2. Cohorts from the most recent loaded season ──────────────────────────
-  const cohortSeason = Math.max(...loaded)
+  // ── 2. Cohorts from the most recent season with enough games ───────────────
+  // Early in a season nobody has MIN_GAMES yet, so the newest season's cohorts
+  // come back empty and every percentile goes blank. Fall back to the newest
+  // season where every position has a usable cohort.
+  const { season: cohortSeason, cohorts } = pickCohortSeason(seasonIndex, loaded)
   console.log(`\n[2/4] percentile cohorts — ${cohortSeason}`)
-  const cohorts = buildCohorts(seasonIndex, cohortSeason)
   for (const [pos, metrics] of Object.entries(cohorts)) {
     const sizes = Object.values(metrics).map((a) => a.length)
     console.log(`  ✓ ${pos}: ${Object.keys(metrics).length} metrics, n=${Math.min(...sizes)}–${Math.max(...sizes)}`)
