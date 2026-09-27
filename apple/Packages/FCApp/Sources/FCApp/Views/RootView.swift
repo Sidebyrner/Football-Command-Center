@@ -161,10 +161,14 @@ public struct RootView: View {
         TabView(selection: $router.phoneHub) {
             ForEach(PhoneHub.allCases) { hub in
                 hubTab(hub)
+                    // Controls inside keep the accent; the tab bar below takes
+                    // the selected tab's hue.
+                    .tint(settingsModel.settings.accentTheme.color)
                     .tabItem { Label(hub.title, systemImage: hub.systemImage) }
                     .tag(hub)
             }
         }
+        .tint(HubStyle.tint(router.phoneHub))
         .sensoryFeedback(.selection, trigger: router.phoneHub)
     }
 
@@ -201,6 +205,7 @@ public struct RootView: View {
         switch item {
         case .screen(let screen):
             view(for: screen)
+                .environment(\.hubTint, HubStyle.tint(for: screen))
         case .workspace(let id):
             if settingsModel.settings.isConfigured {
                 WorkspaceScreen(workspaceID: id, store: services.workspaces, router: router, services: services)

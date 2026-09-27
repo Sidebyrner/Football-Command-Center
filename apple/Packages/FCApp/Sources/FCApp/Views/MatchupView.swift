@@ -9,6 +9,7 @@ import FCData
 /// team in full detail. The three are one swipe apart.
 public struct MatchupView: View {
     @ObservedObject var model: MatchupModel
+    @Environment(\.hubTint) private var hubTint
     @State private var selectedPair: PairedSlot?
 
     public init(model: MatchupModel) {
@@ -67,7 +68,7 @@ public struct MatchupView: View {
     /// and every page's content is still pinned to the screen width.
     @ViewBuilder
     private func loaded(_ context: LeagueContext) -> some View {
-        VStack(spacing: 10) {
+        VStack(spacing: Space.m) {
             VStack(spacing: 10) {
                 scoreboard
                 MatchupModePicker(model: model)
@@ -86,6 +87,7 @@ public struct MatchupView: View {
             page(model.mode, context: context)
             #endif
         }
+        .background(Surface.page.ignoresSafeArea())
     }
 
     private func page(_ mode: MatchupModel.Mode, context: LeagueContext) -> some View {
@@ -105,7 +107,7 @@ public struct MatchupView: View {
                 case .opponent:
                     if let side = model.opponentSide { individual(side) }
                 }
-                VStack(alignment: .leading, spacing: 4) {
+                AboutThisData {
                     FreshnessBanner(provenance: context.provenance)
                     if let note = context.statsSeasonNote {
                         CoverageNote(text: note)
@@ -113,6 +115,7 @@ public struct MatchupView: View {
                     CoverageNote(text: MatchupModel.linesNote)
                     CoverageNote(text: MatchupModel.defenseNote)
                 }
+                .padding(.top, Space.xl)
             }
             .padding()
             // Nothing in a page may be wider than the screen — content wider than
@@ -129,17 +132,15 @@ public struct MatchupView: View {
     private var scoreboard: some View {
         if let mine = model.mySide {
             VStack(spacing: 10) {
-                HStack(spacing: 8) {
-                    if let week = model.week {
-                        Text("WEEK \(week)")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .kerning(1.2)
-                    }
+                HStack(spacing: 6) {
+                    Image(systemName: "person.2").font(.caption.weight(.bold))
+                    Text(model.week.map { "Lineup · Matchup · Week \($0)" } ?? "Lineup · Matchup").textStyle(.micro)
+                    Spacer(minLength: 0)
                     if model.anyGameLive {
                         LiveBadge()
                     }
                 }
+                .foregroundStyle(hubTint ?? .accentColor)
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     teamScore(mine, alignment: .leading)
                     Text("vs")
@@ -159,7 +160,8 @@ public struct MatchupView: View {
                     ScoreShareBar(mine: mine.livePoints ?? 0, theirs: opponent.livePoints ?? 0)
                 }
             }
-            .card()
+            .padding(Space.l)
+            .background(ScreenHeroBackground(tint: hubTint ?? .accentColor))
         }
     }
 
@@ -170,8 +172,7 @@ public struct MatchupView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text(side.livePoints.map { String(format: "%.1f", $0) } ?? "—")
-                .font(.system(size: 32, weight: .bold, design: .rounded))
-                .monospacedDigit()
+                .textStyle(.display)
                 .contentTransition(.numericText())
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)

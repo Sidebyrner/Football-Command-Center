@@ -9,57 +9,65 @@ import FCData
 /// who the basis couldn't value and why.
 public struct SitStartView: View {
     @ObservedObject var model: SitStartModel
-    @Namespace private var basisHighlight
 
     public init(model: SitStartModel) {
         self.model = model
     }
 
     public var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if let error = model.errorMessage, model.context != nil {
-                    InlineErrorBanner(message: error)
-                }
-                if model.context == nil, model.isLoading || model.errorMessage == nil {
-                    LoadingPlaceholder(label: "Loading your roster…")
-                } else if model.context == nil, let error = model.errorMessage {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Could not load your roster", systemImage: "exclamationmark.triangle")
-                            .font(.headline)
-                        Text(error).font(.footnote).foregroundStyle(.secondary)
+        Group {
+            if let context = model.context {
+                ScreenScaffold {
+                    VStack(alignment: .leading, spacing: Space.m) {
+                        if let error = model.errorMessage { InlineErrorBanner(message: error) }
+                        hero(context: context)
                     }
-                } else if let context = model.context {
-                    basisPicker
-                    if let next = model.nextLock {
-                        lockLine(next, context: context)
-                    }
-                    recommendation
-                    if !model.disagreeingBases.isEmpty {
+                } content: {
+                    ScreenSection(title: "Optimize by", systemImage: "slider.horizontal.3") { basisPicker }
+                    if !(model.starts.isEmpty && model.moves.isEmpty) {
+                        ScreenSection(title: "Changes", systemImage: "arrow.left.arrow.right",
+                                      count: model.starts.count) {
+                            recommendation
+                            if !model.disagreeingBases.isEmpty { disagreement }
+                        }
+                    } else if !model.disagreeingBases.isEmpty {
                         disagreement
                     }
                     lineupSection
                     unrankedSection(context: context)
-                    VStack(alignment: .leading, spacing: 4) {
-                        FreshnessBanner(provenance: context.provenance)
-                        if let note = context.statsSeasonNote {
-                            CoverageNote(text: note)
-                        }
-                        if model.basis == .projected, let label = model.projectionSourceLabel {
-                            CoverageNote(text: "Projections: \(label), scored under your league's rules.")
-                        } else if model.basis == .projected {
-                            CoverageNote(text: "Projections are unavailable right now, so this basis values nobody.")
-                        }
-                        if model.basis == .commandCenter {
-                            CoverageNote(text: "Command Center: this season regressed toward last season (4 games to even), times a usage trend from expected points, times the matchup from defense-vs-position. Its own number, never blended with Rotowire's.")
-                        }
-                        CoverageNote(text: SitStartModel.modelBasisNote)
+                } about: {
+                    FreshnessBanner(provenance: context.provenance)
+                    if let note = context.statsSeasonNote {
+                        CoverageNote(text: note)
                     }
+                    if model.basis == .projected, let label = model.projectionSourceLabel {
+                        CoverageNote(text: "Projections: \(label), scored under your league's rules.")
+                    } else if model.basis == .projected {
+                        CoverageNote(text: "Projections are unavailable right now, so this basis values nobody.")
+                    }
+                    if model.basis == .commandCenter {
+                        CoverageNote(text: "Command Center: this season regressed toward last season (4 games to even), times a usage trend from expected points, times the matchup from defense-vs-position. Its own number, never blended with Rotowire's.")
+                    }
+                    CoverageNote(text: SitStartModel.modelBasisNote)
+                }
+                .motion(Motion.snappy, value: model.basis)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if model.isLoading || model.errorMessage == nil {
+                            LoadingPlaceholder(label: "Loading your roster…")
+                        } else if let error = model.errorMessage {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Label("Could not load your roster", systemImage: "exclamationmark.triangle")
+                                    .font(.headline)
+                                Text(error).font(.footnote).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .motion(Motion.snappy, value: model.basis)
         }
         .refreshable { await model.refresh() }
         .sensoryFeedback(.success, trigger: model.refreshCount)
@@ -67,59 +75,43 @@ public struct SitStartView: View {
         .navigationTitle("Sit/Start")
     }
 
-    // MARK: - Locks
+    // MARK: - Hero
 
-    private func lockLine(_ next: NextLock, context: LeagueContext) -> some View {
-        TimelineView(.periodic(from: .now, by: 30)) { _ in
-            let remaining = next.date.timeIntervalSince(context.now())
-            Label {
-                Text("Next lock in **\(LockCountdown.format(remaining))** · \(next.starters) starter\(next.starters == 1 ? "" : "s") at \(LockCountdown.kickoffLabel(next.date))")
-            } icon: {
-                Image(systemName: "lock.open")
+    /// The answer: set, or how many swaps and what they're worth.
+    private func hero(context: LeagueContext) -> some View {
+        let set = model.starts.isEmpty && model.moves.isEmpty
+        let swaps = model.starts.count
+        return ScreenHero(
+            overline: "Lineup · Sit/Start",
+            systemImage: "arrow.left.arrow.right",
+            answer: set ? "Lineup set" : "\(swaps) swap\(swaps == 1 ? "" : "s")",
+            detail: set
+                ? "Already the best lineup by \(model.basis.label)."
+                : "Worth \(model.gain.map { String(format: "%+.1f", $0) } ?? "–") points by \(model.basis.label).",
+            tone: set ? .start : nil
+        ) {
+            if let next = model.nextLock {
+                TimelineView(.periodic(from: .now, by: 30)) { _ in
+                    Label(LockCountdown.format(next.date.timeIntervalSince(context.now())), systemImage: "lock.open")
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                        .accessibilityLabel("Next lock in \(LockCountdown.format(next.date.timeIntervalSince(context.now())))")
+                }
             }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
         }
     }
 
     // MARK: - Basis
 
     private var basisPicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("OPTIMIZE BY")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .kerning(1)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(LineupBasis.allCases) { basis in
-                        let selected = model.basis == basis
-                        Button {
-                            model.basis = basis
-                        } label: {
-                            Text(basis.label)
-                                .font(.footnote.weight(selected ? .semibold : .regular))
-                                .foregroundStyle(selected ? Color.accentColor : Color.primary)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 7)
-                                .background {
-                                    if selected {
-                                        Capsule()
-                                            .fill(Color.accentColor.opacity(0.18))
-                                            .matchedGeometryEffect(id: "basis", in: basisHighlight)
-                                    } else {
-                                        Capsule().fill(Palette.surface)
-                                    }
-                                }
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(selected ? .isSelected : [])
-                    }
+        VStack(alignment: .leading, spacing: Space.s) {
+            ChipRow {
+                ForEach(LineupBasis.allCases) { basis in
+                    FilterChip(title: basis.label, isSelected: model.basis == basis) { model.basis = basis }
                 }
             }
             .scrollClipDisabled()
             Text(model.basis.hint)
-                .font(.caption)
+                .textStyle(.meta)
                 .foregroundStyle(.secondary)
                 .id(model.basis)
                 .transition(.opacity)
@@ -139,18 +131,6 @@ public struct SitStartView: View {
                 }
                 .font(.subheadline)
             } else {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("By **\(model.basis.label)**")
-                        .font(.subheadline)
-                    Spacer()
-                    if let gain = model.gain {
-                        Text(String(format: "%+.1f", gain))
-                            .font(.title2.weight(.bold).monospacedDigit())
-                            .foregroundStyle(Palette.delta(gain))
-                            .contentTransition(.numericText(value: gain))
-                    }
-                }
-
                 if !model.starts.isEmpty {
                     changeList(title: "Start", systemImage: "arrow.up.circle.fill", tint: Palette.start, changes: model.starts)
                 }
@@ -220,7 +200,7 @@ public struct SitStartView: View {
             Image(systemName: "arrow.triangle.branch").foregroundStyle(Palette.caution)
         }
         .font(.caption)
-        .card(padding: 12, fill: Palette.caution.opacity(0.10))
+        .callout(.caution, padding: Space.m)
     }
 
     // MARK: - Lineup
@@ -231,7 +211,8 @@ public struct SitStartView: View {
                 title: "Proposed lineup",
                 subtitle: model.lockedStarters > 0
                     ? "\(model.lockedStarters) starter\(model.lockedStarters == 1 ? " has" : "s have") kicked off and can't be moved."
-                    : nil
+                    : nil,
+                systemImage: "list.bullet.rectangle"
             )
             .padding(.bottom, 4)
             ForEach(model.lineup) { slot in
@@ -273,7 +254,7 @@ public struct SitStartView: View {
                 .padding(.horizontal, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(slot.changed ? Color.accentColor.opacity(0.14) : Color.clear)
+                        .fill(slot.changed ? Palette.start.opacity(0.12) : Color.clear)
                 )
                 .motion(Motion.smooth, value: slot.changed)
             }
@@ -318,7 +299,8 @@ public struct SitStartView: View {
         let unranked = model.unranked
         if unranked.total > 0 {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(title: "Left out", subtitle: "Players this basis can't value — never counted as zero.")
+                SectionHeader(title: "Left out", subtitle: "Players this basis can't value — never counted as zero.",
+                              systemImage: "questionmark.circle", count: unranked.total)
                 group("Injured — never recommended to start", unranked.injured, tint: Palette.sit)
                 group("On bye this week", unranked.onBye, tint: Palette.sit)
                 group("No stats for DEF and IDP", unranked.noProductionData)

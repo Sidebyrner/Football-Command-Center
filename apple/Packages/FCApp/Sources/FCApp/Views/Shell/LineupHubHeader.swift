@@ -62,6 +62,8 @@ private struct LineupStatusCards: View {
     @ObservedObject var sitStart: SitStartModel
     @ObservedObject var matchup: MatchupModel
     @ObservedObject var injuries: InjuryCenterModel
+    @Environment(\.hubTint) private var hubTint
+    private var tint: Color { hubTint ?? HubStyle.lineup }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -101,7 +103,7 @@ private struct LineupStatusCards: View {
                     Spacer(minLength: 0)
                     if status.isLive { LiveDot(size: 6) }
                 }
-                .foregroundStyle(selected ? Color.accentColor : .secondary)
+                .foregroundStyle(selected ? tint : .secondary)
                 Text(status.text)
                     .font(.caption.weight(.bold).monospacedDigit())
                     .foregroundStyle(color(status.tone))
@@ -113,9 +115,9 @@ private struct LineupStatusCards: View {
             .padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(selected ? Color.accentColor.opacity(0.12) : Palette.surface))
+                .fill(selected ? tint.opacity(0.14) : Surface.card))
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(selected ? Color.accentColor.opacity(0.6) : .clear, lineWidth: 1.5))
+                .strokeBorder(selected ? tint.opacity(0.7) : Surface.stroke, lineWidth: selected ? 1.5 : 0.5))
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)

@@ -27,6 +27,8 @@ struct PhoneHubView<Content: View>: View {
                             }
                         }
                 }
+                // The screen's hue: its tab's, or a stream's position.
+                .environment(\.hubTint, HubStyle.tint(for: screen))
                 .opacity(shown ? 1 : 0)
                 .allowsHitTesting(shown)
                 .accessibilityHidden(!shown)

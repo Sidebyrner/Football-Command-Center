@@ -33,6 +33,10 @@ struct BoardTileCard<Content: View>: View {
     var destination: RootView.Screen? = nil
     @ViewBuilder let content: Content
     @Environment(\.openScreen) private var openScreen
+    @Environment(\.colorScheme) private var colorScheme
+
+    /// The hue of the tab the tile opens, so the Board previews where it leads.
+    private var hue: Color { HubStyle.tint(for: destination ?? tile.destination) }
 
     var body: some View {
         Button {
@@ -42,9 +46,9 @@ struct BoardTileCard<Content: View>: View {
                 HStack(spacing: 6) {
                     Image(systemName: tile.systemImage)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.accentColor)
-                    Text(tile.title.uppercased())
-                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(hue)
+                    Text(tile.title)
+                        .textStyle(.micro)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                     Spacer(minLength: 4)
@@ -55,10 +59,18 @@ struct BoardTileCard<Content: View>: View {
                 }
                 content
             }
-            .padding(12)
+            .padding(Space.m)
+            .padding(.top, 3)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Palette.surface))
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background {
+                let shape = RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                shape.fill(Surface.card)
+                    .overlay(alignment: .top) { Rectangle().fill(hue).frame(height: 3) }
+                    .clipShape(shape)
+                    .overlay(shape.strokeBorder(Surface.stroke, lineWidth: 0.5))
+                    .shadow(color: .black.opacity(colorScheme == .light ? 0.06 : 0), radius: 3, y: 1)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("board.tile.\(tile.rawValue)")
@@ -123,8 +135,7 @@ private struct LiveMatchupTile: View {
     private func side(_ name: String, _ points: Double?, leading: Bool, ahead: Bool) -> some View {
         VStack(alignment: leading ? .leading : .trailing, spacing: 0) {
             Text(points.map(StreamFormat.one) ?? "–")
-                .font(.system(size: 30, weight: .bold, design: .rounded))
-                .monospacedDigit()
+                .textStyle(.display)
                 .foregroundStyle(ahead ? Color.primary : .secondary)
                 .contentTransition(.numericText())
                 .motion(Motion.number, value: points ?? 0)
@@ -221,7 +232,8 @@ private struct GameRow: View {
     private func team(_ code: String, score: Int?, game: SleeperGameScore) -> some View {
         HStack(spacing: 3) {
             if game.possession == code, game.status == .inProgress {
-                Image(systemName: "football.fill").font(.system(size: 8)).foregroundStyle(Palette.caution)
+                Image(systemName: "football.fill").font(.caption2).foregroundStyle(.secondary)
+                    .accessibilityLabel("has the ball")
             }
             Text(code).font(.subheadline.weight(.semibold))
             if let score { Text("\(score)").font(.subheadline.monospacedDigit()) }
@@ -273,7 +285,7 @@ private struct ReadinessTile: View {
                     ReadinessRing(readiness: readiness, size: 52, lineWidth: 7)
                     VStack(alignment: .leading, spacing: 2) {
                         if readiness.isAllClear, sitStart.starts.isEmpty {
-                            Text("Set").font(.headline).foregroundStyle(Palette.start)
+                            StatusLabel(tone: .start, text: "Set")
                         } else {
                             if readiness.problems > 0 {
                                 Text("\(readiness.problems) to fix").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.sit)
@@ -305,7 +317,7 @@ private struct InjuriesTile: View {
                 let blocked = starters.filter { StartAvailability.of($0.id, context: context).blocksStart }
                 let questionable = starters.filter { StartAvailability.of($0.id, context: context) == .questionable }
                 if blocked.isEmpty, questionable.isEmpty {
-                    Label("All clear", systemImage: "checkmark.seal.fill").font(.headline).foregroundStyle(Palette.start)
+                    StatusLabel(tone: .start, text: "All clear")
                     Text("No starter is hurt.").font(.caption).foregroundStyle(.secondary)
                 } else {
                     HStack(spacing: 12) {
@@ -325,7 +337,7 @@ private struct InjuriesTile: View {
 
     private func count(_ n: Int, _ label: String, _ color: Color) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("\(n)").font(.system(size: 24, weight: .bold, design: .rounded)).foregroundStyle(n > 0 ? color : .secondary)
+            Text("\(n)").textStyle(.title).foregroundStyle(n > 0 ? color : .secondary)
             Text(label).font(.caption2).foregroundStyle(.secondary)
         }
     }
@@ -439,7 +451,7 @@ private struct StandingsTile: View {
             if let index = model.standings.firstIndex(where: \.isUser) {
                 let row = model.standings[index]
                 Text(ordinal(index + 1))
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .textStyle(.title)
                 Text("of \(model.standings.count) · \(row.wins)-\(row.losses)\(row.ties > 0 ? "-\(row.ties)" : "")")
                     .font(.caption).foregroundStyle(.secondary)
                 Text("\(StreamFormat.one(row.pointsFor)) PF").font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
@@ -540,7 +552,7 @@ private struct ByesTile: View {
                 Text("\(week.yourShortfall) starter\(week.yourShortfall == 1 ? "" : "s") short")
                     .font(.caption).foregroundStyle(Palette.caution)
             } else if model.context != nil {
-                Label("Covered", systemImage: "checkmark.seal.fill").font(.headline).foregroundStyle(Palette.start)
+                StatusLabel(tone: .start, text: "Covered")
                 Text("No bye leaves a hole.").font(.caption).foregroundStyle(.secondary)
             } else {
                 TileNote(text: "Byes loading…")

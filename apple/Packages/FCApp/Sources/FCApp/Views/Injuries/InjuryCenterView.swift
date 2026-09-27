@@ -19,31 +19,39 @@ public struct InjuryCenterView: View {
     }
 
     public var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                if let error = model.errorMessage, model.context != nil {
-                    InlineErrorBanner(message: error)
-                }
-                if model.context == nil, model.isLoading || model.errorMessage == nil {
-                    LoadingPlaceholder(label: "Reading the injury report…")
-                } else if model.context == nil, let error = model.errorMessage {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Could not load your league", systemImage: "exclamationmark.triangle")
-                            .font(.headline)
-                        Text(error).font(.footnote).foregroundStyle(.secondary)
+        Group {
+            if let context = model.context {
+                let groups = InjuryGroups(roster: model.roster, context: context)
+                ScreenScaffold {
+                    VStack(alignment: .leading, spacing: Space.m) {
+                        if let error = model.errorMessage { InlineErrorBanner(message: error) }
+                        hero(groups, context: context)
                     }
-                } else if let context = model.context {
+                } content: {
                     rosterSection(context: context)
                     openingsSection
                     rivalsSection
-                    VStack(alignment: .leading, spacing: 4) {
-                        FreshnessBanner(provenance: context.provenance)
-                        ForEach(model.sourceNotes, id: \.self) { CoverageNote(text: $0) }
+                } about: {
+                    FreshnessBanner(provenance: context.provenance)
+                    ForEach(model.sourceNotes, id: \.self) { CoverageNote(text: $0) }
+                }
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if model.isLoading || model.errorMessage == nil {
+                            LoadingPlaceholder(label: "Reading the injury report…")
+                        } else if let error = model.errorMessage {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Label("Could not load your league", systemImage: "exclamationmark.triangle")
+                                    .font(.headline)
+                                Text(error).font(.footnote).foregroundStyle(.secondary)
+                            }
+                        }
                     }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .refreshable { await model.refresh() }
         .sensoryFeedback(.success, trigger: model.refreshCount)
@@ -53,6 +61,34 @@ public struct InjuryCenterView: View {
         }
     }
 
+    /// The answer: how many starters are out or questionable.
+    private func hero(_ groups: InjuryGroups, context: LeagueContext) -> some View {
+        let questionable = groups.watch.filter { $0.isStarter }.count
+        let out = groups.actNow.count
+        let answer: String
+        let tone: StatusTone
+        if out > 0 {
+            answer = "\(out) starter\(out == 1 ? "" : "s") out"
+            tone = .sit
+        } else if questionable > 0 {
+            answer = "\(questionable) questionable"
+            tone = .caution
+        } else {
+            answer = "All clear"
+            tone = .start
+        }
+        return ScreenHero(
+            overline: "Lineup · Injuries",
+            systemImage: "cross.case",
+            answer: answer,
+            detail: out > 0 ? "Swap them out before kickoff — tap one to find a fill." :
+                questionable > 0 ? "Most questionable players play. Check inactives 90 minutes before kickoff." :
+                "No starter carries an injury designation.",
+            stats: [("\(model.roster.count)", "on your roster tagged"), ("\(model.openings.count)", "fill-ins in the league")],
+            tone: tone
+        )
+    }
+
     // MARK: - Your roster
 
     @ViewBuilder
@@ -60,15 +96,14 @@ public struct InjuryCenterView: View {
         let groups = InjuryGroups(roster: model.roster, context: context)
         VStack(alignment: .leading, spacing: 10) {
             SectionHeader(
-                title: groups.actNow.isEmpty ? "Act now" : "Act now · \(groups.actNow.count)",
+                title: "Act now",
                 subtitle: "Starters ruled out this week. Tap one to find a fill.",
-                systemImage: "exclamationmark.octagon.fill"
+                systemImage: "exclamationmark.octagon.fill",
+                count: groups.actNow.count
             )
             if groups.actNow.isEmpty {
-                Label("All clear — no starter is ruled out.", systemImage: "checkmark.seal.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Palette.start)
-                    .card(fill: Palette.start.opacity(0.10))
+                StatusLabel(tone: .start, text: "No starter is ruled out.")
+                    .card()
             } else {
                 rows(groups.actNow, context: context)
                 Button { openScreen(.sitStart) } label: {
@@ -81,9 +116,10 @@ public struct InjuryCenterView: View {
         .appear()
         VStack(alignment: .leading, spacing: 10) {
             SectionHeader(
-                title: groups.watch.isEmpty ? "Keep an eye on" : "Keep an eye on · \(groups.watch.count)",
+                title: "Keep an eye on",
                 subtitle: "Questionable starters and anyone hurt on your bench — Sleeper's tag and the practice report, worst first.",
-                systemImage: "eye"
+                systemImage: "eye",
+                count: groups.watch.count
             )
             if groups.watch.isEmpty {
                 Text("Nobody else carries an injury signal.")
@@ -114,9 +150,10 @@ public struct InjuryCenterView: View {
     private var openingsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionHeader(
-                title: model.openings.isEmpty ? "Fill-ins" : "Fill-ins · \(model.openings.count)",
+                title: "Fill-ins",
                 subtitle: "The next names on the official depth chart behind every injured player in the league, with last game's snap share and expected points.",
-                systemImage: "arrow.up.right.circle"
+                systemImage: "arrow.up.right.circle",
+                count: model.openings.count
             )
             if model.openings.isEmpty {
                 Text(model.context?.inSeason.depthCharts == nil
@@ -142,9 +179,10 @@ public struct InjuryCenterView: View {
         if !model.rivalInjuries.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 SectionHeader(
-                    title: "Around the league · \(model.rivalInjuries.count)",
+                    title: "Around the league",
                     subtitle: "A rival with a hole is a rival who will talk. Marked when you hold a spare at that position.",
-                    systemImage: "person.2.badge.gearshape"
+                    systemImage: "person.2.badge.gearshape",
+                    count: model.rivalInjuries.count
                 )
                 ForEach(model.rivalInjuries) { rival in
                     HStack(alignment: .top, spacing: 10) {

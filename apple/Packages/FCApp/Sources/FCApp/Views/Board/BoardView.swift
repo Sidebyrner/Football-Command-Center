@@ -12,11 +12,14 @@ struct BoardView: View {
 
     var body: some View {
         ScrollView {
-            BoardGrid(tiles: layout.visible) { tile in
-                BoardTileView(tile: tile, services: services)
+            VStack(alignment: .leading, spacing: Space.xl) {
+                BoardHero(gameDay: services.gameDay, matchup: services.matchup)
+                BoardGrid(tiles: layout.visible) { tile in
+                    BoardTileView(tile: tile, services: services)
+                }
             }
-            .padding(.horizontal)
-            .padding(.bottom, 24)
+            .padding(.horizontal, Space.l)
+            .padding(.vertical, Space.m)
             if layout.visible.isEmpty {
                 ContentUnavailableView {
                     Label("No tiles", systemImage: "square.grid.2x2")
@@ -27,6 +30,7 @@ struct BoardView: View {
                 }
             }
         }
+        .background(Surface.page.ignoresSafeArea())
         .refreshable { await services.loadIfConfigured(force: true) }
         .navigationTitle("Board")
         .toolbar {
@@ -40,6 +44,29 @@ struct BoardView: View {
                 .presentationDetents([.medium, .large])
         }
         .accessibilityIdentifier("board")
+    }
+}
+
+/// The Board's answer: which week, and whether games are on or when the next
+/// one kicks off.
+struct BoardHero: View {
+    @ObservedObject var gameDay: GameDayModel
+    @ObservedObject var matchup: MatchupModel
+
+    var body: some View {
+        let week = gameDay.context?.currentWeek ?? matchup.week
+        let live = gameDay.games.filter { $0.status == .inProgress }.count
+        let now = gameDay.context?.now() ?? Date()
+        let next = gameDay.games.filter { $0.status == .pregame }.compactMap(\.startTime).filter { $0 > now }.min()
+        ScreenHero(
+            overline: week.map { "Board · Week \($0)" } ?? "Board",
+            systemImage: "square.grid.2x2",
+            answer: live > 0 ? "\(live) game\(live == 1 ? "" : "s") live"
+                : next.map { "Next kickoff \(LockCountdown.kickoffLabel($0))" } ?? "Your week",
+            detail: "Your week at a glance — tap any tile for the full screen."
+        ) {
+            if live > 0 { LiveBadge() }
+        }
     }
 }
 
