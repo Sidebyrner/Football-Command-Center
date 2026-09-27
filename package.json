@@ -13,7 +13,9 @@
     "test": "npm run test:node && npm run test:spec",
     "test:node": "node --test \"src/**/*.test.js\" \"scripts/*.test.mjs\"",
     "test:spec": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check-parity": "sh scripts/check-parity.sh",
+    "export-demo": "node scripts/export-demo-league.mjs"
   },
   "dependencies": {
     "axios": "^1.7.9",
