@@ -26,7 +26,8 @@ export function Shell({ children, accent, overlay }: { children: (screen: Screen
       <Sidebar current={screen} />
       <div className="shell-main">
         <TopBar screen={screen} />
-        {hubScreens[hub].length > 1 && <Segments screen={screen} />}
+        {/* Lineup draws its own status header, which switches sections, as on the phone. */}
+        {hubScreens[hub].length > 1 && hub !== 'lineup' && <Segments screen={screen} />}
         <main className="shell-content">{children(screen)}</main>
       </div>
       <TabBar current={screen} />
