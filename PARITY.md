@@ -78,13 +78,15 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 
 ## Found while porting
 
-Data, not yet fixed (shared pipeline, needs approval):
-- **`public/data/cohorts.json` is empty.** It was built for season 2026 with `minGames 6`, so no player qualifies yet. Draft and Power Rankings scores show "—" until it's rebuilt from 2025 or the threshold is lowered.
+Data:
+- **`cohorts.json` came out empty early in the season** (nobody had six games), so Draft and Power Rankings scores went blank. The pipeline now falls back to the newest season where every position has a cohort.
 
 
 Fixed on both sides:
 - **Matchup live tick dropped IDP matchups** — fixed on `ios-port` (64913ba) and here: live refreshes reuse the full defense lookup.
 
+Fixed on the web, Swift side waiting for approval:
+- **Standings ignored losses.** They sorted by wins, ties, then points for, so a 1-3 team could rank above a 1-0 team. The web now sorts by win percentage, then wins, then points for (`sortStandings`); `DashboardModel.buildStandings` in Swift still needs the same change.
+
 Native behaviour, not changed (the web mirrors it until the Swift side changes):
-- **Standings ignore losses.** The Board sorts standings by wins, ties, then points for — a 1-3 team can rank above a 1-0 team.
 - **Stale Board panels.** A reload that hits an early "unavailable" exit leaves the previous load's draft results and news on screen.

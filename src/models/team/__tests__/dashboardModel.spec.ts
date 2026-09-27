@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { RelayClient } from '@data/RelayClient'
-import { draftSurplus, LineupAlertKind, standingsRecord } from '../DashboardModel'
+import { draftSurplus, LineupAlertKind, sortStandings, standingsRecord, type StandingsRow } from '../DashboardModel'
 import { dashboardTransport, TestLeague } from '../../../../tests/appHarness'
 import { StubTransport } from '../../../../tests/stubTransport'
 import { loadedDashboard, makeDashboard } from './dashboardHarness'
@@ -58,6 +58,14 @@ describe('DashboardModel', () => {
     expect(model.standings[0]?.rosterID).toBe(2)
     expect(standingsRecord(model.standings[0]!)).toBe('2-0')
     expect(model.standings.some((r) => r.isUser)).toBe(true)
+  })
+
+  it('standings rank by win percentage, so losses count', () => {
+    const row = (rosterID: number, wins: number, losses: number, ties: number, pointsFor: number): StandingsRow =>
+      ({ rosterID, manager: `M${rosterID}`, isUser: false, wins, losses, ties, pointsFor, pointsAgainst: 0 })
+    const sorted = sortStandings([row(1, 1, 3, 0, 500), row(2, 1, 0, 0, 100), row(3, 2, 2, 0, 300), row(4, 1, 1, 0, 400), row(5, 1, 1, 1, 50)])
+    // 1-0 is 1.000; 2-2, 1-1 and 1-1-1 all sit at .500, so more wins, then points for.
+    expect(sorted.map((r) => r.rosterID)).toEqual([2, 3, 4, 5, 1])
   })
 
   /** Sleeper splits points either side of the decimal point. */

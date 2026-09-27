@@ -204,11 +204,27 @@ export function buildStandings(context: LeagueContext): StandingsRow[] {
       pointsAgainst: pointsAgainst(settings) ?? 0,
     })
   }
+  return sortStandings(rows)
+}
+
+/**
+ * Win percentage first, so losses count: a 1-3 team sits below a 1-0 team.
+ * Equal percentages go to more wins, then points for.
+ */
+export function sortStandings(rows: StandingsRow[]): StandingsRow[] {
   return rows.sort((lhs, rhs) => {
+    const left = winPercentage(lhs)
+    const right = winPercentage(rhs)
+    if (left !== right) return right - left
     if (lhs.wins !== rhs.wins) return rhs.wins - lhs.wins
-    if (lhs.ties !== rhs.ties) return rhs.ties - lhs.ties
     return lhs.pointsFor > rhs.pointsFor ? -1 : lhs.pointsFor < rhs.pointsFor ? 1 : 0
   })
+}
+
+/** Wins over games played, a tie counting as half a win; 0 before any game. */
+export function winPercentage(row: Pick<StandingsRow, 'wins' | 'losses' | 'ties'>): number {
+  const games = row.wins + row.losses + row.ties
+  return games > 0 ? (row.wins + row.ties / 2) / games : 0
 }
 
 /**
