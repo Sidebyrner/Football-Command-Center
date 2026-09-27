@@ -1,0 +1,24 @@
+/* Market panels — builds on the Team panels' compact type in teamPanels.css. */
+.mp-value { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
+.mp-to-beat { display: flex; align-items: baseline; gap: 6px; padding: 4px 6px; border-radius: 8px; background: var(--inset); }
+.mp-stream-row { display: grid; gap: 4px; }
+.mp-range { padding-left: 34px; }
+.mp-goals { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
+.mp-goal {
+  appearance: none; border: 0; font: inherit; font-size: 0.6875rem; cursor: pointer; text-align: left;
+  padding: 4px 8px; border-radius: 999px; background: var(--inset); color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mp-goal-selected { font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.mp-goal:focus-visible, .mp-linked:focus-visible, .mp-link-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mp-linked {
+  appearance: none; border: 0; font: inherit; color: var(--text); width: 100%; cursor: pointer; text-align: left;
+  display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent); transition: transform 0.12s;
+}
+.mp-linked:active { transform: scale(0.98); }
+.mp-partner { display: grid; gap: 4px; padding: 8px; border-radius: 10px; background: var(--inset); cursor: pointer; }
+.mp-partner-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.mp-link-button { appearance: none; border: 0; background: none; font: inherit; font-size: 0.6875rem; font-weight: 600; color: var(--accent); cursor: pointer; padding: 2px 4px; }
+.mp-card { height: 100%; overflow-y: auto; padding: 10px; }
+@media (prefers-reduced-motion: reduce) { .mp-linked { transition: none; } }

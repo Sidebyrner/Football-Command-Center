@@ -1,0 +1,60 @@
+/* Team and Market panels — compact rows sized for a workspace panel. */
+.tp-caption { font-size: 0.75rem; line-height: 1.3; }
+.tp-caption2 { font-size: 0.6875rem; line-height: 1.3; }
+.tp-subheadline { font-size: 0.875rem; font-weight: 600; line-height: 1.3; }
+.tp-strong { font-weight: 600; }
+.tp-bold { font-weight: 700; }
+.tp-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tp-label { display: inline-flex; align-items: center; gap: 5px; }
+.tp-label > svg { flex: none; }
+.tp-heading { margin-top: 4px; }
+.tp-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.tp-grow { flex: 1; }
+.tp-clamp3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.tp-rows { display: grid; gap: 2px; min-width: 0; }
+.tp-tappable { cursor: pointer; border-radius: 8px; }
+.tp-tappable:hover { background: var(--inset); }
+.tp-tappable:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Readiness */
+.tp-readiness > .card { width: 100%; padding: 10px; }
+.tp-alert { display: flex; align-items: flex-start; gap: 8px; padding: 2px 4px; }
+.tp-alert-icon { width: 18px; flex: none; display: grid; place-items: center; padding-top: 1px; }
+.tp-alert-text { display: grid; gap: 1px; min-width: 0; }
+
+/* Lineup rows */
+.tp-slot-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tp-slot { width: 34px; flex: none; font-size: 0.6875rem; font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-2); }
+
+/* Matchup scoreboard */
+.tp-scoreboard { display: grid; gap: 6px; }
+.tp-score-line { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.tp-score-side { display: flex; flex-direction: column; min-width: 0; max-width: 40%; }
+.tp-score { font-family: var(--font-rounded); font-size: 1.375rem; font-weight: 700; line-height: 1.15; }
+.tp-share { display: flex; gap: 2px; height: 6px; }
+.tp-share > span { border-radius: 999px; height: 100%; }
+.tp-share-mine { background: var(--accent); flex: none; }
+.tp-share-theirs { flex: 1; background: color-mix(in srgb, var(--text-2) 35%, transparent); }
+
+/* Bye strip */
+.tp-bye-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(22px, 30px)); gap: 6px 4px; }
+.tp-bye-week { display: grid; gap: 2px; justify-items: center; }
+.tp-bye-square { width: 100%; height: 20px; border-radius: 4px; display: grid; place-items: center; color: #fff; font-size: 0.6875rem; font-weight: 700; }
+.tp-bye-league { width: 100%; height: 2px; }
+.tp-bye-league > span { display: block; height: 100%; border-radius: 999px; background: color-mix(in srgb, var(--text-2) 45%, transparent); }
+
+/* Buttons that are rows */
+.tp-row-button {
+  appearance: none; border: 0; background: none; font: inherit; color: var(--text); width: 100%;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left;
+  padding: 4px 6px; border-radius: 8px; cursor: pointer;
+}
+.tp-row-button:hover, .tp-row-link:hover { background: var(--inset); }
+.tp-row-button:focus-visible, .tp-row-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tp-standing { justify-content: flex-start; }
+.tp-standing-user { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.tp-rank { width: 16px; flex: none; text-align: right; color: var(--text-3); }
+.tp-pf { width: 48px; flex: none; text-align: right; }
+
+/* News */
+.tp-news { display: grid; gap: 1px; padding: 4px 6px; border-radius: 8px; color: var(--text); text-decoration: none; }
