@@ -423,20 +423,6 @@ struct ScoreShareBar: View {
     }
 }
 
-/// Card-style press feedback for tappable rows.
-struct PressableCardStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(configuration.isPressed ? Palette.surfaceRaised : Palette.surface)
-            )
-            .scaleEffect(configuration.isPressed ? 0.985 : 1)
-            .animation(Motion.snappy, value: configuration.isPressed)
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-}
-
 /// One team's player in full detail.
 struct MatchupRowView: View {
     let row: MatchupRow

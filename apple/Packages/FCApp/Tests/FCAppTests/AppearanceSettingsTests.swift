@@ -18,7 +18,7 @@ final class AppearanceSettingsTests: XCTestCase {
     // MARK: - Accent theme
 
     func testANewInstallUsesTheDefaultTheme() {
-        XCTAssertEqual(AppSettings().accentTheme, .amber)
+        XCTAssertEqual(AppSettings().accentTheme, .indigo, "clear of every status colour")
     }
 
     func testAChosenThemePersists() {

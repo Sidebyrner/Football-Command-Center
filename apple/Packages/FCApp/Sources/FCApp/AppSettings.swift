@@ -16,6 +16,10 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var relayBaseURL: URL?
     /// The accent colour picked in Settings.
     public var accentTheme: AccentTheme
+    /// Which theme defaults the stored accent was chosen under. Version 1
+    /// defaulted to amber; version 2 to indigo, freeing amber for caution.
+    public var themeVersion: Int
+    public static let currentThemeVersion = 2
     /// Whether the Planning explainer has been dismissed.
     public var hasSeenPlanningIntro: Bool
     /// The user's weights for the optional weighted grade on the Player Card,
@@ -30,6 +34,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
         rosterID: Int? = nil,
         relayBaseURL: URL? = nil,
         accentTheme: AccentTheme = .default,
+        themeVersion: Int = AppSettings.currentThemeVersion,
         hasSeenPlanningIntro: Bool = false,
         gradeWeights: [String: Double] = [:]
     ) {
@@ -39,13 +44,14 @@ public struct AppSettings: Codable, Hashable, Sendable {
         self.rosterID = rosterID
         self.relayBaseURL = relayBaseURL
         self.accentTheme = accentTheme
+        self.themeVersion = themeVersion
         self.hasSeenPlanningIntro = hasSeenPlanningIntro
         self.gradeWeights = gradeWeights
     }
 
     enum CodingKeys: String, CodingKey {
         case sleeperUsername, userID, leagueID, rosterID, relayBaseURL
-        case accentTheme, hasSeenPlanningIntro, gradeWeights
+        case accentTheme, themeVersion, hasSeenPlanningIntro, gradeWeights
     }
 
     /// Settings saved by an older version lack the newer fields, and a theme
@@ -59,7 +65,12 @@ public struct AppSettings: Codable, Hashable, Sendable {
         leagueID = try container.decodeIfPresent(String.self, forKey: .leagueID)
         rosterID = try container.decodeIfPresent(Int.self, forKey: .rosterID)
         relayBaseURL = try container.decodeIfPresent(URL.self, forKey: .relayBaseURL)
-        accentTheme = AccentTheme(stored: try? container.decodeIfPresent(String.self, forKey: .accentTheme))
+        let storedTheme = AccentTheme(stored: try? container.decodeIfPresent(String.self, forKey: .accentTheme))
+        let storedVersion = (try? container.decodeIfPresent(Int.self, forKey: .themeVersion)) ?? 1
+        // Amber saved under version 1 was the old default, not a choice: move
+        // it to the new one, once. Amber picked after that stays amber.
+        accentTheme = storedVersion < 2 && storedTheme == .amber ? .default : storedTheme
+        themeVersion = AppSettings.currentThemeVersion
         hasSeenPlanningIntro = (try? container.decodeIfPresent(Bool.self, forKey: .hasSeenPlanningIntro)) ?? false
         gradeWeights = (try? container.decodeIfPresent([String: Double].self, forKey: .gradeWeights)) ?? [:]
     }

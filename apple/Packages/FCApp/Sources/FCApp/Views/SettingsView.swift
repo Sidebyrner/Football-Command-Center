@@ -84,7 +84,12 @@ public struct SettingsView: View {
         } header: {
             Text("Accent color")
         } footer: {
-            Text(model.settings.accentTheme.label)
+            let theme = model.settings.accentTheme
+            if let status = theme.sharedStatus {
+                Text("\(theme.label) — shares a color with \(status), so buttons can look like verdicts.")
+            } else {
+                Text("\(theme.label) — for buttons and links. Each tab keeps its own hue.")
+            }
         }
     }
 

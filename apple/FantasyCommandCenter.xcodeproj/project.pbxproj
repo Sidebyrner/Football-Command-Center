@@ -21,6 +21,7 @@
 		5351A7AABC6FD8AA47FDEA86 /* schedule-2026.json in Resources */ = {isa = PBXBuildFile; fileRef = 11EB2E0610115B8172B89753 /* schedule-2026.json */; };
 		665C3E6CAA21F6885481CE7D /* schedule-2025.json in Resources */ = {isa = PBXBuildFile; fileRef = 8F8B2045B42966D65DF4B15B /* schedule-2025.json */; };
 		6B1F927BA6E1684F10601441 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 191359DCB92C26CC09D7CC86 /* Assets.xcassets */; };
+		6FC668DAC384C6EB67B64513 /* LookUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46151125502755EB8EE118FA /* LookUITests.swift */; };
 		7553489B3FA2E48E186480E5 /* ScreenshotTourUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D50E50340F706FFFCAD60B /* ScreenshotTourUITests.swift */; };
 		78AFA5EAACC96057F070A08E /* WorkspaceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6533B5F69B6D0F99518954D /* WorkspaceUITests.swift */; };
 		8EA2A298888083A04E659898 /* DemoLeagueData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82C37DD3BF3824ABEFDEF2CE /* DemoLeagueData.swift */; };
@@ -50,6 +51,7 @@
 		191359DCB92C26CC09D7CC86 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		23DBFDF73D0EBA7E6F2483D8 /* FCApp */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FCApp; path = Packages/FCApp; sourceTree = SOURCE_ROOT; };
 		39DB11979C8FB73D50BE94D4 /* FantasyCommandCenterApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FantasyCommandCenterApp.swift; sourceTree = "<group>"; };
+		46151125502755EB8EE118FA /* LookUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LookUITests.swift; sourceTree = "<group>"; };
 		4F855745678D2A4762309A3D /* cohorts.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = cohorts.json; sourceTree = "<group>"; };
 		5497C6C0FD39CC8B938131A1 /* weekly-index.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "weekly-index.json"; sourceTree = "<group>"; };
 		552D4996A984790B432C5EEA /* DemoTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoTransport.swift; sourceTree = "<group>"; };
@@ -110,6 +112,7 @@
 				AE2C5C141C6F3BC6A6A93000 /* BoardUITests.swift */,
 				FF3B83A38E8E6068E5D55025 /* DemoLeagueUITests.swift */,
 				BF03C5063CED82E4244C8853 /* HubNavigationUITests.swift */,
+				46151125502755EB8EE118FA /* LookUITests.swift */,
 				C2D50E50340F706FFFCAD60B /* ScreenshotTourUITests.swift */,
 				B6533B5F69B6D0F99518954D /* WorkspaceUITests.swift */,
 			);
@@ -285,6 +288,7 @@
 				02B38396DF9CA4BBB01FFD0E /* BoardUITests.swift in Sources */,
 				A183CDACF435D438576BAC5E /* DemoLeagueUITests.swift in Sources */,
 				12B0C7F459B78B3CD6E94399 /* HubNavigationUITests.swift in Sources */,
+				6FC668DAC384C6EB67B64513 /* LookUITests.swift in Sources */,
 				7553489B3FA2E48E186480E5 /* ScreenshotTourUITests.swift in Sources */,
 				78AFA5EAACC96057F070A08E /* WorkspaceUITests.swift in Sources */,
 			);
