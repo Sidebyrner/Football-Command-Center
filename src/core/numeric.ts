@@ -62,3 +62,19 @@ export function formatFixed(value: number, digits: number, options: { sign?: boo
   if (options.sign && !text.startsWith('-')) text = `+${text}`
   return text
 }
+
+const numberFormats = new Map<string, Intl.NumberFormat>()
+
+/**
+ * Swift's `value.formatted(.number.precision(.fractionLength(n)))` — grouped
+ * ("1,234.5") and, like Foundation, rounding exact halves to even.
+ */
+export function formatNumber(value: number, fractionDigits: number, maxFractionDigits = fractionDigits): string {
+  const key = `${fractionDigits}|${maxFractionDigits}`
+  let f = numberFormats.get(key)
+  if (!f) {
+    f = new Intl.NumberFormat('en-US', { minimumFractionDigits: fractionDigits, maximumFractionDigits: maxFractionDigits, roundingMode: 'halfEven' } as Intl.NumberFormatOptions)
+    numberFormats.set(key, f)
+  }
+  return f.format(value)
+}

@@ -7,6 +7,7 @@ import { IDP, type Position } from '@core/Position'
 import type { UsageWeek } from '@core/InSeasonFiles'
 import { airYards, defensiveSnapShare, linePosition, offensiveSnapShare, played, redZoneCarries, redZoneTargets, scoreLine, targets, type SleeperWeekStat } from '@data/insightsModels'
 import { roundAwayFromZero } from '@core/rounding'
+import { formatNumber } from '@core/numeric'
 import type { LeagueContext } from '../league/LeagueContext'
 
 export const PLAYER_METRICS = [
@@ -51,13 +52,11 @@ export const metricApplies = (m: PlayerMetric, position: Position | undefined) =
   return ps === undefined ? true : position !== undefined && ps.has(position)
 }
 
-const oneDecimal = new Intl.NumberFormat('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-const noDecimal = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
 
 export function formatMetric(m: PlayerMetric, value: number): string {
   if (METRIC[m].isPercent) return `${Math.trunc(roundAwayFromZero(value * 100))}%`
   if (m === 'receivingYards' || m === 'airYards' || m === 'rushingYards') return String(Math.trunc(roundAwayFromZero(value)))
-  return (Math.abs(value) < 10 ? oneDecimal : noDecimal).format(value)
+  return formatNumber(value, Math.abs(value) < 10 ? 1 : 0)
 }
 
 export interface MetricPoint {
