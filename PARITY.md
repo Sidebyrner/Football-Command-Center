@@ -55,7 +55,13 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 | Area | Status |
 |---|---|
 | Shell: five hubs, segments, back trail, light and dark | ✅ |
-| Board, Team, Lineup, Market, Streams screens | ⬜ Release 1 |
+| Board (ten tiles, live, editable layout), My Team | ✅ Release 1 |
+| Lineup: Sit/Start, Matchup (live), Injuries, lineup status header | ✅ Release 1 |
+| Market: Discover with compare, Waivers with add/drop, trade desk, Planning | ✅ Release 1 |
+| Streams: all six, with compare, snapshots, game context and editors | ✅ Release 1 |
+| Player Card sheet (status, news, schedule, log, projections, grade) | ✅ Release 1 |
+| Settings: connect a league, demo league, accent, light/dark, relay, export/import | ✅ Release 1 |
+| Installable app with offline support | ✅ Release 1 |
 | Desktop workspaces | ⬜ Release 2 |
 
 ## Known platform differences
@@ -64,6 +70,7 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 - **Sort stability:** JavaScript's sort is stable and Swift's isn't. Where Swift relies on an explicit tie-break the port copies it; exact ties with no tie-break (display-only breakdown lists) may order differently.
 - **Stream snapshots** are stored in a web-specific JSON shape; they don't move between devices yet.
 - **Number formatting** rounds exact halves to even, as Foundation does (`formatNumber`).
+- **Web adaptations:** pull to refresh is a Refresh button; swipe actions and context menus are menu buttons; haptics are dropped; the Discover row opens the Player Card rather than the desktop player page (that arrives with workspaces).
 - **`-0`:** a pick'em spread of exactly -0.0 prints "+-0.0" in one Swift explain line and "+0.0" on the web.
 
 ## Found while porting
