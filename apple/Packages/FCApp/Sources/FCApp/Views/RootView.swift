@@ -138,6 +138,8 @@ public struct RootView: View {
             router.open(screen)
         })
         .environment(\.openTrade, OpenTradeAction { [router, services] prefill in
+            // From a Player Card: close it, so the trade isn't hidden behind it.
+            router.playerCard = nil
             router.open(.trades)
             Task { await services.trades.open(prefill) }
         })

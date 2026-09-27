@@ -70,6 +70,7 @@ struct WorkspaceScreen: View {
             Button("Delete workspace", role: .destructive) {
                 router.open(.dashboard)
                 store.delete(workspaceID)
+                router.forget(workspace: workspaceID)
             }
         } message: {
             Text("Its layout is removed. The screens and your league data aren't affected.")

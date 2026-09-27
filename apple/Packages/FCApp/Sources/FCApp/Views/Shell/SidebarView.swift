@@ -140,5 +140,6 @@ struct SidebarView: View {
     private func delete(_ workspace: Workspace) {
         if router.selection == .workspace(workspace.id) { router.open(.dashboard) }
         store.delete(workspace.id)
+        router.forget(workspace: workspace.id)
     }
 }

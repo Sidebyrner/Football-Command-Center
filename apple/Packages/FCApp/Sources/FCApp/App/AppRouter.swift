@@ -29,8 +29,14 @@ public final class AppRouter: ObservableObject {
             if let screen = selection.screen, screen != .settings {
                 hubSegments[PhoneHub.hub(for: screen)] = screen
             }
+            if !isRestoring { history.record(from: oldValue, to: selection) }
         }
     }
+    /// Every screen change, for the back pill and the Mac's back and forward.
+    @Published public private(set) var history = NavigationHistory()
+    /// Set while a back or forward move is applied, so it isn't recorded as a
+    /// new step.
+    private var isRestoring = false
     /// The segment each phone hub was last on, so coming back to a hub
     /// returns to where you were.
     @Published public private(set) var hubSegments: [PhoneHub: RootView.Screen] = [:]
@@ -80,6 +86,47 @@ public final class AppRouter: ObservableObject {
             selectedPanelID = nil
         }
         selection = .workspace(id)
+    }
+
+    // MARK: - Back and forward
+
+    public var canGoBack: Bool { history.canGoBack }
+    public var canGoForward: Bool { history.canGoForward }
+
+    public func goBack() {
+        var next = history
+        guard let target = next.goBack(from: selection) else { return }
+        restore(target, history: next)
+    }
+
+    public func goForward() {
+        var next = history
+        guard let target = next.goForward(from: selection) else { return }
+        restore(target, history: next)
+    }
+
+    /// Straight back to an earlier step, from the trail. `index` is into
+    /// `history.back`.
+    public func goBack(to index: Int) {
+        var next = history
+        guard let target = next.jumpBack(to: index, from: selection) else { return }
+        restore(target, history: next)
+    }
+
+    /// A deleted workspace drops out of the trail.
+    public func forget(workspace id: UUID) {
+        history.forget(workspace: id)
+    }
+
+    private func restore(_ target: SidebarItem, history next: NavigationHistory) {
+        isRestoring = true
+        if target.workspaceID != nil, selection != target {
+            workspaceEditing = false
+            selectedPanelID = nil
+        }
+        history = next
+        selection = target
+        isRestoring = false
     }
 
     /// The screen the phone's tab bar shows. A workspace can't be selected on
