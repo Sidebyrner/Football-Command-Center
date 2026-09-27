@@ -2,36 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --color-bg:          #0a0f1e;
-  --color-surface:     #111827;
-  --color-surface-2:   #1e293b;
-  --color-border:      rgba(248, 250, 252, 0.08);
-  --color-text:        #f8fafc;
-  --color-text-muted:  #94a3b8;
-  --color-text-faint:  #475569;
-  --color-accent:      #f59e0b;
-  --color-accent-hover:#d97706;
-  --color-start:       #10b981;
-  --color-caution:     #f59e0b;
-  --color-sit:         #f43f5e;
-  --shadow-card:       0 4px 16px rgba(10, 15, 30, 0.6);
-}
-
-* {
-  font-variant-numeric: tabular-nums;
-}
-
+/*
+ * The page behind the app. Everything visible is drawn inside `.fcc` from the
+ * design tokens (src/ui/tokens.css); this only keeps overscroll and the area
+ * around it the same colour as the app in light and dark.
+ */
 body {
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  font-family: 'Inter', sans-serif;
+  margin: 0;
+  background-color: #f2f2f7;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
-@layer utilities {
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-  }
+@media (prefers-color-scheme: dark) {
+  body { background-color: #000000; }
 }

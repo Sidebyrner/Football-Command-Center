@@ -6,6 +6,7 @@
  * who to pick up, then the season so far. Two zooms — This Week and Season —
  * share the hero header.
  */
+import { ToolsCard } from './ToolsCard'
 import { useState } from 'react'
 import {
   AlertTriangle, ArrowLeftRight, ArrowRight, Armchair, BriefcaseMedical, CalendarMinus, ChartLine, CheckCircle2,
@@ -101,6 +102,7 @@ export function MyTeamScreen() {
                 <BenchSection model={model} />
                 <DraftSection model={model} />
                 <TransactionsSection model={model} />
+                <ToolsCard />
               </>
             )}
           </div>

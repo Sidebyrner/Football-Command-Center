@@ -6,8 +6,13 @@
 
 <p align="center">
   <b>Your Sleeper league, answered.</b><br>
-  A native iPhone, iPad and Mac app that tells you who to start, who to grab and who to trade for —<br>
+  An iPhone, iPad, Mac and web app that tells you who to start, who to grab and who to trade for —<br>
   from real data, with every number saying where it came from.
+</p>
+
+<p align="center">
+  <b><a href="https://football.connorbyrne.net">Use it on the web →</a></b> &nbsp;·&nbsp;
+  <a href="https://football.connorbyrne.net/board?demo">Try the demo league</a> (no Sleeper account needed)
 </p>
 
 <p align="center">
@@ -23,12 +28,12 @@
 
 | | **Native app** (`apple/`) | **Web app** (`src/`) |
 |---|---|---|
-| Runs on | iPhone, iPad, Mac | Any browser |
-| Built with | SwiftUI · three Swift packages (FCCore, FCData, FCApp) | React 18 · Vite · Tailwind |
-| Best for | Game day, lineups, waivers, streams, trades, live scores | Draft prep and research |
-| Setup | Open in Xcode — [below](#running-the-native-app) | `npm install && npm run dev` — [below](#the-web-app) |
+| Runs on | iPhone, iPad, Mac | Any browser — phone, tablet or desktop, and installable to a home screen |
+| Built with | SwiftUI · three Swift packages (FCCore, FCData, FCApp) | React 18 · TypeScript · Vite — a line-for-line port of the same packages |
+| What's in it | Board, Team, Lineup, Market, Streams, workspaces | The same five hubs and desktop workspaces, plus the web-only draft and research tools |
+| Setup | Open in Xcode — [below](#running-the-native-app) | Nothing — [open it](https://football.connorbyrne.net); or `npm install && npm run dev` — [below](#the-web-app) |
 
-Both read your league straight from Sleeper's free API. Neither needs an account, a server or a subscription.
+Both read your league straight from Sleeper's free API. Neither needs an account, a server or a subscription. The web app gives the same answers as the native one: its engines are ported from the Swift code and checked against the same test data (scoring to the cent over every 2025 stat line, every stream to six decimal places) — see [PARITY.md](PARITY.md).
 
 ---
 
@@ -153,20 +158,25 @@ The architecture, data model and every screen are documented in [`apple/README.m
 
 ## The web app
 
-The original React app, which the native app grew out of. It runs entirely in your browser — no backend, no database.
+**[football.connorbyrne.net](https://football.connorbyrne.net)** — everything the iPhone and Mac apps do, in any browser, so nobody needs an Apple device to use it. It runs entirely in your browser — no backend, no database. Add `?demo` to any address to try the demo league.
 
-### What it does
+- **The five hubs** — Board, Team, Lineup (Sit/Start, Matchup, Injuries), Market (Discover, Waivers, Trades, Planning) and Streams (QB, RB, WR, K, D/ST, IDP) — ported screen by screen from the native app, in light and dark.
+- **Desktop workspaces** — the Mac's panel grid: drag and resize, link colours, compare lists and presets.
+- **Your setup moves with you** — everything saves in the browser; Settings › Move to another device exports it to a file and imports it elsewhere.
+- **Installable and offline** — add it to your home screen; it opens without a connection and labels how old the data is.
 
-| Page | What's live |
+### Web-only tools
+
+The original web app's tools live under **Tools** (the sidebar on desktop, My Team › Season on a phone):
+
+| Tool | What's live |
 |------|-------------|
 | **Draft** | Full active player list from Sleeper with consensus ADP, real bye weeks, injury status, trending adds/drops, watchlist, search and filters. During a live draft, drafted players strike through and the board shows your pick countdown |
 | **Draft Plan** | Ranked targets per position with your notes and named fallbacks. Once the draft starts, targets that are gone strike through and the next surviving fallback is marked |
 | **Player Drawer** | Click any player for context, 2025 season stats, an evaluation scored against real positional cohorts, and your saved research notes |
 | **Research** | Freeform note cards tied to players — tag by injury, depth chart, role change, target share, etc. |
-| **Dashboard** | Roster/matchup data shell (in progress) |
-| **Sit / Start** | Coming soon |
-| **Trade Analyzer** | Coming soon |
-| **Odds** | Coming soon |
+| **Power Rankings** | Every team graded, with weekly matchup odds |
+| **Odds** | Game lines, implied totals and your players' game environments (needs a free Odds API key, entered on the page) |
 
 #### How the numbers are produced
 
