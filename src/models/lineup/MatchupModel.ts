@@ -320,8 +320,8 @@ export class MatchupModel extends Observable {
     } catch {
       return false
     }
-    // Swift passes only the nflverse table here, not the full lookup.
-    const built = MatchupModel.build(context, matchups, this.defenseTable)
+    // The full lookup, not just the nflverse table: IDP matchups come from Sleeper's lines.
+    const built = MatchupModel.build(context, matchups, this.defenseTable, this.defenseLookup)
     this.apply(built)
     this.lastLiveUpdate = context.now()
     this.changed()

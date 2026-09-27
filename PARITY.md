@@ -66,8 +66,11 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 - **Number formatting** rounds exact halves to even, as Foundation does (`formatNumber`).
 - **`-0`:** a pick'em spread of exactly -0.0 prints "+-0.0" in one Swift explain line and "+0.0" on the web.
 
-## Found while porting (native bugs, not fixed — the web mirrors them until the Swift side changes)
+## Found while porting
 
-- **Matchup live tick drops IDP matchups.** `MatchupModel.liveTick` rebuilds with only the nflverse defense table, so after the first live refresh IDP rows lose their defense cell and source. The stored `defenseLookup` looks like the intended input. Fix on both sides together.
+Fixed on both sides:
+- **Matchup live tick dropped IDP matchups** — fixed on `ios-port` (64913ba) and here: live refreshes reuse the full defense lookup.
+
+Native behaviour, not changed (the web mirrors it until the Swift side changes):
 - **Standings ignore losses.** The Board sorts standings by wins, ties, then points for — a 1-3 team can rank above a 1-0 team.
 - **Stale Board panels.** A reload that hits an early "unavailable" exit leaves the previous load's draft results and news on screen.
