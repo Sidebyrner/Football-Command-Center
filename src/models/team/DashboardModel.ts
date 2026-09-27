@@ -337,7 +337,7 @@ export class DashboardModel extends Observable {
   ) {
     super()
     this.relay = relay
-    this.relayBaseURL = relayBaseURL ?? (relay as unknown as { baseURL?: string } | undefined)?.baseURL
+    this.relayBaseURL = relayBaseURL ?? relay?.baseURL
   }
 
   // Swift's static funcs, reachable as `DashboardModel.x` too.

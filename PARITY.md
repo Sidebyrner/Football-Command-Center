@@ -39,13 +39,16 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 | League context and loader, in-season data, freshness, start availability | ✅ |
 | Defense lookup, Command Center projector, player metrics, grade context, trend comparison | ✅ |
 | Navigation history and router | ✅ |
-| Sit/Start, Matchup | ⬜ in progress |
-| Injury Center, Waiver Board | ⬜ in progress |
-| Trade wizard, trade desk, player schedule | ⬜ in progress |
-| Planning, planning jobs, season history | ⬜ in progress |
-| Stream screens (six kinds, store, candidate builders) | ⬜ in progress |
-| Workspaces (model, geometry, presets, store, link bus) | ⬜ in progress |
-| Dashboard / Board, My Team, Discovery, Player Card, compare, Game Day, Settings | ⬜ |
+| Sit/Start, Matchup | ✅ |
+| Injury Center, Waiver Board | ✅ |
+| Trade wizard, trade desk, player schedule | ✅ |
+| Planning, planning jobs, season history | ✅ |
+| Stream screens (six kinds, store, candidate builders, week contexts) | ✅ |
+| Workspaces (model, geometry, presets, store, link bus, tray) | 🟡 layout lock on workspace switch waits for the workspace screens |
+| Board (dashboard), this week, My Team, board layout | ✅ |
+| Discovery, Player Card, compare, player card cache | ✅ |
+| Settings, app settings, Game Day, live poller | ✅ |
+| App services (every model on one shared load) | ✅ plus a web-only check that the demo league loads on every screen |
 
 ## Screens
 
@@ -59,8 +62,12 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 
 - **Storage:** the phone keeps its cache in Application Support and secrets in the Keychain; the web uses IndexedDB and `localStorage`. Settings, Board layout and workspaces move between devices with an export file.
 - **Sort stability:** JavaScript's sort is stable and Swift's isn't. Where Swift relies on an explicit tie-break the port copies it; exact ties with no tie-break (display-only breakdown lists) may order differently.
+- **Stream snapshots** are stored in a web-specific JSON shape; they don't move between devices yet.
+- **Number formatting** rounds exact halves to even, as Foundation does (`formatNumber`).
 - **`-0`:** a pick'em spread of exactly -0.0 prints "+-0.0" in one Swift explain line and "+0.0" on the web.
 
 ## Found while porting (native bugs, not fixed — the web mirrors them until the Swift side changes)
 
 - **Matchup live tick drops IDP matchups.** `MatchupModel.liveTick` rebuilds with only the nflverse defense table, so after the first live refresh IDP rows lose their defense cell and source. The stored `defenseLookup` looks like the intended input. Fix on both sides together.
+- **Standings ignore losses.** The Board sorts standings by wins, ties, then points for — a 1-3 team can rank above a 1-0 team.
+- **Stale Board panels.** A reload that hits an early "unavailable" exit leaves the previous load's draft results and news on screen.

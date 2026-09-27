@@ -5,6 +5,10 @@
  * league context the services share.
  */
 import { LeagueContextLoader } from '@models/league/LeagueContextLoader'
+import { AppServices } from '@models/app/AppServices'
+import { InMemorySettingsStore, makeAppSettings } from '@models/settings/AppSettings'
+import { InMemoryWorkspacePersistence } from '@models/workspaces/WorkspaceStore'
+import { InMemorySecretStore } from '@data/secretStore'
 import type { StubTransport } from './stubTransport'
 import { makeHarness, standardTransport, TestClock } from './appHarness'
 import { fixtureText } from './swiftFixtures'
@@ -69,6 +73,18 @@ export const WorkspaceFixture = {
        {"roster_id":2,"matchup_id":1,"points":31.2,"starters":["${f.goff}","${f.stafford}","${f.gibbs}","${f.hampton}","${f.edmunds}"],
         "players_points":{"${f.goff}":14.2,"${f.stafford}":9.0,"${f.gibbs}":8.0}}]`)
     return t
+  },
+
+  /** The whole app's services, loaded — Swift's `WorkspaceFixture.services()`. */
+  async services(): Promise<AppServices> {
+    const { sleeper, staticData } = makeHarness(WorkspaceFixture.transport())
+    const settingsStore = new InMemorySettingsStore(makeAppSettings({ sleeperUsername: 'me', userID: 'u1', leagueID: 'L1', rosterID: 1 }))
+    const services = new AppServices({
+      sleeper, staticData, settingsStore, workspacePersistence: new InMemoryWorkspacePersistence(),
+      secrets: new InMemorySecretStore(), now: TestClock.beforeKickoffs,
+    })
+    await services.loadIfConfigured()
+    return services
   },
 
   /** The shared league context the Swift services load (user roster 1, clock before kickoffs). */

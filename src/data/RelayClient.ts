@@ -56,7 +56,7 @@ export type PolishFailure =
 export type PolishResult = { ok: true; pitch: string } | { ok: false; failure: PolishFailure }
 
 export class RelayClient {
-  private readonly baseURL: string
+  readonly baseURL: string
 
   constructor(baseURL: string, private readonly transport: HTTPTransport = new FetchTransport(5000)) {
     this.baseURL = baseURL.endsWith('/') ? baseURL : `${baseURL}/`

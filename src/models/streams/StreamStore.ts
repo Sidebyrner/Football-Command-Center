@@ -159,11 +159,27 @@ export interface StreamStoreOptions {
   storage?: StreamKeyValueStorage
 }
 
+/**
+ * `localStorage` when the browser lets us write to it; otherwise (private
+ * modes that block storage, tests) memory for this visit — so a stream screen
+ * never shows a storage error on load, it just doesn't remember edits.
+ */
+export function defaultStreamStorage(): StreamKeyValueStorage {
+  try {
+    const probe = '__fcc_probe__'
+    localStorage.setItem(probe, '1')
+    localStorage.removeItem(probe)
+    return new LocalStreamStorage()
+  } catch {
+    return new MemoryStreamStorage()
+  }
+}
+
 export class StreamStore {
   private readonly directory: string
   private readonly storage: StreamKeyValueStorage
 
-  constructor({ folder = 'IDPStream', directory, storage = new LocalStreamStorage() }: StreamStoreOptions = {}) {
+  constructor({ folder = 'IDPStream', directory, storage = defaultStreamStorage() }: StreamStoreOptions = {}) {
     this.directory = directory ?? `FantasyCommandCenter/${folder}`
     this.storage = storage
   }
