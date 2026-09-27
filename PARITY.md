@@ -44,7 +44,7 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 | Trade wizard, trade desk, player schedule | ✅ |
 | Planning, planning jobs, season history | ✅ |
 | Stream screens (six kinds, store, candidate builders, week contexts) | ✅ |
-| Workspaces (model, geometry, presets, store, link bus, tray) | 🟡 layout lock on workspace switch waits for the workspace screens |
+| Workspaces (model, geometry, presets, store, link bus, tray) | ✅ |
 | Board (dashboard), this week, My Team, board layout | ✅ |
 | Discovery, Player Card, compare, player card cache | ✅ |
 | Settings, app settings, Game Day, live poller | ✅ |
@@ -62,7 +62,8 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 | Player Card sheet (status, news, schedule, log, projections, grade) | ✅ Release 1 |
 | Settings: connect a league, demo league, accent, light/dark, relay, export/import | ✅ Release 1 |
 | Installable app with offline support | ✅ Release 1 |
-| Desktop workspaces | ⬜ Release 2 |
+| Desktop workspaces: 12-column grid, drag and resize with push-and-float, panel tray and library, five presets, link colours, compare lists of four, sidebar list, ⌘[ ⌘] | ✅ Release 2 |
+| All 25 workspace panels (team, market, streams, discovery, player detail, compare, metric, trend) | ✅ Release 2 |
 
 ## Known platform differences
 

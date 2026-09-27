@@ -95,7 +95,7 @@ export function PickRow({ playerID, name, position, detail, icon: Icon, label, o
       <PlayerAvatar sleeperID={playerID} name={name} position={position} size={26} />
       <span className="panel-row-main">
         <span className="panel-row-name"><span className="t-meta" style={{ fontWeight: 600 }}>{name}</span></span>
-        {detail && <span className="t-micro muted panel-row-detail">{detail}</span>}
+        {detail && <span className="t-caption muted panel-row-detail">{detail}</span>}
       </span>
       <Icon size={16} color="var(--accent)" aria-hidden />
     </button>

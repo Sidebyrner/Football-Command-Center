@@ -29,7 +29,7 @@ export function PanelMessage({ style, text }: { style: 'loading' | 'error' | 'em
   return (
     <div className="panel-message" role={style === 'error' ? 'alert' : 'status'}>
       <Icon size={18} className={style === 'loading' ? 'spin' : ''} color={style === 'error' ? 'var(--caution)' : 'var(--text-3)'} aria-hidden />
-      <span className="t-micro muted">{text}</span>
+      <span className="t-caption muted">{text}</span>
     </div>
   )
 }
@@ -43,14 +43,14 @@ export function PanelGate({ hasContext, isLoading, error, children }: { hasConte
 
 /** A small caption under a panel's rows. */
 export function PanelFootnote({ text }: { text: string }) {
-  return <p className="panel-footnote t-micro">{text}</p>
+  return <p className="panel-footnote t-caption">{text}</p>
 }
 
 /** "Q" in caution, anything else in sit. */
 export function InjuryBadge({ label }: { label: string }) {
   const tint = label === 'Q' ? 'var(--caution)' : 'var(--sit)'
   return (
-    <span className="injury-badge t-micro" style={{ color: tint, background: `color-mix(in srgb, ${tint} 15%, transparent)` }}
+    <span className="injury-badge t-caption" style={{ color: tint, background: `color-mix(in srgb, ${tint} 15%, transparent)` }}
       aria-label={label === 'Q' ? 'Questionable' : label}>{label}</span>
   )
 }
@@ -94,10 +94,10 @@ export function PanelPlayerRow({ playerID, name, position, detail, badge, chip, 
         <span className="panel-row-name">
           <span className="t-meta" style={{ fontWeight: 600 }}>{name}</span>
           {badge && <InjuryBadge label={badge} />}
-          {chip && <span className="t-micro muted" style={{ fontWeight: 600 }}>{chip}</span>}
+          {chip && <span className="t-caption muted" style={{ fontWeight: 600 }}>{chip}</span>}
           {comparing && <span className="compare-dot" style={{ background: env.compare.group ? LINK_GROUP_COLOR[env.compare.group] : 'var(--accent)' }} aria-label="In compare" />}
         </span>
-        {detail && <span className="t-micro muted panel-row-detail">{detail}</span>}
+        {detail && <span className="t-caption muted panel-row-detail">{detail}</span>}
       </span>
       {trailing}
     </>
@@ -116,7 +116,7 @@ export function LinkedEmptyState({ group }: { group: LinkGroup }) {
     <div className="panel-message">
       <Hand size={22} color={LINK_GROUP_COLOR[group]} aria-hidden />
       <span className="t-meta" style={{ fontWeight: 600 }}>{`Click a player in any ${linkGroupName(group).toLowerCase()} panel`}</span>
-      <span className="t-micro muted">This panel follows your clicks.</span>
+      <span className="t-caption muted">This panel follows your clicks.</span>
     </div>
   )
 }
@@ -162,7 +162,7 @@ export function PanelPlayerHeader({ card, detail }: { card: PlayerCardModel; det
           <PositionChip position={card.position} />
           {badge && <InjuryBadge label={badge} />}
         </div>
-        <div className="t-micro muted panel-row-detail">{detail ?? subtitle}</div>
+        <div className="t-caption muted panel-row-detail">{detail ?? subtitle}</div>
       </div>
     </div>
   )

@@ -101,6 +101,8 @@
 .t-body { font-size: 0.9375rem; line-height: 1.4; }
 .t-meta { font-size: 0.75rem; line-height: 1.35; }
 .t-micro { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+/* caption2: small body text, not a label — no uppercase. */
+.t-caption { font-size: 0.6875rem; line-height: 1.35; }
 .muted { color: var(--text-2); }
 .faint { color: var(--text-3); }
 
