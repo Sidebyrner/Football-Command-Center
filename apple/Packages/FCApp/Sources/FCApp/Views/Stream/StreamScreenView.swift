@@ -61,7 +61,7 @@ struct StreamScreenView<Kind: StreamKind>: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Space.xl) {
                 if let error = model.errorMessage, model.context != nil {
                     InlineErrorBanner(message: error)
                 }
@@ -81,23 +81,27 @@ struct StreamScreenView<Kind: StreamKind>: View {
                             description: Text("Your league doesn't start any \(Kind.playerNoun)s, so there is nothing to stream.")
                         )
                     } else {
-                        header(context: context)
-                        starterCard
-                        controls
-                        list
-                        VStack(alignment: .leading, spacing: 4) {
+                        hero(context: context)
+                        ScreenSection(title: "Starter to beat", systemImage: "person.fill.checkmark") { starterCard }
+                        ScreenSection(title: "Tune", systemImage: "slider.horizontal.3") { controls }
+                        ScreenSection(title: "Streamers", systemImage: spec.systemImage,
+                                      count: model.rows.isEmpty ? nil : min(model.rows.count, 50)) { list }
+                        AboutThisData {
+                            header(context: context)
                             FreshnessBanner(provenance: context.provenance)
                             ForEach(model.sourceNotes, id: \.self) { CoverageNote(text: $0) }
                         }
                     }
                 }
             }
-            .padding()
+            .padding(.horizontal, Space.l)
+            .padding(.vertical, Space.m)
             .frame(maxWidth: .infinity, alignment: .leading)
             .motion(Motion.snappy, value: model.positionFilter)
             .motion(Motion.snappy, value: model.risk)
             .motion(Motion.snappy, value: model.horizon)
         }
+        .background(Surface.page.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) {
             if !model.compareIDs.isEmpty { compareTray }
         }
@@ -171,13 +175,37 @@ struct StreamScreenView<Kind: StreamKind>: View {
 
     // MARK: - Header
 
+    /// The answer: this week's best stream, and what it gains on your starter.
+    private func hero(context: LeagueContext) -> some View {
+        let best = model.report?.ranked.first
+        let starter = model.report?.incumbent
+        let gain = best.flatMap { b in starter.map { b.expPts - $0.expPts } }
+        return ScreenHero(
+            overline: "Streams · \(spec.title.replacingOccurrences(of: " Stream", with: "")) · Week \(context.currentWeek)",
+            systemImage: spec.systemImage,
+            answer: best.map { StreamFormat.shortName($0.name) } ?? "No stream",
+            detail: best.map { b in
+                let vs = "\(b.team) \(b.opponent)"
+                if let gain, let starter {
+                    return gain > 0
+                        ? "\(vs) · \(PanelFormat.signed(gain)) on \(StreamFormat.shortName(starter.name))"
+                        : "\(vs) · your starter \(StreamFormat.shortName(starter.name)) is still ahead"
+                }
+                return vs
+            } ?? "Nobody projects yet — see About this data.",
+            stats: best.map { b in
+                [(StreamFormat.one(b.expPts), "exp. pts"), (StreamFormat.pct(b.pPlay), "plays")]
+                    + (gain.map { [(PanelFormat.signed($0), "vs starter")] } ?? [])
+            } ?? []
+        )
+    }
+
     private func header(context: LeagueContext) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionHeader(
-                title: "Week \(context.currentWeek) streamers",
-                subtitle: "Projected in your scoring: \(spec.scoringSummary(model.scoring)). Ranked by utility, which tilts expected points toward floor or ceiling.",
-                systemImage: spec.systemImage
-            )
+            Text("Projected in your scoring: \(spec.scoringSummary(model.scoring)). Ranked by utility, which tilts expected points toward floor or ceiling.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 12) {
                 Label(context.leagueFacts.waivers.label, systemImage: "dollarsign.circle")
                 if let remaining = context.leagueFacts.faabRemaining {
@@ -197,7 +225,6 @@ struct StreamScreenView<Kind: StreamKind>: View {
     private var starterCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Starter to beat").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 Spacer()
                 if let inc = model.report?.incumbent, let id = inc.playerID {
                     Button {
@@ -316,14 +343,7 @@ struct StreamScreenView<Kind: StreamKind>: View {
     }
 
     private func chip(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.caption.weight(selected ? .semibold : .regular))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(selected ? Color.accentColor.opacity(0.2) : Palette.surface))
-        }
-        .buttonStyle(.plain)
+        FilterChip(title: label, isSelected: selected, action: action)
     }
 
     // MARK: - List

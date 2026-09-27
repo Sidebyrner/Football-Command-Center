@@ -170,7 +170,7 @@ public struct RootView: View {
                     .tag(hub)
             }
         }
-        .tint(HubStyle.tint(router.phoneHub))
+        .tint(HubStyle.tint(for: router.phoneScreen))
         .sensoryFeedback(.selection, trigger: router.phoneHub)
     }
 

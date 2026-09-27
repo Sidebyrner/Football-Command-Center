@@ -270,8 +270,17 @@ struct InjuredPlayerRow: View {
                 }
             }
         }
-        .card(fill: tint.opacity(0.08))
+        .modifier(SeverityCard(tone: tone))
         .contentShape(Rectangle())
+    }
+
+    /// The verdict as a status bar on the card's edge, not a wash over it.
+    private var tone: StatusTone? {
+        switch player.severity {
+        case .out, .doubtful, .reserve: return .sit
+        case .questionableNoPractice, .questionable: return .caution
+        case .other: return nil
+        }
     }
 
     private var tint: Color {
@@ -442,5 +451,14 @@ struct InjuryGroups {
         }
         self.actNow = actNow
         self.watch = watch
+    }
+}
+
+/// A raised card, with a status bar when there's a verdict.
+private struct SeverityCard: ViewModifier {
+    let tone: StatusTone?
+
+    func body(content: Content) -> some View {
+        if let tone { content.callout(tone) } else { content.card() }
     }
 }

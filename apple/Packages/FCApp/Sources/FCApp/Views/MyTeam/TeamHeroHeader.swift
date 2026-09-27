@@ -8,6 +8,8 @@ struct TeamHeroHeader: View {
     @ObservedObject var model: DashboardModel
     let context: LeagueContext
     @State private var explained: Pillar?
+    @Environment(\.hubTint) private var hubTint
+    private var tint: Color { hubTint ?? .accentColor }
 
     enum Pillar: String, CaseIterable, Identifiable {
         case vegas = "Vegas"
@@ -29,38 +31,36 @@ struct TeamHeroHeader: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text((context.userTeam?.manager ?? "My Team").uppercased())
-                        .font(.caption.weight(.bold))
-                        .kerning(1.2)
-                        .foregroundStyle(.secondary)
+                    Label("Team · \(context.userTeam?.manager ?? "My Team")", systemImage: "person.crop.square")
+                        .textStyle(.micro)
+                        .foregroundStyle(tint)
                         .lineLimit(1)
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         if let mine = model.standings.first(where: \.isUser) {
                             Text(mine.record)
-                                .font(.system(size: 34, weight: .bold, design: .rounded))
-                                .monospacedDigit()
+                                .textStyle(.display)
                         }
                         if let place = model.place {
                             Text("\(ordinal(place.rank)) of \(place.of)")
                                 .font(.headline)
-                                .foregroundStyle(Color.accentColor)
+                                .foregroundStyle(tint)
                         }
                         if let streak = model.streak {
-                            Text(streak)
+                            let tone: StatusTone = streak.hasPrefix("W") ? .start : .sit
+                            Label(streak, systemImage: streak.hasPrefix("W") ? "arrow.up.right" : "arrow.down.right")
                                 .font(.caption.weight(.bold).monospacedDigit())
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Capsule().fill((streak.hasPrefix("W") ? Palette.start : Palette.sit).opacity(0.16)))
-                                .foregroundStyle(streak.hasPrefix("W") ? Palette.start : Palette.sit)
+                                .background(Capsule().fill(tone.color.opacity(0.14)))
+                                .foregroundStyle(tone.color)
                         }
                     }
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
                     HStack(spacing: 6) {
-                        Text("WEEK \(context.currentWeek)")
-                            .font(.caption2.weight(.semibold))
-                            .kerning(1)
+                        Text("Week \(context.currentWeek)")
+                            .textStyle(.micro)
                             .foregroundStyle(.secondary)
                         if starterIDs.contains(where: { context.isLive($0) }) {
                             LiveBadge()
@@ -88,7 +88,7 @@ struct TeamHeroHeader: View {
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
                             .frame(maxWidth: .infinity)
-                            .background(Capsule().fill(explained == pillar ? Color.accentColor.opacity(0.22) : Color.primary.opacity(0.06)))
+                            .background(Capsule().fill(explained == pillar ? tint.opacity(0.22) : Surface.inset))
                             .foregroundStyle(chipTint(pillar))
                     }
                     .buttonStyle(.plain)
@@ -103,17 +103,9 @@ struct TeamHeroHeader: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(16)
+        .padding(Space.l + 2)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.accentColor.opacity(0.28), Color.accentColor.opacity(0.06)],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    )
-                )
-        )
+        .background(ScreenHeroBackground(tint: tint))
         .motion(Motion.snappy, value: explained)
         .accessibilityIdentifier("myteam.hero")
     }

@@ -41,7 +41,7 @@ public struct DashboardView: View {
 
     public var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: Space.xl) {
                 if let error = model.errorMessage, model.context != nil {
                     InlineErrorBanner(message: error)
                 }
@@ -90,13 +90,17 @@ public struct DashboardView: View {
                     }
                     .id(model.zoom)
                     .transition(.opacity.combined(with: .move(edge: model.zoom == .season ? .trailing : .leading)))
-                    FreshnessBanner(provenance: context.provenance)
+                    AboutThisData {
+                        FreshnessBanner(provenance: context.provenance)
+                    }
                 }
             }
-            .padding()
+            .padding(.horizontal, Space.l)
+            .padding(.vertical, Space.m)
             .frame(maxWidth: .infinity, alignment: .leading)
             .motion(Motion.snappy, value: model.zoom)
         }
+        .background(Surface.page.ignoresSafeArea())
         .refreshable { await model.refresh() }
         .sensoryFeedback(.success, trigger: model.refreshCount)
         .navigationTitle("My Team")
@@ -107,10 +111,8 @@ public struct DashboardView: View {
     @ViewBuilder
     private var alertsSection: some View {
         if model.alerts.isEmpty {
-            Label("Lineup looks clean for this week.", systemImage: "checkmark.seal.fill")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Palette.start)
-                .card(fill: Palette.start.opacity(0.10))
+            StatusLabel(tone: .start, text: "Lineup looks clean for this week.")
+                .card()
                 .appear()
         } else {
             VStack(alignment: .leading, spacing: 10) {
@@ -166,7 +168,7 @@ public struct DashboardView: View {
                     }
                 }
             }
-            .card(fill: Palette.caution.opacity(0.10))
+            .callout(.caution)
         }
     }
 
@@ -240,8 +242,7 @@ public struct DashboardView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text(points.map { String(format: "%.1f", $0) } ?? "—")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .monospacedDigit()
+                .textStyle(.title)
                 .foregroundStyle(.primary)
                 .contentTransition(.numericText())
             if let average {
@@ -261,7 +262,9 @@ public struct DashboardView: View {
             VStack(alignment: .leading, spacing: 8) {
                 SectionHeader(
                     title: "Waiver targets",
-                    subtitle: "Trending adds nobody in your league has. Popularity only."
+                    subtitle: "Trending adds nobody in your league has. Popularity only.",
+                    systemImage: "tray.and.arrow.down",
+                    count: model.waiverTargets.count
                 )
                 ForEach(model.waiverTargets) { target in
                     HStack(spacing: 8) {
@@ -307,7 +310,7 @@ public struct DashboardView: View {
         if !model.standings.isEmpty {
             let shown = showAllStandings ? model.standings : Array(model.standings.prefix(5))
             VStack(alignment: .leading, spacing: 4) {
-                SectionHeader(title: "Standings")
+                SectionHeader(title: "Standings", systemImage: "list.number")
                     .padding(.bottom, 4)
                 ForEach(Array(shown.enumerated()), id: \.element.id) { index, row in
                     HStack(spacing: 8) {
@@ -353,12 +356,12 @@ public struct DashboardView: View {
             VStack(alignment: .leading, spacing: 8) {
                 SectionHeader(
                     title: "Left on your bench",
-                    subtitle: "What your lineup scored against the best one you had."
+                    subtitle: "What your lineup scored against the best one you had.",
+                    systemImage: "chair"
                 )
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(String(format: "%.1f", model.totalLeftOnBench))
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .monospacedDigit()
+                        .textStyle(.display)
                         .contentTransition(.numericText())
                     Text("pts across \(model.benchWeeks.count) week\(model.benchWeeks.count == 1 ? "" : "s")")
                         .font(.caption)
@@ -400,7 +403,8 @@ public struct DashboardView: View {
     private var trendSection: some View {
         if !model.trend.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(title: "Weekly scoring", subtitle: "You against the league average — real results only.")
+                SectionHeader(title: "Weekly scoring", subtitle: "You against the league average — real results only.",
+                              systemImage: "chart.xyaxis.line")
                 ForEach(model.trend) { point in
                     HStack(spacing: 8) {
                         Text("W\(point.week)")
@@ -453,7 +457,8 @@ public struct DashboardView: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(
                 title: "Draft value realized",
-                subtitle: "Each pick against what that pick number actually returned league-wide."
+                subtitle: "Each pick against what that pick number actually returned league-wide.",
+                systemImage: "trophy"
             )
             if let unavailable = model.draftUnavailable {
                 Text(unavailable).font(.caption).foregroundStyle(.secondary)
@@ -483,7 +488,7 @@ public struct DashboardView: View {
     private var newsSection: some View {
         if !model.news.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                SectionHeader(title: "Your players in the news")
+                SectionHeader(title: "Your players in the news", systemImage: "newspaper")
                 ForEach(model.news.prefix(6), id: \.title) { item in
                     VStack(alignment: .leading, spacing: 1) {
                         Text(item.title).font(.caption).lineLimit(2)
@@ -502,7 +507,7 @@ public struct DashboardView: View {
         if !model.transactions.isEmpty {
             let shown = showAllMoves ? model.transactions : Array(model.transactions.prefix(5))
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(title: "Recent league moves")
+                SectionHeader(title: "Recent league moves", systemImage: "arrow.left.arrow.right.circle")
                 ForEach(shown) { transaction in
                     VStack(alignment: .leading, spacing: 1) {
                         HStack {
