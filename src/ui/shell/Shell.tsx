@@ -15,14 +15,14 @@ import './shell.css'
  * at the top-left; wider screens a sidebar and back/forward buttons. Each
  * hub's segments sit under the title.
  */
-export function Shell({ children }: { children: (screen: Screen) => ReactNode }) {
+export function Shell({ children, accent, overlay }: { children: (screen: Screen) => ReactNode; accent?: string; overlay?: ReactNode }) {
   const screen = useNavigationSync() ?? 'board'
   const { resolved } = useTheme()
   const hub = hubFor(screen)
   const hue = hueForScreen(screen)
 
   return (
-    <div className="fcc shell" data-theme={resolved} style={{ '--screen-hue': hue } as CSSProperties}>
+    <div className="fcc shell" data-theme={resolved} style={{ '--screen-hue': hue, ...(accent ? { '--accent': accent } : {}) } as CSSProperties}>
       <Sidebar current={screen} />
       <div className="shell-main">
         <TopBar screen={screen} />
@@ -30,6 +30,7 @@ export function Shell({ children }: { children: (screen: Screen) => ReactNode })
         <main className="shell-content">{children(screen)}</main>
       </div>
       <TabBar current={screen} />
+      {overlay}
     </div>
   )
 }

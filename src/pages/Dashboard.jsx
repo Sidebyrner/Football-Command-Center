@@ -160,7 +160,7 @@ export default function Dashboard() {
         <main className="flex-1 overflow-auto p-6">
           <p className="text-sm text-[var(--color-text-muted)]">
             Connect your Sleeper league in{' '}
-            <Link to="/settings" className="underline font-semibold">Settings</Link>{' '}
+            <Link to="/classic/settings" className="underline font-semibold">Settings</Link>{' '}
             to see your roster, matchup, and waiver activity.
           </p>
         </main>
@@ -235,7 +235,7 @@ export default function Dashboard() {
         {!detected && (
           <p className="text-[10px] text-[var(--color-text-faint)]">
             Couldn't reach Sleeper for the current NFL week — using week {week} from{' '}
-            <Link to="/settings" className="underline">Settings</Link>.
+            <Link to="/classic/settings" className="underline">Settings</Link>.
           </p>
         )}
       </main>

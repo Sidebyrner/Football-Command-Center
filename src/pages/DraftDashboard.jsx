@@ -183,7 +183,7 @@ export default function DraftDashboard() {
           <AlertTriangle size={13} className="flex-shrink-0" />
           <span>
             Scores are using assumed default scoring, not your league's real rules —{' '}
-            <Link to="/settings" className="underline font-semibold hover:text-[var(--color-caution)]">
+            <Link to="/classic/settings" className="underline font-semibold hover:text-[var(--color-caution)]">
               pull your league's scoring from Sleeper in Settings
             </Link>{' '}
             before you draft.

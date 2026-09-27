@@ -1,6 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Shell } from '@ui/shell/Shell'
-import { Placeholder } from './screens/Placeholder'
+import { ScreenView } from './screens/ScreenView'
+import { AppProvider, useApp, useModel } from '@ui/app/AppContext'
+import { ACCENT_THEME_HEX } from '@models/settings/AppSettings'
+import { PlayerCardSheet } from './screens/players/PlayerCardSheet'
+import { LoadingPlaceholder } from '@ui/components/State'
 import { launchScreen, pathFor } from '@models/navigation/screens'
 import '@ui/tokens.css'
 import '@ui/components/components.css'
@@ -24,8 +28,8 @@ function RequireConfig({ children }) {
   const isConfigured = useAppStore((s) => s.isConfigured)
   const location = useLocation()
 
-  if (!isConfigured && location.pathname !== '/settings') {
-    return <Navigate to="/settings" replace />
+  if (!isConfigured && location.pathname !== '/classic/settings') {
+    return <Navigate to="/classic/settings" replace />
   }
   return children
 }
@@ -46,7 +50,21 @@ function AppLayout({ children }) {
 
 /** The new app: the five hubs, ported from the native app screen by screen. */
 function NewApp() {
-  return <Shell>{(screen) => <Placeholder screen={screen} />}</Shell>
+  return (
+    <AppProvider fallback={<div className="fcc" style={{ padding: 16 }}><LoadingPlaceholder label="Starting…" /></div>}>
+      <NewShell />
+    </AppProvider>
+  )
+}
+
+function NewShell() {
+  const { services } = useApp()
+  const accent = ACCENT_THEME_HEX[useModel(services.settingsModel).settings.accentTheme]
+  return (
+    <Shell accent={accent} overlay={<PlayerCardSheet />}>
+      {(screen) => <ScreenView screen={screen} />}
+    </Shell>
+  )
 }
 
 /** Board on a phone, My Team on a wider screen — as on the native app. */
@@ -65,7 +83,7 @@ export default function App() {
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         <Route
-          path="/settings"
+          path="/classic/settings"
           element={
             <AppLayout>
               <Settings />
@@ -73,7 +91,7 @@ export default function App() {
           }
         />
         <Route path="/" element={<Launch />} />
-        {['/board', '/team', '/lineup/*', '/market/*', '/streams/*'].map((path) => (
+        {['/board', '/team', '/settings', '/lineup/*', '/market/*', '/streams/*'].map((path) => (
           <Route key={path} path={path} element={<NewApp />} />
         ))}
         <Route

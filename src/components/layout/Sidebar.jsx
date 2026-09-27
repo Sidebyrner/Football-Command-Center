@@ -17,7 +17,7 @@ const NAV = [
   { to: '/trade', icon: ArrowLeftRight, label: 'Trade' },
   { to: '/power-rankings', icon: BarChart3, label: 'Power Rankings' },
   { to: '/odds', icon: TrendingUp, label: 'Odds' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/classic/settings', icon: Settings, label: 'Settings' },
 ]
 
 export default function Sidebar() {

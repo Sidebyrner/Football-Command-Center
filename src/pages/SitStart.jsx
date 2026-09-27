@@ -68,7 +68,7 @@ export default function SitStart() {
         <main className="flex-1 overflow-auto p-6">
           <p className="text-sm text-[var(--color-text-muted)]">
             Connect your Sleeper league in{' '}
-            <Link to="/settings" className="underline font-semibold">Settings</Link>{' '}
+            <Link to="/classic/settings" className="underline font-semibold">Settings</Link>{' '}
             to compare players on your roster.
           </p>
         </main>
@@ -142,7 +142,7 @@ export default function SitStart() {
           {!oddsApiKey && selected.length > 0 && (
             <p className="text-xs text-[var(--color-caution)] mb-3">
               No Odds API key configured —{' '}
-              <Link to="/settings" className="underline font-semibold">add one in Settings</Link>{' '}
+              <Link to="/classic/settings" className="underline font-semibold">add one in Settings</Link>{' '}
               to see this week's game environment alongside season quality.
             </p>
           )}

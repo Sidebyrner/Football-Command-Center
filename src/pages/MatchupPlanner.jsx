@@ -312,7 +312,7 @@ export default function MatchupPlanner() {
         <main className="flex-1 overflow-auto p-6">
           <p className="text-sm text-[var(--color-text-muted)]">
             Connect your Sleeper league in{' '}
-            <Link to="/settings" className="underline font-semibold">Settings</Link>{' '}
+            <Link to="/classic/settings" className="underline font-semibold">Settings</Link>{' '}
             to plan this week's matchup.
           </p>
         </main>

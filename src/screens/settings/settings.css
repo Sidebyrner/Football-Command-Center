@@ -1,0 +1,29 @@
+.settings-card { display: grid; gap: var(--space-m); }
+.field { display: grid; gap: 4px; }
+.field input {
+  font: inherit; font-size: 1rem; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--stroke); background: var(--inset); color: var(--text); width: 100%;
+}
+.field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.row { display: flex; gap: var(--space-s); align-items: center; flex-wrap: wrap; }
+.row input { flex: 1; min-width: 0; }
+.list { padding: 0; overflow: hidden; }
+.list-row {
+  appearance: none; border: 0; background: none; font: inherit; color: var(--text); width: 100%;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left;
+  padding: 12px 16px; cursor: pointer; min-height: 44px;
+}
+.list-row + .list-row { border-top: 0.5px solid var(--stroke); }
+.list-row:hover { background: var(--inset); }
+.swatches { display: flex; flex-wrap: wrap; gap: 14px; }
+.swatch {
+  width: 34px; height: 34px; border-radius: 50%; border: 2px solid; cursor: pointer;
+  display: grid; place-items: center; box-shadow: 0 0 0 3px var(--card) inset;
+}
+.swatch.selected { transform: scale(1.06); box-shadow: none; }
+.segmented { display: inline-flex; background: var(--inset); border-radius: 9px; padding: 2px; gap: 2px; justify-self: start; }
+.segmented button { appearance: none; border: 0; background: none; font: inherit; color: var(--text); padding: 6px 12px; border-radius: 7px; cursor: pointer; }
+.segmented button.on { background: var(--card); box-shadow: var(--shadow); font-weight: 600; }
+.button.danger { color: var(--sit); }
+.settings-footer { display: flex; justify-content: center; padding: var(--space-xl) 0; }
+.button { display: inline-flex; align-items: center; gap: 6px; }

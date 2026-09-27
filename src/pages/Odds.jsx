@@ -151,7 +151,7 @@ export default function Odds() {
               {usingFallback
                 ? 'Showing the schedule file\u2019s recorded lines, not live odds — they don\u2019t move as the week does. '
                 : 'No Odds API key configured — '}
-              <Link to="/settings" className="underline font-semibold hover:text-[var(--color-caution)]">
+              <Link to="/classic/settings" className="underline font-semibold hover:text-[var(--color-caution)]">
                 add a key in Settings
               </Link>{' '}
               for live spreads and totals. Free tier: 500 requests/month.
