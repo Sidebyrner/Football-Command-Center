@@ -308,9 +308,12 @@ public final class MatchupModel: ObservableObject {
             leagueID: request.leagueID, week: context.currentWeek, force: true
         ) else { return false }
         let table = defenseTable
+        // The full lookup, not just the nflverse table: IDP matchups come from
+        // Sleeper's lines, and dropping them would blank those rows mid-game.
+        let lookup = defenseLookup
         let rows = matchups.value
         let built = await Task.detached(priority: .utility) {
-            Self.build(context: context, matchups: rows, table: table)
+            Self.build(context: context, matchups: rows, table: table, lookup: lookup)
         }.value
         apply(built)
         lastLiveUpdate = context.now()
