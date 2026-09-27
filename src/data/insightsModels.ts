@@ -4,6 +4,7 @@
  * model decodes leniently and every caller labels the source.
  */
 import { positionFromSleeper } from '@core/Position'
+import { scoreSleeperStats, type SleeperScoredLine } from '@core/SleeperStatScoring'
 import { asObject, compact, int, isObject, needString, num, numberMapDroppingNulls, str, type JSONObject } from './decode'
 
 /** The player block Sleeper embeds in a projection or stat line. */
@@ -62,6 +63,10 @@ function decodeStatLine(o: JSONObject): StatLine {
     gameDate: str(o, 'date'),
   })
 }
+
+/** Points under a league's own scoring (projection or actual line). */
+export const scoreLine = (line: { stats: Record<string, number> }, scoring: Record<string, number>): SleeperScoredLine =>
+  scoreSleeperStats(line.stats, scoring)
 
 export const linePosition = (line: { player?: SleeperLinePlayer }) => positionFromSleeper(line.player?.position)
 

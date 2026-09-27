@@ -49,6 +49,21 @@ describe('SleeperService', () => {
     await expect(make(new StubTransport().fail('/league/L1')).league('L1')).rejects.toThrow()
   })
 
+  it("reads scoring from the league's own settings", async () => {
+    const t = new StubTransport().json('/league/L1', '{"league_id":"L1","name":"Byrne Notice","scoring_settings":{"rec":0.5,"pass_td":6.0,"rush_yd":0.1}}')
+    const { value } = await make(t).scoringTranslation('L1')
+    expect([value.profile.receptionPoints, value.profile.rushingTD, value.profile.rushingYardsPerPoint, value.profile.source]).toEqual([0.5, 0, 10, 'sleeper'])
+  })
+
+  it('keeps the provenance of what a derived value came from', async () => {
+    const t = new StubTransport().json('/league/L1', '{"league_id":"L1","roster_positions":["QB","RB","WR","FLEX","BN"]}')
+    const service = make(t)
+    await service.league('L1')
+    const template = await service.slotTemplate('L1')
+    expect(template.provenance.kind).toBe('cached')
+    expect([template.value.starters.length, template.value.benchCount]).toEqual([4, 1])
+  })
+
   it("reuses a live read's entry for a completed week", async () => {
     const t = new StubTransport().json('/matchups/3', '[{"roster_id":1,"points":102.5}]')
     const service = make(t)

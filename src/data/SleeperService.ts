@@ -7,7 +7,9 @@
  * recognisably the same design.
  */
 import { Cache, CacheTTL } from './cache'
-import { live, type Fetched } from './fetched'
+import { live, mapFetched, type Fetched } from './fetched'
+import { fromSleeper, type SleeperScoringTranslation } from '@core/SleeperScoring'
+import { parseSlots, type SlotTemplate } from '@core/RosterSlots'
 import { SleeperClient } from './SleeperClient'
 import { isObject } from './decode'
 import type {
@@ -88,6 +90,16 @@ export class SleeperService {
 
   league(id: string, force = false): Promise<Fetched<SleeperLeague>> {
     return this.through(SleeperCacheKey.league(id), CacheTTL.roster, force, anObject, () => this.client.league(id))
+  }
+
+  /** Scoring read from the league itself, so a mid-season change flows through. */
+  async scoringTranslation(leagueID: string, force = false): Promise<Fetched<SleeperScoringTranslation>> {
+    return mapFetched(await this.league(leagueID, force), (l) => fromSleeper(l.scoringSettings ?? {}, l.name ?? 'League'))
+  }
+
+  /** The league's own slot template; keeps the league read's provenance. */
+  async slotTemplate(leagueID: string, force = false): Promise<Fetched<SlotTemplate>> {
+    return mapFetched(await this.league(leagueID, force), (l) => parseSlots(l.rosterPositions))
   }
 
   rosters(leagueID: string, force = false): Promise<Fetched<SleeperRoster[]>> {
