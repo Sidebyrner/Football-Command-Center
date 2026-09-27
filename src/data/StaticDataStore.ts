@@ -16,6 +16,9 @@ import { live, type Fetched } from './fetched'
 import { FetchTransport, isNotModified, isOK, type HTTPTransport } from './transport'
 import { isObject } from './decode'
 import { decodeCrosswalk, type PlayerIDCrosswalk } from './playerIdCrosswalk'
+import { WeeklyFile, type WeeklyManifest } from '@core/WeeklyStats'
+import { decodeSchedule, type ScheduleFile } from '@core/Schedule'
+import { DepthChartFile, InjuryReportFile, TeamContextFile, UsageFile } from '@core/InSeasonFiles'
 
 export interface StaticResource {
   /** Name without extension, as the phone bundles it (`weekly-2026`). */
@@ -148,7 +151,42 @@ export class StaticDataStore {
     return { value: decode(bundled), provenance: { kind: 'bundled' } }
   }
 
-  // MARK: - Typed conveniences (the rest arrive with their FCCore models)
+  // MARK: - Typed conveniences
+
+  weeklyFile(season: number, force = false): Promise<Fetched<WeeklyFile>> {
+    return this.load(StaticResources.weekly(season), { force, decode: (j) => new WeeklyFile(j) })
+  }
+
+  schedule(season: number, force = false): Promise<Fetched<ScheduleFile>> {
+    return this.load(StaticResources.schedule(season), { force, decode: decodeSchedule })
+  }
+
+  /** Which seasons have a weekly production file. */
+  weeklyManifest(force = false): Promise<Fetched<WeeklyManifest>> {
+    return this.load(StaticResources.weeklyIndex, {
+      force,
+      decode: (j) => {
+        if (!isObject(j) || !Array.isArray(j.seasons)) throw new Error('expected seasons')
+        return j as unknown as WeeklyManifest
+      },
+    })
+  }
+
+  injuries(season: number, force = false): Promise<Fetched<InjuryReportFile>> {
+    return this.load(StaticResources.injuries(season), { force, decode: (j) => new InjuryReportFile(j) })
+  }
+
+  depthCharts(season: number, force = false): Promise<Fetched<DepthChartFile>> {
+    return this.load(StaticResources.depthCharts(season), { force, decode: (j) => new DepthChartFile(j) })
+  }
+
+  usage(season: number, force = false): Promise<Fetched<UsageFile>> {
+    return this.load(StaticResources.usage(season), { force, decode: (j) => new UsageFile(j) })
+  }
+
+  teamContext(season: number, force = false): Promise<Fetched<TeamContextFile>> {
+    return this.load(StaticResources.teamContext(season), { force, decode: (j) => new TeamContextFile(j) })
+  }
 
   playerCrosswalk(force = false): Promise<Fetched<PlayerIDCrosswalk>> {
     return this.load(StaticResources.playerIDs, { force, decode: decodeCrosswalk })

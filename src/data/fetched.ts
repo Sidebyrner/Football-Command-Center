@@ -32,3 +32,15 @@ export interface Fetched<T> {
 export function mapFetched<A, B>(f: Fetched<A>, transform: (a: A) => B): Fetched<B> {
   return { value: transform(f.value), provenance: f.provenance }
 }
+
+/** Higher means less trustworthy: live < cached < bundled < stale. */
+export function provenanceSeverity(p: Provenance): number {
+  return p.kind === 'live' ? 0 : p.kind === 'cached' ? 1 : p.kind === 'bundled' ? 2 : 3
+}
+
+/** A screen built from several reads is only as fresh as its oldest part. */
+export function weakestProvenance(provenances: readonly Provenance[]): Provenance {
+  let worst: Provenance = live
+  for (const p of provenances) if (provenanceSeverity(p) > provenanceSeverity(worst)) worst = p
+  return worst
+}

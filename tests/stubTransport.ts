@@ -22,6 +22,24 @@ export class StubTransport implements HTTPTransport {
     return this.on(match, error)
   }
 
+  /** Puts a new answer in front of an existing route for the same fragment. */
+  override(match: string, body: string, status = 200): this {
+    this.scripted = this.scripted.filter((e) => e.match !== match)
+    this.scripted.unshift({ match, results: [makeResponse(status, body)] })
+    return this
+  }
+
+  /** Swaps a route's answer while keeping its place in the order. */
+  replace(match: string, body: string, status = 200): this {
+    const i = this.scripted.findIndex((e) => e.match === match)
+    if (i < 0) return this.json(match, body, status)
+    this.scripted[i] = { match, results: [makeResponse(status, body)] }
+    return this
+  }
+
+  /** Every URL path requested, in order. */
+  requestedPaths(): string[] { return this.requests.map((r) => new URL(r.url, 'https://x.test').pathname) }
+
   get requestCount() { return this.requests.length }
   get urls() { return this.requests.map((r) => r.url) }
   header(name: string, index: number) { return this.requests[index]?.headers?.[name] }
