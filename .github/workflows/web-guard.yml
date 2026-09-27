@@ -1,0 +1,25 @@
+name: Web guard
+
+# The web port reads the Swift app (sources, fixtures, demo data) but never
+# changes it. Any pull request from a web branch that touches apple/ fails.
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  no-native-changes:
+    if: startsWith(github.head_ref, 'web-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Refuse changes under apple/
+        run: |
+          changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- apple/)
+          if [ -n "$changed" ]; then
+            echo "::error::This web pull request changes the native app:"
+            echo "$changed"
+            exit 1
+          fi
+          echo "No changes under apple/."

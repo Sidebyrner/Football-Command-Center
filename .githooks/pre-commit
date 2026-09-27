@@ -1,0 +1,10 @@
+#!/bin/sh
+# Web-parity guard: the web port reads the Swift app but never changes it.
+# Refuses a commit that stages anything under apple/.
+changed=$(git diff --cached --name-only -- apple/)
+if [ -n "$changed" ]; then
+  echo "✋ This commit touches the native app, which the web work must leave alone:" >&2
+  echo "$changed" | sed 's/^/   /' >&2
+  echo "Unstage those paths (git restore --staged apple/) and commit again." >&2
+  exit 1
+fi
