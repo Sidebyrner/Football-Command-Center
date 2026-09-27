@@ -3,7 +3,8 @@
  * saved setting — league, accent, Board layout, workspaces, stream overrides
  * and snapshots. The relay token is never included.
  */
-const PREFIXES = ['fcc.', 'FantasyCommandCenter/']
+/** Board layout keeps the native app's own key (`board.layout.v1`). */
+const PREFIXES = ['fcc.', 'FantasyCommandCenter/', 'board.layout']
 const EXCLUDED = new Set(['fcc.relay-token', 'fcc.theme-probe'])
 export const EXPORT_FORMAT = 'football-command-center-export'
 
