@@ -25,6 +25,7 @@ struct PanelHost: View {
     let actions: Actions
 
     @Environment(\.openScreen) private var openScreen
+    @Environment(\.colorScheme) private var colorScheme
     #if os(macOS)
     @State private var cursorPushed = false
     #endif
@@ -48,16 +49,23 @@ struct PanelHost: View {
                 .allowsHitTesting(!editing)
                 .opacity(editing ? 0.75 : 1)
         }
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.background))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        // A raised card: the link colour is a rule across the top, so panels
+        // that move together read as a set without every edge shouting it.
+        .background(Surface.card)
+        .overlay(alignment: .top) {
+            if let group = placement.linkGroup {
+                Rectangle().fill(group.color.opacity(0.85)).frame(height: 3)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(border, lineWidth: isSelected ? 2 : 1)
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                .strokeBorder(border, lineWidth: isSelected ? 2 : 0.5)
         )
         .overlay(alignment: .bottomTrailing) {
             if editing { resizeHandle }
         }
-        .shadow(color: .black.opacity(0.05), radius: 4, y: 1)
+        .shadow(color: .black.opacity(colorScheme == .light ? 0.07 : 0), radius: 4, y: 1)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(kind.title)
         .accessibilityIdentifier("workspace.panel.\(kind.rawValue)")
@@ -87,9 +95,7 @@ struct PanelHost: View {
     }
 
     private var border: Color {
-        if isSelected { return .accentColor }
-        if let group = placement.linkGroup { return group.color.opacity(0.45) }
-        return Color.secondary.opacity(0.18)
+        isSelected ? .accentColor : Surface.stroke
     }
 
     // MARK: - Title bar
@@ -103,8 +109,8 @@ struct PanelHost: View {
                     .accessibilityHidden(true)
             }
             Image(systemName: kind.systemImage)
-                .font(.subheadline)
-                .foregroundStyle(placement.linkGroup?.color ?? .secondary)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(kind.hue)
                 .frame(width: 18)
             Text(title)
                 .font(.subheadline.weight(.semibold))
@@ -138,7 +144,8 @@ struct PanelHost: View {
             }
         }
         .padding(.horizontal, 12)
-        .frame(height: 38)
+        .padding(.top, placement.linkGroup == nil ? 0 : 2)
+        .frame(height: 40)
         .background(editing ? Color.primary.opacity(0.03) : .clear)
         .contentShape(Rectangle())
         .onTapGesture { if editing { actions.select() } }

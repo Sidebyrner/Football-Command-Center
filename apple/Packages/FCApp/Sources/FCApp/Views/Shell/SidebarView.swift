@@ -33,7 +33,8 @@ struct SidebarView: View {
                         Section(section.rawValue) {
                             ForEach(screens) { screen in
                                 NavigationLink(value: SidebarItem.screen(screen)) {
-                                    Label(screen.rawValue, systemImage: screen.systemImage)
+                                    row(screen.rawValue, systemImage: screen.systemImage,
+                                        hue: HubStyle.tint(for: screen), selected: router.selection == .screen(screen))
                                 }
                             }
                         }
@@ -68,7 +69,8 @@ struct SidebarView: View {
         Section {
             ForEach(store.workspaces) { workspace in
                 NavigationLink(value: SidebarItem.workspace(workspace.id)) {
-                    Label(workspace.name, systemImage: workspace.icon)
+                    row(workspace.name, systemImage: workspace.icon,
+                        hue: HubStyle.board, selected: router.selection == .workspace(workspace.id))
                 }
                 .contextMenu { menu(for: workspace) }
             }
@@ -141,5 +143,15 @@ struct SidebarView: View {
         if router.selection == .workspace(workspace.id) { router.open(.dashboard) }
         store.delete(workspace.id)
         router.forget(workspace: workspace.id)
+    }
+
+    /// A sidebar row whose icon wears its tab's hue — white on the selected
+    /// row, where it sits on the highlight.
+    private func row(_ title: String, systemImage: String, hue: Color, selected: Bool) -> some View {
+        Label {
+            Text(title)
+        } icon: {
+            Image(systemName: systemImage).foregroundStyle(selected ? Color.white : hue)
+        }
     }
 }

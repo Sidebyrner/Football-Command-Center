@@ -59,7 +59,7 @@ struct WorkspaceGridView: View {
                 }
             }
         }
-        .background(Palette.surface.opacity(0.6))
+        .background(Surface.page)
         .animation(Motion.snappy, value: editing)
         .accessibilityIdentifier("workspace.grid")
     }
