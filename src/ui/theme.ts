@@ -30,7 +30,7 @@ const usePreference = create<{ preference: ThemePreference; set: (p: ThemePrefer
 /** Light or dark: the system's choice unless the user picked one. */
 export function useTheme(): { resolved: 'light' | 'dark'; preference: ThemePreference; setPreference: (p: ThemePreference) => void } {
   const { preference, set } = usePreference()
-  const [systemDark, setSystemDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false)
+  const [systemDark, setSystemDark] = useState(() => (typeof window === 'undefined' ? false : window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false))
 
   useEffect(() => {
     const mq = window.matchMedia?.('(prefers-color-scheme: dark)')

@@ -40,6 +40,14 @@ export function useModel<M extends Observable>(model: M): M {
   return model
 }
 
+/** For tests and previews: already-built services, no loading or polling. */
+export function StaticAppProvider({ services, demo = true, children }: { services: AppServices; demo?: boolean; children: ReactNode }) {
+  const value: AppValue = {
+    services, demo, openScreen: () => {}, openPlayerCard: () => {}, openTrade: () => {}, closePlayerCard: () => {},
+  }
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>
+}
+
 export function AppProvider({ children, fallback }: { children: ReactNode; fallback: ReactNode }) {
   const [created, setCreated] = useState<{ services: AppServices; demo: boolean }>()
   const [failure, setFailure] = useState<string>()
