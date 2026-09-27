@@ -10,6 +10,10 @@ import { useApp, useModel } from '@ui/app/AppContext'
 import { NeedsSetup } from '@ui/components/State'
 import { Placeholder } from './Placeholder'
 import { SettingsScreen } from './settings/SettingsScreen'
+import { DiscoverScreen } from './market/DiscoverScreen'
+import { PlanningScreen } from './market/PlanningScreen'
+import { TradesScreen } from './market/TradesScreen'
+import { WaiversScreen } from './market/WaiversScreen'
 import { BoardScreen } from './board/BoardScreen'
 import { MyTeamScreen } from './team/MyTeamScreen'
 import { InjuriesScreen } from './lineup/InjuriesScreen'
@@ -19,6 +23,10 @@ import { SitStartScreen } from './lineup/SitStartScreen'
 /** Screens built so far; the rest render their placeholder. */
 export const screens: Partial<Record<Screen, ComponentType>> = {
   settings: SettingsScreen,
+  discovery: DiscoverScreen,
+  waivers: WaiversScreen,
+  trades: TradesScreen,
+  planning: PlanningScreen,
   board: BoardScreen,
   dashboard: MyTeamScreen,
   sitStart: SitStartScreen,
