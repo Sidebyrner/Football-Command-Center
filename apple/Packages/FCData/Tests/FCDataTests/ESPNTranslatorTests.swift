@@ -121,6 +121,18 @@ final class ESPNTranslatorTests: XCTestCase {
         XCTAssertEqual(mine.settings?.waiverPosition, 8)
     }
 
+    /// The data pipeline once published a crosswalk without ESPN ids; the copy
+    /// shipped with the build must fill the gap rather than every roster
+    /// showing as unrostered.
+    func testTheBundledCrosswalkFillsInMissingESPNIDs() throws {
+        let stripped = try JSONDecoder().decode(PlayerIDCrosswalk.self, from: Data("""
+        {"players":{"4046":{"gsisId":"00-0033873","name":"Patrick Mahomes","position":"QB","team":"KCC"}}}
+        """.utf8))
+        XCTAssertEqual(ESPNPlayerIDMapper(crosswalk: stripped, players: nil).sleeperID(for: nil, espnID: 3139477), "espn:3139477")
+        let mapper = ESPNPlayerIDMapper(crosswalk: stripped, players: nil, bundledCrosswalk: crosswalk)
+        XCTAssertEqual(mapper.sleeperID(for: nil, espnID: 3139477), "4046")
+    }
+
     func testATeamDefenseBecomesItsAbbreviation() {
         XCTAssertEqual(mapper.sleeperID(for: nil, espnID: -16012), "KC")
         XCTAssertEqual(mapper.sleeperID(for: nil, espnID: -16014), "LAR")

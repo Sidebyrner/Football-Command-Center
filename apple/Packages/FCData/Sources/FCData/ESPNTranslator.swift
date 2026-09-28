@@ -14,8 +14,12 @@ public struct ESPNPlayerIDMapper: Sendable {
     private let byESPNID: [String: String]
     private let byNameKey: [String: String]
 
-    public init(crosswalk: PlayerIDCrosswalk?, players: PlayerIndex?) {
-        var byESPNID = crosswalk?.sleeperIDsByESPN() ?? [:]
+    /// - Parameter bundledCrosswalk: the copy shipped with the build, used for
+    ///   any ESPN id the refreshed crosswalk lacks — a data pipeline that
+    ///   published without the column must not blank out every roster.
+    public init(crosswalk: PlayerIDCrosswalk?, players: PlayerIndex?, bundledCrosswalk: PlayerIDCrosswalk? = nil) {
+        var byESPNID = bundledCrosswalk?.sleeperIDsByESPN() ?? [:]
+        for (espnID, sleeperID) in crosswalk?.sleeperIDsByESPN() ?? [:] { byESPNID[espnID] = sleeperID }
         var byNameKey: [String: String] = [:]
         let pool: [IndexedPlayer] = players.map { Array($0.players.values) } ?? []
         for player in pool {

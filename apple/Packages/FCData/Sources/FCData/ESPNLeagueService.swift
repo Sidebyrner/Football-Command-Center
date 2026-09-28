@@ -20,6 +20,7 @@ public actor ESPNLeagueService: LeagueDataSource {
     private let season: SeasonProvider
     private let playerIndex: PlayerIndexProvider
     private let crosswalk: CrosswalkProvider
+    private let bundledCrosswalk: CrosswalkProvider
     private var mapper: ESPNPlayerIDMapper?
 
     public init(
@@ -27,13 +28,15 @@ public actor ESPNLeagueService: LeagueDataSource {
         cache: DiskCache = DiskCache(),
         season: @escaping SeasonProvider,
         playerIndex: @escaping PlayerIndexProvider,
-        crosswalk: @escaping CrosswalkProvider
+        crosswalk: @escaping CrosswalkProvider,
+        bundledCrosswalk: @escaping CrosswalkProvider = { nil }
     ) {
         self.client = client
         self.cache = cache
         self.season = season
         self.playerIndex = playerIndex
         self.crosswalk = crosswalk
+        self.bundledCrosswalk = bundledCrosswalk
     }
 
     static let keyPrefix = "espn-"
@@ -49,10 +52,13 @@ public actor ESPNLeagueService: LeagueDataSource {
     /// a signed-out service is rebuilt anyway.
     private func playerMapper() async -> ESPNPlayerIDMapper {
         if let mapper { return mapper }
-        let built = ESPNPlayerIDMapper(
-            crosswalk: try? await crosswalk(), players: try? await playerIndex()
-        )
-        mapper = built
+        let crosswalk = try? await crosswalk()
+        let players = try? await playerIndex()
+        let bundled = try? await bundledCrosswalk()
+        let built = ESPNPlayerIDMapper(crosswalk: crosswalk, players: players, bundledCrosswalk: bundled)
+        // A mapper built while every source was unreachable would map nothing;
+        // keep trying rather than caching the failure for the session.
+        if crosswalk != nil || players != nil || bundled != nil { mapper = built }
         return built
     }
 
