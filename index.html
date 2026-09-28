@@ -21,6 +21,14 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Netlify Forms reads these at deploy time to learn each form's fields;
+         the app posts the real submissions (src/ui/app/betaForms.ts). -->
+    <form name="beta-signup" data-netlify="true" netlify-honeypot="bot-field" hidden>
+      <input name="email" /><input name="name" /><input name="devices" /><input name="bot-field" />
+    </form>
+    <form name="beta-feedback" data-netlify="true" netlify-honeypot="bot-field" hidden>
+      <textarea name="message"></textarea><input name="email" /><input name="kind" /><input name="context" /><input name="bot-field" />
+    </form>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

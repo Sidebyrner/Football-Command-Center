@@ -27,3 +27,17 @@
 .button.danger { color: var(--sit); }
 .settings-footer { display: flex; justify-content: center; padding: var(--space-xl) 0; }
 .button { display: inline-flex; align-items: center; gap: 6px; }
+.field textarea {
+  font: inherit; font-size: 1rem; padding: 10px 12px; border-radius: 10px; resize: vertical;
+  border: 1px solid var(--stroke); background: var(--inset); color: var(--text); width: 100%;
+}
+.field textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Land below the sticky top bar when opened from its Beta button. */
+.beta-anchor { scroll-margin-top: calc(env(safe-area-inset-top) + 64px); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--stroke); background: var(--inset); color: var(--text); font: inherit; font-size: 0.875rem;
+}
+.chip.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }

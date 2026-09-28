@@ -7,5 +7,7 @@ describe('Settings screen', () => {
     const html = await renderScreen(SettingsScreen, '/settings')
     expect(html).toContain('You’re in the demo league')
     expect(html).toContain('Leave the demo')
+    expect(html).toContain('Join the beta')
+    expect(html).toContain('Send feedback')
   })
 })

@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { ChevronLeft, ChevronRight, Settings as SettingsIcon } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MessageSquareHeart, Settings as SettingsIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { hubs, hubScreens, hubTitle, hubFor, screenTitle, segmentLabel, toolScreens, type Screen } from '@models/navigation/screens'
 import { shortLabel, trailLabel, type Place } from '@models/navigation/NavigationHistory'
@@ -87,6 +87,9 @@ function TopBar({ screen, workspaceID }: { screen: Screen; workspaceID?: string 
       <h1 className="t-title topbar-title">{title}</h1>
       <div className="topbar-trailing">
         {workspaceID && wide && <WorkspaceToolbar id={workspaceID} />}
+        <Link to="/settings#beta" className="icon-button" aria-label="Join the beta or send feedback" title="Beta & feedback">
+          <MessageSquareHeart size={18} />
+        </Link>
         <Link to="/settings" className="icon-button" aria-label="Settings" title="Settings">
           <SettingsIcon size={18} />
         </Link>

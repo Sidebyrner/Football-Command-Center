@@ -1,15 +1,18 @@
 /**
  * Setup and settings — the port of `SettingsView`: username, then league, then
  * which team is yours; accent colour; the optional relay. Web additions: try
- * the demo league, and export/import your setup between devices.
+ * the demo league, export/import your setup between devices, and the beta
+ * signup and feedback forms.
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Check, Download, FlaskConical, Palette, Server, Upload, UserRound } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
+import { Check, Download, FlaskConical, MessageSquareHeart, Palette, Server, Upload, UserRound } from 'lucide-react'
 import { ACCENT_THEMES, ACCENT_THEME_HEX, accentThemeLabel, accentThemeSharedStatus, isConfigured } from '@models/settings/AppSettings'
 import { ScreenHero, ScreenSection } from '@ui/components/Screen'
 import { useApp, useModel } from '@ui/app/AppContext'
 import { enterDemo, leaveDemo } from '@ui/app/createServices'
 import { applyImport, buildExport, downloadExport } from '@ui/app/exportImport'
+import { looksLikeEmail, submitBetaForm } from '@ui/app/betaForms'
 import { useTheme } from '@ui/theme'
 import './settings.css'
 
@@ -47,6 +50,7 @@ export function SettingsScreen() {
         <SleeperSetup onReady={finishSetup} />
       )}
 
+      <BetaSection />
       <AppearanceSection />
       {!demo && <RelaySection />}
       {!demo && <ExportSection />}
@@ -241,5 +245,137 @@ function ExportSection() {
         {message && <div className="t-meta" style={{ color: message.ok ? 'var(--start)' : 'var(--sit)' }}>{message.text}</div>}
       </div>
     </ScreenSection>
+  )
+}
+
+const DEVICES = ['iPhone', 'iPad', 'Mac'] as const
+const FEEDBACK_KINDS = ['Idea', 'Bug', 'Other'] as const
+type Sent = { ok: boolean; text: string }
+
+/** Join the TestFlight beta, or tell us what to fix. Linked from the top bar as /settings#beta. */
+function BetaSection() {
+  const { demo } = useApp()
+  const anchor = useRef<HTMLDivElement>(null)
+  const { hash, key } = useLocation()
+  useEffect(() => {
+    if (hash === '#beta') anchor.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [hash, key])
+  return (
+    <div id="beta" ref={anchor} className="beta-anchor">
+      <ScreenSection title="Beta" icon={MessageSquareHeart} hue="var(--hue-team)"
+        subtitle="The iPhone, iPad and Mac app is coming to TestFlight. Leave your email to get an invite, or send feedback on the web version.">
+        <BetaSignup />
+        <BetaFeedback demo={demo} />
+      </ScreenSection>
+    </div>
+  )
+}
+
+function BetaSignup() {
+  const [email, setEmail] = useState('')
+  const [name, setName] = useState('')
+  const [devices, setDevices] = useState<string[]>(['iPhone'])
+  const [bot, setBot] = useState('')
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState<Sent>()
+  const toggle = (d: string) => setDevices((all) => all.includes(d) ? all.filter((x) => x !== d) : [...all, d])
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!looksLikeEmail(email)) { setSent({ ok: false, text: 'That email doesn’t look right.' }); return }
+    setSending(true)
+    try {
+      await submitBetaForm('beta-signup', { email: email.trim(), name: name.trim(), devices: devices.join(', '), 'bot-field': bot })
+      setSent({ ok: true, text: 'You’re on the list. The TestFlight invite will come to that email.' })
+      setEmail(''); setName('')
+    } catch (err) {
+      setSent({ ok: false, text: err instanceof Error ? err.message : String(err) })
+    } finally {
+      setSending(false)
+    }
+  }
+  return (
+    <form className="card settings-card" onSubmit={submit} name="beta-signup">
+      <div className="t-section">Get the TestFlight invite</div>
+      <label className="field">
+        <span className="t-meta muted">Email (the one on your Apple Account works best)</span>
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@example.com" />
+      </label>
+      <label className="field">
+        <span className="t-meta muted">Name (optional)</span>
+        <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="First name" />
+      </label>
+      <div className="field">
+        <span className="t-meta muted">Which devices?</span>
+        <div className="chips" role="group" aria-label="Devices">
+          {DEVICES.map((d) => (
+            <button key={d} type="button" aria-pressed={devices.includes(d)} className={`chip${devices.includes(d) ? ' on' : ''}`} onClick={() => toggle(d)}>
+              {devices.includes(d) && <Check size={13} strokeWidth={3} aria-hidden />}{d}
+            </button>
+          ))}
+        </div>
+      </div>
+      <Honeypot value={bot} onChange={setBot} />
+      <div className="row">
+        <button type="submit" className="button primary" disabled={sending || email.trim() === ''}>{sending ? 'Sending…' : 'Join the beta'}</button>
+      </div>
+      {sent && <div className="t-meta" role="status" style={{ color: sent.ok ? 'var(--start)' : 'var(--sit)' }}>{sent.text}</div>}
+    </form>
+  )
+}
+
+function BetaFeedback({ demo }: { demo: boolean }) {
+  const [kind, setKind] = useState<(typeof FEEDBACK_KINDS)[number]>('Idea')
+  const [message, setMessage] = useState('')
+  const [email, setEmail] = useState('')
+  const [bot, setBot] = useState('')
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState<Sent>()
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (email.trim() && !looksLikeEmail(email)) { setSent({ ok: false, text: 'That email doesn’t look right — or leave it blank.' }); return }
+    setSending(true)
+    try {
+      const context = `${demo ? 'demo league' : 'own league'} · ${window.innerWidth}×${window.innerHeight} · ${navigator.userAgent}`
+      await submitBetaForm('beta-feedback', { kind, message: message.trim(), email: email.trim(), context, 'bot-field': bot })
+      setSent({ ok: true, text: 'Thanks — got it.' })
+      setMessage('')
+    } catch (err) {
+      setSent({ ok: false, text: err instanceof Error ? err.message : String(err) })
+    } finally {
+      setSending(false)
+    }
+  }
+  return (
+    <form className="card settings-card" onSubmit={submit} name="beta-feedback">
+      <div className="t-section">Send feedback</div>
+      <div className="segmented" role="radiogroup" aria-label="Kind of feedback">
+        {FEEDBACK_KINDS.map((k) => (
+          <button key={k} type="button" role="radio" aria-checked={kind === k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{k}</button>
+        ))}
+      </div>
+      <label className="field">
+        <span className="t-meta muted">{kind === 'Bug' ? 'What happened, and on which screen?' : 'What’s on your mind?'}</span>
+        <textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} required maxLength={4000} />
+      </label>
+      <label className="field">
+        <span className="t-meta muted">Email, if you’d like a reply (optional)</span>
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@example.com" />
+      </label>
+      <Honeypot value={bot} onChange={setBot} />
+      <div className="row">
+        <button type="submit" className="button primary" disabled={sending || message.trim() === ''}>{sending ? 'Sending…' : 'Send feedback'}</button>
+      </div>
+      {sent && <div className="t-meta" role="status" style={{ color: sent.ok ? 'var(--start)' : 'var(--sit)' }}>{sent.text}</div>}
+    </form>
+  )
+}
+
+/** Hidden from people; bots that fill every field get their post dropped by Netlify. */
+function Honeypot({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="honeypot" aria-hidden>
+      Leave this empty
+      <input name="bot-field" tabIndex={-1} autoComplete="off" value={value} onChange={(e) => onChange(e.target.value)} />
+    </label>
   )
 }
