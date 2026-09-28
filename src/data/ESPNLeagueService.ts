@@ -33,6 +33,8 @@ export interface ESPNLeagueServiceInit {
   /** The player pool and crosswalk, for the id mapper; either may be unavailable. */
   playerIndex: () => Promise<PlayerIndex | undefined>
   crosswalk: () => Promise<PlayerIDCrosswalk | undefined>
+  /** The copy shipped with the site, for ids the refreshed crosswalk lacks. */
+  bundledCrosswalk?: () => Promise<PlayerIDCrosswalk | undefined>
 }
 
 const anArray = (v: unknown) => Array.isArray(v)
@@ -44,6 +46,7 @@ export class ESPNLeagueService implements LeagueDataSource {
   private readonly season: () => Promise<number>
   private readonly playerIndex: () => Promise<PlayerIndex | undefined>
   private readonly crosswalk: () => Promise<PlayerIDCrosswalk | undefined>
+  private readonly bundledCrosswalk: () => Promise<PlayerIDCrosswalk | undefined>
   private mapper?: Promise<ESPNPlayerIDMapper>
 
   constructor(init: ESPNLeagueServiceInit) {
@@ -52,16 +55,20 @@ export class ESPNLeagueService implements LeagueDataSource {
     this.season = init.season
     this.playerIndex = init.playerIndex
     this.crosswalk = init.crosswalk
+    this.bundledCrosswalk = init.bundledCrosswalk ?? (async () => undefined)
   }
 
   /** Built once per service; a signed-out service is rebuilt anyway. */
   private playerMapper(): Promise<ESPNPlayerIDMapper> {
     this.mapper ??= (async () => {
-      const [crosswalk, players] = await Promise.all([
+      const [crosswalk, players, bundled] = await Promise.all([
         this.crosswalk().catch(() => undefined),
         this.playerIndex().catch(() => undefined),
+        this.bundledCrosswalk().catch(() => undefined),
       ])
-      return new ESPNPlayerIDMapper(crosswalk, players)
+      // A mapper built while every source was unreachable maps nothing; keep trying rather than caching the failure.
+      if (crosswalk === undefined && players === undefined && bundled === undefined) this.mapper = undefined
+      return new ESPNPlayerIDMapper(crosswalk, players, bundled)
     })()
     return this.mapper
   }

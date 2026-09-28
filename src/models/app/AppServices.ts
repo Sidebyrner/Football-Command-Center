@@ -102,6 +102,7 @@ export class AppServices {
       },
       playerIndex: async () => { try { return (await sleeper.playerIndex()).value } catch { return undefined } },
       crosswalk: async () => { try { return (await staticData.playerCrosswalk()).value } catch { return undefined } },
+      bundledCrosswalk: () => staticData.bundledPlayerCrosswalk(),
     }))
     this.settingsModel = new SettingsModel(sleeper, settingsStore, secrets, { espnSecrets, leagueSource, makeESPNSource: makeESPN })
     const loader = new LeagueContextLoader(sleeper, staticData, now, 60_000, leagueSource, () => settingsStore.load().provider)

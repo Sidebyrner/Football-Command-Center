@@ -191,4 +191,15 @@ export class StaticDataStore {
   playerCrosswalk(force = false): Promise<Fetched<PlayerIDCrosswalk>> {
     return this.load(StaticResources.playerIDs, { force, decode: decodeCrosswalk })
   }
+
+  /**
+   * The crosswalk shipped with the site, read directly. A refreshed copy
+   * published by an older data pipeline can lack columns this build relies on
+   * (ESPN ids, say); the bundled copy is the floor it must not fall below.
+   */
+  async bundledPlayerCrosswalk(): Promise<PlayerIDCrosswalk | undefined> {
+    const json = await this.bundled(StaticResources.playerIDs)
+    if (json === undefined) return undefined
+    try { return decodeCrosswalk(json) } catch { return undefined }
+  }
 }

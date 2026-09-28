@@ -73,8 +73,9 @@ export class ESPNPlayerIDMapper {
   private readonly byESPNID: Record<string, string>
   private readonly byNameKey = new Map<string, string>()
 
-  constructor(crosswalk: PlayerIDCrosswalk | undefined, players: PlayerIndex | undefined) {
-    this.byESPNID = crosswalk ? sleeperIDsByESPN(crosswalk) : {}
+  /** `bundledCrosswalk` fills any ESPN id the refreshed crosswalk lacks — a pipeline that published without the column must not blank out every roster. */
+  constructor(crosswalk: PlayerIDCrosswalk | undefined, players: PlayerIndex | undefined, bundledCrosswalk?: PlayerIDCrosswalk) {
+    this.byESPNID = { ...(bundledCrosswalk ? sleeperIDsByESPN(bundledCrosswalk) : {}), ...(crosswalk ? sleeperIDsByESPN(crosswalk) : {}) }
     for (const player of Object.values(players?.players ?? {})) {
       if (player.espnID !== undefined && this.byESPNID[String(player.espnID)] === undefined) {
         this.byESPNID[String(player.espnID)] = player.id

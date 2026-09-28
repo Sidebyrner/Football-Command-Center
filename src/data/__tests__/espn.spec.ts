@@ -163,6 +163,12 @@ describe('ESPNTranslator', () => {
     expect(mine.settings?.waiverPosition).toBe(8)
   })
 
+  it('the bundled crosswalk fills in ESPN ids a refreshed copy lacks', () => {
+    const stripped = decodeCrosswalk({ players: { '4046': { gsisId: '00-0033873', name: 'Patrick Mahomes', position: 'QB', team: 'KCC' } } })
+    expect(new ESPNPlayerIDMapper(stripped, undefined).sleeperID(undefined, 3139477)).toBe('espn:3139477')
+    expect(new ESPNPlayerIDMapper(stripped, undefined, crosswalk).sleeperID(undefined, 3139477)).toBe('4046')
+  })
+
   it('a team defense becomes its abbreviation', () => {
     expect(mapper.sleeperID(undefined, -16012)).toBe('KC')
     expect(mapper.sleeperID(undefined, -16014)).toBe('LAR')
