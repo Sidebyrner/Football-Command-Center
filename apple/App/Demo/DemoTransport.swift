@@ -27,6 +27,25 @@ enum DemoMode {
         )
     }
 
+    /// `-FCCWatchlist id1,id2,…` starts the demo with those players on the
+    /// watchlist, the first four compared — for UI tests and screenshots.
+    /// Otherwise empty, and never iCloud's.
+    static func watchlistStore() -> WatchlistStore {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let flag = arguments.firstIndex(of: "-FCCWatchlist"), arguments.indices.contains(flag + 1) else {
+            return InMemoryWatchlistStore()
+        }
+        let ids = arguments[flag + 1].split(separator: ",").map(String.init)
+        let start = Date(timeIntervalSince1970: 1_760_000_000)
+        let entries = ids.enumerated().map { index, id in
+            let added = start.addingTimeInterval(Double(index))
+            return WatchlistEntry(playerID: id, addedAt: added, isComparing: index < WatchlistModel.compareLimit,
+                                  comparedAt: index < WatchlistModel.compareLimit ? added : nil)
+        }
+        let snapshot = WatchlistSnapshot(entries: entries, modifiedAt: start)
+        return InMemoryWatchlistStore([WatchlistModel.key(leagueID: settings.leagueID): snapshot])
+    }
+
     /// A throwaway cache, so demo data can never leak into a real install's cache.
     static func cacheDirectory() -> URL {
         FileManager.default.temporaryDirectory

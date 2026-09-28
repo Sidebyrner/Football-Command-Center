@@ -6,6 +6,8 @@ import SwiftUI
 struct PhoneHubView<Content: View>: View {
     let hub: PhoneHub
     @ObservedObject var router: AppRouter
+    /// For the Market tab's watchlist tray; other tabs don't read it.
+    var services: AppServices?
     @ViewBuilder let content: (RootView.Screen) -> Content
 
     private var current: RootView.Screen { router.segment(in: hub) }
@@ -33,6 +35,13 @@ struct PhoneHubView<Content: View>: View {
                 .opacity(shown ? 1 : 0)
                 .allowsHitTesting(shown)
                 .accessibilityHidden(!shown)
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            // The watchlist stays in reach across Discover, Waivers, Trades
+            // and Planning — the screens where targets are found.
+            if hub == .market, let services {
+                ShortlistTray(services: services, watchlist: services.watchlist, discovery: services.discovery)
             }
         }
     }

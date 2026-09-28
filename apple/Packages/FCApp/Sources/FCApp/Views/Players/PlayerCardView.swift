@@ -44,6 +44,7 @@ struct PlayerCardMenu: ViewModifier {
     var compare: PanelCompareAction? = nil
     @Environment(\.openPlayerCard) private var openPlayerCard
     @Environment(\.openTrade) private var openTrade
+    @Environment(\.watchlist) private var watchlist
 
     func body(content: Content) -> some View {
         if let playerID, let context {
@@ -54,6 +55,9 @@ struct PlayerCardMenu: ViewModifier {
                     Label("Open Player Card", systemImage: "person.text.rectangle")
                 }
                 tradeButton(playerID, context: context)
+                if let watchlist {
+                    WatchlistMenuItems(watchlist: watchlist, playerID: playerID, context: context)
+                }
                 if let compare {
                     let comparing = compare.isComparing(playerID)
                     Button {
@@ -429,10 +433,44 @@ public struct PlayerCardView: View {
     }
 }
 
+/// Watchlist, compare and baseline, for any player's menu. Observes the
+/// watchlist itself, so the labels are right when the menu opens.
+struct WatchlistMenuItems: View {
+    @ObservedObject var watchlist: WatchlistModel
+    let playerID: String
+    let context: LeagueContext
+
+    var body: some View {
+        let watched = watchlist.isWatched(playerID)
+        let comparing = watchlist.isComparing(playerID)
+        Button {
+            watchlist.toggleWatched(playerID)
+        } label: {
+            Label(watched ? "Remove from watchlist" : "Add to watchlist", systemImage: watched ? "star.slash" : "star")
+        }
+        if watched {
+            Button {
+                watchlist.toggleCompare(playerID)
+            } label: {
+                Label(comparing ? "Stop comparing" : "Compare", systemImage: comparing ? "person.2.slash" : "person.2")
+            }
+            .disabled(!comparing && !watchlist.canCompareMore)
+        }
+        if context.availability(ofSleeperID: playerID) == .mine {
+            if watchlist.baselineID == playerID {
+                Button { watchlist.clearBaseline() } label: { Label("Stop using as baseline", systemImage: "ruler") }
+            } else {
+                Button { watchlist.setBaseline(playerID) } label: { Label("Compare targets against him", systemImage: "ruler") }
+            }
+        }
+    }
+}
+
 /// A Player Card in its own navigation stack, for sheets and windows.
 public struct PlayerCardSheet: View {
     @StateObject var model: PlayerCardModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.watchlist) private var watchlist
 
     public init(model: PlayerCardModel) {
         _model = StateObject(wrappedValue: model)
@@ -443,6 +481,11 @@ public struct PlayerCardSheet: View {
             PlayerCardView(model: model)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
+                    if let watchlist {
+                        ToolbarItem(placement: .primaryAction) {
+                            WatchButton(watchlist: watchlist, playerID: model.id, name: model.name)
+                        }
+                    }
                 }
         }
         #if os(macOS)

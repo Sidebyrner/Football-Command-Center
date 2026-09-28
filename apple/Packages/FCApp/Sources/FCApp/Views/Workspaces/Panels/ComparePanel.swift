@@ -3,11 +3,12 @@ import Charts
 import FCCore
 import FCData
 
-/// Two to four players side by side: their weekly points on one chart, the
-/// key per-game numbers as grouped bars, a table with the best value on each
-/// row picked out, and each player's range. Players come from the link
-/// colour's compare list — ⌘-click (or long-press) a player in any panel of
-/// the same colour, or search here.
+/// Two to four players side by side, as cards the panel adds, removes and
+/// reorders: trend charts of any metric, per-game bars, a table with the best
+/// value on each row picked out, ranges, a position profile, usage mix,
+/// schedule and status. Players come from the link colour's compare list —
+/// ⌘-click (or long-press) a player in any panel of the same colour, or
+/// search here.
 struct ComparePanel: View {
     let services: AppServices
     @ObservedObject var discovery: DiscoveryModel
@@ -23,8 +24,8 @@ struct ComparePanel: View {
     /// Players hidden on every chart, from the legends.
     @State private var hidden: Set<String> = []
 
-    /// The panel's charts, in order.
-    private var charts: [TrendChartSpec] { TrendChartSpec.list(from: update.settings.extra["charts"]) }
+    /// The panel's cards, in order.
+    private var cards: [CompareCardSpec] { CompareCardSpec.list(from: update.settings.extra["charts"]) }
 
     private var ids: [String] { linkBus.compareList(for: group) }
 
@@ -45,25 +46,15 @@ struct ComparePanel: View {
         let cards = ids.map { services.playerCard($0, context: context) }
         // Read so a finished load re-renders the panel with the loaded cards.
         let _ = loadedGeneration
-        let comparison = PlayerComparison.build(cards: cards, rows: discovery.row(for:), defense: discovery.defense, lastN: rows)
+        let baseline = group == LinkBus.watchlistGroup ? services.watchlist.baselineID : nil
+        let comparison = PlayerComparison.build(cards: cards, rows: discovery.row(for:), defense: discovery.defense, lastN: rows,
+                                                baselineID: baseline)
         PanelScroll {
             header(comparison, group: group, context: context)
             if comparison.players.isEmpty {
                 emptyState(group)
             } else {
-                chartGrid(comparison)
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 12) {
-                        chartBlock("Per game") { CompareBarsChart(comparison: comparison) }
-                            .frame(minWidth: 320)
-                        CompareMetricTable(comparison: comparison)
-                    }
-                    VStack(alignment: .leading, spacing: 12) {
-                        chartBlock("Per game") { CompareBarsChart(comparison: comparison) }
-                        CompareMetricTable(comparison: comparison)
-                    }
-                }
-                ranges(comparison)
+                cardGrid(comparison, context: context)
             }
         }
         .task(id: ids.joined(separator: ",")) {
@@ -115,8 +106,17 @@ struct ComparePanel: View {
                         .overlay(Circle().stroke(tint, lineWidth: 2))
                     VStack(alignment: .leading, spacing: 0) {
                         Text(player.name).font(.caption.weight(.semibold)).lineLimit(1)
-                        Text([player.position?.rawValue, player.team].compactMap { $0 }.joined(separator: " · "))
-                            .font(.caption2).foregroundStyle(.secondary)
+                        HStack(spacing: 4) {
+                            Text([player.position?.rawValue, player.team].compactMap { $0 }.joined(separator: " · "))
+                                .font(.caption2).foregroundStyle(.secondary)
+                            if player.isBaseline {
+                                Text("YOURS").font(.system(size: 9).weight(.bold)).foregroundStyle(Color.accentColor)
+                            } else if case .rivalBench = player.availability {
+                                Circle().fill(Palette.caution).frame(width: 6, height: 6).help(player.availability?.label ?? "")
+                            } else if case .rivalStarter = player.availability {
+                                Circle().fill(Palette.caution).frame(width: 6, height: 6).help(player.availability?.label ?? "")
+                            }
+                        }
                     }
                 }
                 .foregroundStyle(.primary)
@@ -194,42 +194,73 @@ struct ComparePanel: View {
         .padding(.vertical, 24)
     }
 
-    // MARK: - Charts
+    // MARK: - Cards
 
     private enum GridItemKind: Identifiable {
-        case chart(Int, TrendChartSpec)
+        case card(Int, CompareCardSpec)
         case add
         var id: String {
             switch self {
-            case .chart(let i, _): return "chart-\(i)"
+            case .card(let i, let spec): return "\(i)-\(spec.id)"
             case .add: return "add"
             }
         }
     }
 
-    /// The panel's charts, each with its own data picker, then a tile to add
-    /// another.
-    private func chartGrid(_ comparison: PlayerComparison) -> some View {
-        let specs = charts
-        let inUse = Set(specs.map(\.metric))
+    /// The panel's cards, each with its own menu, then a tile to add another.
+    private func cardGrid(_ comparison: PlayerComparison, context: LeagueContext) -> some View {
+        let specs = cards
+        let inUse = Set(specs.compactMap { if case .trend(let chart) = $0 { return chart.metric } else { return nil } })
+        let shownSections = Set(specs.compactMap { if case .section(let section) = $0 { return section } else { return nil } })
         let positions = comparison.players.map(\.position)
-        var items = specs.enumerated().map { GridItemKind.chart($0.offset, $0.element) }
-        if specs.count < TrendChartSpec.maxCharts { items.append(.add) }
+        var items = specs.enumerated().map { GridItemKind.card($0.offset, $0.element) }
+        if specs.count < CompareCardSpec.maxCards { items.append(.add) }
         return AdaptiveCardGrid(items: items) { item in
             switch item {
-            case .chart(let i, let spec):
+            case .card(let i, .trend(let spec)):
                 CompareChartCard(
                     spec: spec, trend: trend(spec), inUse: inUse,
                     canMoveEarlier: i > 0, canMoveLater: i < specs.count - 1, hidden: $hidden,
-                    onChange: { next in edit { $0[i] = next } },
+                    onChange: { next in edit { $0[i] = .trend(next) } },
                     onMove: { step in edit { $0.swapAt(i, i + step) } },
                     onRemove: { edit { $0.remove(at: i) } }
                 )
+            case .card(let i, .section(let section)):
+                CompareCardFrame(
+                    section: section, canMoveEarlier: i > 0, canMoveLater: i < specs.count - 1,
+                    onMove: { step in edit { $0.swapAt(i, i + step) } },
+                    onRemove: { edit { $0.remove(at: i) } }
+                ) {
+                    sectionBody(section, comparison, context: context)
+                }
             case .add:
-                AddChartTile(inUse: inUse, positions: positions, remaining: TrendChartSpec.maxCharts - specs.count) { metric in
-                    edit { $0.append(TrendChartSpec(metric: metric)) }
+                AddChartTile(
+                    inUse: inUse, positions: positions, remaining: CompareCardSpec.maxCards - specs.count,
+                    sections: CompareCardSpec.Section.allCases.filter { !shownSections.contains($0) },
+                    onAddSection: { section in edit { $0.append(.section(section)) } }
+                ) { metric in
+                    edit { $0.append(.trend(TrendChartSpec(metric: metric))) }
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func sectionBody(_ section: CompareCardSpec.Section, _ comparison: PlayerComparison, context: LeagueContext) -> some View {
+        switch section {
+        case .perGame: CompareBarsChart(comparison: comparison)
+        case .table: CompareMetricTable(comparison: comparison)
+        case .range: CompareRangeCard(comparison: comparison)
+        case .profile: CompareProfileCard(comparison: comparison)
+        case .usage: CompareUsageCard(comparison: comparison)
+        case .schedule: CompareScheduleCard(comparison: comparison)
+        case .status: CompareStatusCard(comparison: comparison)
+        case .verdict:
+            VerdictCard(verdict: CompareVerdict.compute(
+                CompareVerdict.inputs(from: comparison),
+                league: CompareVerdict.League(facts: context.leagueFacts, currentWeek: context.currentWeek)
+            ), compact: true)
+        case .availability: CompareAvailabilityCard(comparison: comparison, playoffWeeks: context.leagueFacts.playoffWeeks)
         }
     }
 
@@ -240,27 +271,23 @@ struct ComparePanel: View {
         }
     }
 
-    private func edit(_ change: (inout [TrendChartSpec]) -> Void) {
-        var specs = charts
+    private func edit(_ change: (inout [CompareCardSpec]) -> Void) {
+        var specs = cards
         change(&specs)
         withAnimation(Motion.snappy) {
-            update { $0.extra["charts"] = TrendChartSpec.encode(specs) }
+            update { $0.extra["charts"] = CompareCardSpec.encode(specs) }
         }
     }
+}
 
-    private func chartBlock<Chart: View>(_ title: String, @ViewBuilder chart: () -> Chart) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            chart()
-        }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.surface.opacity(0.7)))
-    }
+/// Worst and best game this season for each player, with the dot on this
+/// week's projection.
+struct CompareRangeCard: View {
+    let comparison: PlayerComparison
 
-    private func ranges(_ comparison: PlayerComparison) -> some View {
+    var body: some View {
         let top = (comparison.players.compactMap(\.ceiling).max() ?? 0) * 1.05
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("Range this season").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
             ForEach(comparison.players) { player in
                 if let floor = player.floor, let ceiling = player.ceiling {
                     HStack(spacing: 10) {
@@ -363,7 +390,5 @@ struct CompareMetricTable: View {
                 }
             }
         }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.surface.opacity(0.7)))
     }
 }

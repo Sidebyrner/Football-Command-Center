@@ -33,7 +33,7 @@ struct PanelBody: View {
         case .injuries:
             InjuriesPanel(model: services.injuries, rows: rows)
         case .waiverTargets:
-            WaiverTargetsPanel(model: services.waivers, rows: rows, position: settings.positionFilter.flatMap(Position.init(rawValue:)))
+            WaiverTargetsPanel(model: services.waivers, settings: settings, rows: rows)
         case .tradePartners:
             TradePartnersPanel(screen: services.trades, rows: rows)
         case .byeWeeks:

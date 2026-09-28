@@ -182,4 +182,96 @@ final class PlayerComparisonTests: XCTestCase {
         XCTAssertNil(comparison.bestIndex(.pointsPerGame), "a tie tints nobody")
         XCTAssertNil(comparison.bestIndex(.snapShare))
     }
+
+    /// A WR and an RB meet on shared dimensions, each from his own measures;
+    /// a lower-is-better measure is flipped; a dimension his position has no
+    /// measure for is absent rather than zero.
+    func testProfileMapsEachPositionOntoSharedDimensions() throws {
+        let cohort = (1...20).map(Double.init)
+        let wrGrade = PlayerGrade.compute(
+            metrics: [.targetsPerGame: 18, .snapShare: 15, .targetShare: 15, .yardsPerTarget: 10, .catchRate: 10, .dropRate: 2],
+            cohorts: [.targetsPerGame: cohort, .snapShare: cohort, .targetShare: cohort, .yardsPerTarget: cohort,
+                      .catchRate: cohort, .dropRate: cohort],
+            weights: [.targetsPerGame: 1, .snapShare: 1, .targetShare: 1, .yardsPerTarget: 1, .catchRate: 1, .dropRate: 1])
+        let wr = PlayerComparison.profile(grade: wrGrade, position: .wr)
+        XCTAssertEqual(Set(wr.keys), [.volume, .role, .efficiency, .ballSecurity])
+        XCTAssertEqual(wr[.role]?.factors.count, 2, "snap share and target share")
+        XCTAssertGreaterThan(try XCTUnwrap(wr[.ballSecurity]?.percentile), 0.8, "2 drops is near the bottom of the cohort, so flipped high")
+
+        let rbGrade = PlayerGrade.compute(
+            metrics: [.touchesPerGame: 5, .snapShare: 5],
+            cohorts: [.touchesPerGame: cohort, .snapShare: cohort],
+            weights: [.touchesPerGame: 1, .snapShare: 1])
+        let rb = PlayerComparison.profile(grade: rbGrade, position: .rb)
+        XCTAssertEqual(Set(rb.keys), [.volume, .role])
+        XCTAssertLessThan(try XCTUnwrap(rb[.volume]?.percentile), try XCTUnwrap(wr[.volume]?.percentile))
+        XCTAssertNil(rb[.ballSecurity], "backs have no ball-security measure")
+        XCTAssertTrue(PlayerComparison.profile(grade: nil, position: .qb).isEmpty)
+    }
+
+    func testComparisonCarriesScheduleStatusAndUsageByPosition() async throws {
+        let (services, directory) = try await WorkspaceFixture.services()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let context = try XCTUnwrap(services.dashboard.context)
+        let ids = [WorkspaceFixture.cook, WorkspaceFixture.mahomes, WorkspaceFixture.bolton]
+        let cards = ids.map { services.playerCard($0, context: context) }
+        let comparison = PlayerComparison.build(cards: cards, rows: services.discovery.row(for:),
+                                                defense: services.discovery.defense, lastN: 6)
+        for player in comparison.players {
+            XCTAssertNotNil(player.status, player.name)
+            XCTAssertLessThanOrEqual(player.schedule.count, PlayerComparison.scheduleWeeks)
+            XCTAssertEqual(player.schedule.map(\.week), player.schedule.map(\.week).sorted())
+        }
+        XCTAssertNil(comparison.players[2].usage, "no usage mix for a defender")
+        if let usage = comparison.players[0].usage {
+            XCTAssertEqual(usage.expectedPerGame, usage.expectedRushPerGame + usage.expectedReceivingPerGame, accuracy: 1e-9)
+            XCTAssertEqual(usage.expectedPassingPerGame, 0, "only a quarterback throws")
+        }
+        if let qb = comparison.players[1].usage {
+            XCTAssertGreaterThan(qb.expectedPassingPerGame, 0, "a quarterback's xFP is mostly passing")
+        }
+    }
+}
+
+extension PlayerComparisonTests {
+    /// The watchlist's columns: where each stands, his adds, bye and playoff
+    /// weeks, and a baseline that's never picked as best.
+    func testComparisonCarriesAvailabilityPlayoffsAndTheBaseline() async throws {
+        let (services, directory) = try await WorkspaceFixture.services()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let context = try XCTUnwrap(services.dashboard.context)
+        let ids = [WorkspaceFixture.cook, WorkspaceFixture.gibbs, WorkspaceFixture.henderson]
+        let cards = ids.map { services.playerCard($0, context: context) }
+        let comparison = PlayerComparison.build(cards: cards, rows: services.discovery.row(for:), defense: services.discovery.defense,
+                                                lastN: 4, baselineID: WorkspaceFixture.cook)
+        let byID = Dictionary(uniqueKeysWithValues: comparison.players.map { ($0.id, $0) })
+        XCTAssertEqual(byID[WorkspaceFixture.cook]?.availability, .mine)
+        XCTAssertEqual(byID[WorkspaceFixture.cook]?.isBaseline, true)
+        XCTAssertEqual(byID[WorkspaceFixture.henderson]?.availability, .freeAgent)
+        if case .rivalBench = byID[WorkspaceFixture.gibbs]?.availability {} else if case .rivalStarter = byID[WorkspaceFixture.gibbs]?.availability {} else {
+            XCTFail("Gibbs is on the rival's roster")
+        }
+        let playoffWeeks = context.leagueFacts.playoffWeeks
+        for player in comparison.players {
+            XCTAssertEqual(player.playoffSchedule.map(\.week), playoffWeeks, "every playoff week, past the regular season")
+            XCTAssertFalse(player.isBaseline && player.id != WorkspaceFixture.cook)
+        }
+        for metric in PlayerComparison.Metric.allCases {
+            XCTAssertNotEqual(comparison.bestIndex(metric), 0, "\(metric): the baseline column is never best")
+        }
+    }
+
+    func testTheBaselineIsLeftOutOfBest() {
+        var mine = PlayerComparison.Player(id: "m", name: "M", position: .rb, team: nil, opponent: nil, seriesIndex: 0,
+                                           log: [], values: [.pointsPerGame: 30], floor: nil, expected: nil, ceiling: nil)
+        mine.isBaseline = true
+        let a = PlayerComparison.Player(id: "a", name: "A", position: .rb, team: nil, opponent: nil, seriesIndex: 1,
+                                        log: [], values: [.pointsPerGame: 10], floor: nil, expected: nil, ceiling: nil)
+        let b = PlayerComparison.Player(id: "b", name: "B", position: .rb, team: nil, opponent: nil, seriesIndex: 2,
+                                        log: [], values: [.pointsPerGame: 12], floor: nil, expected: nil, ceiling: nil)
+        let comparison = PlayerComparison(players: [mine, a, b], lastN: 4, weeks: [])
+        XCTAssertEqual(comparison.bestIndex(.pointsPerGame), 2)
+        XCTAssertNil(PlayerComparison(players: [mine, a], lastN: 4, weeks: []).bestIndex(.pointsPerGame),
+                     "one target and the baseline: nothing to pick between")
+    }
 }

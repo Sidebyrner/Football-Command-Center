@@ -1,49 +1,156 @@
 import SwiftUI
 import FCCore
 
-/// The Waiver Board's top rows, ranked the way the board is sorted. The
-/// position filter is the panel's own, so the board is left alone.
+/// The Waiver Board's top rows under the panel's own sort and position, so
+/// browsing here never moves the board. Each row can go straight into the
+/// linked Compare panel.
 struct WaiverTargetsPanel: View {
     @ObservedObject var model: WaiverBoardModel
+    let settings: PanelSettings
     let rows: Int
-    let position: Position?
+    @EnvironmentObject private var linkBus: LinkBus
+    @Environment(\.panelCompare) private var compare
+    @Environment(\.panelSettingsUpdate) private var updateSettings
 
-    private var shown: [WaiverRow] {
-        let filtered = position.map { p in model.rows.filter { $0.position == p } } ?? model.rows
-        return Array(filtered.prefix(rows))
-    }
+    private var position: Position? { settings.positionFilter.flatMap(Position.init(rawValue:)) }
+    /// The panel's sort; unset, it follows the Waiver Board.
+    private var panelSort: WaiverSort? { settings.extra["sort"].flatMap(WaiverSort.init(rawValue:)) }
+    private var sort: WaiverSort { panelSort ?? model.sort }
+
+    /// The positions the league starts, in lineup order.
+    private var positions: [Position] { model.filterablePositions }
 
     var body: some View {
         PanelGate(hasContext: model.context != nil, isLoading: model.isLoading, error: model.errorMessage) {
-            if shown.isEmpty {
-                PanelMessage(style: .empty, text: "Nobody matches on the Waiver Board right now.")
-            } else {
-                PanelScroll {
-                    ForEach(shown) { row in
-                        PanelPlayerRow(
-                            playerID: row.id, name: row.name, position: row.position,
-                            detail: [row.position.rawValue, row.team, row.opponent].compactMap { $0 }.joined(separator: " · "),
-                            badge: row.injuryTag.flatMap(Self.badge),
-                            chip: row.availability == .freeAgent ? nil : row.availability.label
-                        ) {
-                            VStack(alignment: .trailing, spacing: 0) {
-                                Text(value(row)).font(.caption.weight(.semibold).monospacedDigit())
-                                Text(model.sort.unit).font(.caption2).foregroundStyle(.tertiary)
+            VStack(alignment: .leading, spacing: 6) {
+                controls
+                let all = model.rows(position: position, sort: sort)
+                if all.isEmpty {
+                    PanelMessage(style: .empty, text: position.map { "No \($0.rawValue)s on the Waiver Board right now." }
+                                 ?? "Nobody matches on the Waiver Board right now.")
+                } else {
+                    PanelScroll {
+                        ForEach(all.prefix(rows)) { row in
+                            HStack(spacing: 4) {
+                                PanelPlayerRow(
+                                    playerID: row.id, name: row.name, position: row.position,
+                                    detail: [row.position.rawValue, row.team, row.opponent].compactMap { $0 }.joined(separator: " · "),
+                                    badge: row.injuryTag.flatMap(Self.badge),
+                                    chip: row.availability == .freeAgent ? nil : row.availability.label
+                                ) {
+                                    VStack(alignment: .trailing, spacing: 0) {
+                                        Text(value(row)).font(.caption.weight(.semibold).monospacedDigit())
+                                            .foregroundStyle(row.value(sort) == nil ? .tertiary : .primary)
+                                        Text(sort.unit).font(.caption2).foregroundStyle(.tertiary)
+                                    }
+                                }
+                                .panelPlayerTap(row.id, context: model.context)
+                                if compare.isAvailable { compareButton(row) }
                             }
                         }
-                        .panelPlayerTap(row.id, context: model.context)
+                        PanelFootnote(text: footnote)
                     }
-                    PanelFootnote(text: "Ranked by \(model.sort.label.lowercased())\(position.map { " · \($0.rawValue) only" } ?? "").")
                 }
             }
+            .padding(.top, 8)
         }
     }
 
+    // MARK: Controls
+
+    private var controls: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 4) {
+                    positionChip(nil)
+                    ForEach(positions, id: \.self) { positionChip($0) }
+                }
+            }
+            HStack(spacing: 6) {
+                sortMenu
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(.horizontal, 10)
+    }
+
+    private func positionChip(_ option: Position?) -> some View {
+        let selected = option == position
+        return Button {
+            updateSettings { $0.positionFilter = option?.rawValue }
+        } label: {
+            Text(option?.rawValue ?? "All")
+                .font(.caption2.weight(.semibold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .foregroundStyle(selected ? Color.white : .primary)
+                .background(Capsule().fill(selected ? Color.accentColor : Palette.surface))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityLabel(option.map { "\($0.rawValue) only" } ?? "All positions")
+    }
+
+    private var sortMenu: some View {
+        Menu {
+            Button {
+                updateSettings { $0.extra["sort"] = nil }
+            } label: {
+                if panelSort == nil { Label("Follow the Waiver Board", systemImage: "checkmark") } else { Text("Follow the Waiver Board") }
+            }
+            Divider()
+            ForEach(WaiverSort.allCases) { option in
+                Button {
+                    updateSettings { $0.extra["sort"] = option.rawValue }
+                } label: {
+                    if option == panelSort { Label(option.label, systemImage: "checkmark") } else { Text(option.label) }
+                }
+            }
+        } label: {
+            Label(sort.label, systemImage: sort == .trending ? "flame" : "arrow.up.arrow.down")
+                .font(.caption2.weight(.semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(Palette.surface))
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(sort.source)
+    }
+
+    /// Adds the player to (or takes him out of) the linked colour's Compare list.
+    private func compareButton(_ row: WaiverRow) -> some View {
+        let comparing = linkBus.isComparing(row.id, in: compare.group)
+        let full = !comparing && !linkBus.canAddToCompare(in: compare.group)
+        return Button {
+            compare.toggle(row.id)
+        } label: {
+            Image(systemName: comparing ? "checkmark.circle.fill" : "plus.circle")
+                .font(.body)
+                .foregroundStyle(comparing ? (compare.group?.color ?? .accentColor) : .secondary)
+                .frame(width: 22, height: 22)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(full)
+        .help(comparing ? "Remove from Compare" : full ? "Compare holds \(LinkBus.compareLimit) players" : "Add to Compare")
+        .accessibilityLabel(comparing ? "Remove \(row.name) from Compare" : "Add \(row.name) to Compare")
+    }
+
+    private var footnote: String {
+        var text = "Ranked by \(sort.label.lowercased())"
+        if let position { text += " · \(position.rawValue) only" }
+        if !compare.isAvailable { text += " · link this panel to add players to Compare" }
+        return text + "."
+    }
+
     private func value(_ row: WaiverRow) -> String {
-        guard let value = row.value(model.sort) else { return "—" }
-        if model.sort.isPercent { return "\(Int((value * 100).rounded()))%" }
-        if model.sort == .trending { return "\(Int(value))" }
-        if model.sort == .projectedOverLine { return PanelFormat.signed(value) }
+        guard let value = row.value(sort) else { return "—" }
+        if sort.isPercent { return "\(Int((value * 100).rounded()))%" }
+        if sort == .trending { return value.formatted(.number.notation(.compactName)) }
+        if sort == .projectedOverLine { return PanelFormat.signed(value) }
         return PanelFormat.points(value)
     }
 

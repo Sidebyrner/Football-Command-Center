@@ -54,18 +54,22 @@ public struct PlayerSchedule: Hashable, Sendable {
 
     public var byeWeek: Int? { weeks.first(where: \.isBye)?.week }
 
-    /// - Parameter liveLines: lines by week and team that replace the
-    ///   recorded ones when present — where live odds plug in later.
+    /// - Parameters:
+    ///   - liveLines: lines by week and team that replace the recorded ones
+    ///     when present — where live odds plug in later.
+    ///   - weeks: the weeks to cover; the rest of the regular season when
+    ///     `nil`. The fantasy playoffs, say.
     public static func build(
         playerID: String,
         context: LeagueContext,
         defense: DefenseLookup,
-        liveLines: [Int: [String: TeamGameLine]] = [:]
+        liveLines: [Int: [String: TeamGameLine]] = [:],
+        weeks covered: [Int]? = nil
     ) -> PlayerSchedule {
         let team = context.nflTeam(of: playerID)
         let position = context.position(playerID)
         var weeks: [Week] = []
-        for week in context.remainingWeeks {
+        for week in covered ?? context.remainingWeeks {
             if context.byeCalendar.isOnBye(team: team, week: week) {
                 weeks.append(Week(week: week, isBye: true, opponent: nil, isHome: nil, spread: nil, total: nil,
                                   impliedTotal: nil, lineSource: nil, defenseRank: nil, defensePerGame: nil,

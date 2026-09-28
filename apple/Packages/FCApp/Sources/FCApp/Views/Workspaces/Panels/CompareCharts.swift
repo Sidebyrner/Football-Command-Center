@@ -6,17 +6,21 @@ import FCCore
 extension PlayerMetric {
     /// Where the metric sits in the picker.
     enum Group: String, CaseIterable, Identifiable {
-        case scoring = "Scoring", usage = "Usage", receiving = "Receiving", rushing = "Rushing", defense = "Defense"
+        case scoring = "Scoring", usage = "Usage", passing = "Passing", receiving = "Receiving", rushing = "Rushing",
+             kicking = "Kicking", teamDefense = "Team defense", defense = "Defensive players"
         var id: String { rawValue }
     }
 
     var group: Group {
         switch self {
-        case .fantasyPoints, .expectedPoints: return .scoring
-        case .snapShare, .targetShare, .redZoneTouches: return .usage
-        case .targets, .receptions, .receivingYards, .airYards: return .receiving
-        case .carries, .rushingYards, .yardsAfterContact: return .rushing
-        case .tackles, .sacks: return .defense
+        case .fantasyPoints, .expectedPoints, .rushTouchdowns, .receivingTouchdowns: return .scoring
+        case .snapShare, .targetShare, .redZoneTouches, .redZoneTargets, .expectedRushPoints, .expectedReceivingPoints: return .usage
+        case .passAttempts, .passYards, .passTouchdowns, .interceptionsThrown, .completionPct: return .passing
+        case .targets, .receptions, .receivingYards, .airYards, .drops: return .receiving
+        case .carries, .rushingYards, .yardsAfterContact, .brokenTackles: return .rushing
+        case .fieldGoalsMade, .fieldGoalAttempts, .longFieldGoals: return .kicking
+        case .defenseSacks, .takeaways, .pointsAllowed: return .teamDefense
+        case .tackles, .sacks, .soloTackles, .tacklesForLoss, .quarterbackHits, .passesDefended: return .defense
         }
     }
 
@@ -37,6 +41,28 @@ extension PlayerMetric {
         case .yardsAfterContact: return "Per carry, after first contact"
         case .tackles: return "Solo plus assisted"
         case .sacks: return "Quarterback takedowns"
+        case .passAttempts: return "Passes thrown"
+        case .passYards: return "Yards through the air"
+        case .passTouchdowns: return "Touchdowns thrown"
+        case .interceptionsThrown: return "Picks thrown — fewer is better"
+        case .completionPct: return "Completions over attempts"
+        case .rushTouchdowns: return "Touchdowns on the ground"
+        case .receivingTouchdowns: return "Touchdown catches"
+        case .expectedRushPoints: return "What his carries should have scored"
+        case .expectedReceivingPoints: return "What his targets should have scored"
+        case .redZoneTargets: return "Targets inside the 20"
+        case .brokenTackles: return "Missed tackles he forced"
+        case .drops: return "Catchable balls dropped — fewer is better"
+        case .fieldGoalsMade: return "Kicks through"
+        case .fieldGoalAttempts: return "Kicks tried — a sign of the offense stalling in range"
+        case .longFieldGoals: return "Made from 50 yards or more"
+        case .defenseSacks: return "The unit's sacks"
+        case .takeaways: return "Interceptions plus fumble recoveries"
+        case .pointsAllowed: return "Points the unit gave up — fewer is better"
+        case .soloTackles: return "Tackles made alone"
+        case .tacklesForLoss: return "Stops behind the line"
+        case .quarterbackHits: return "Hits on the passer"
+        case .passesDefended: return "Passes broken up or picked"
         }
     }
 }
@@ -81,16 +107,26 @@ struct MetricPicker: View {
     }
 }
 
-/// Every metric, grouped, with what it measures.
+/// Every metric, grouped, with what it measures — and, when adding to a
+/// Compare panel, the section cards it doesn't have yet.
 struct MetricPickerList: View {
     let selection: PlayerMetric?
     var inUse: Set<PlayerMetric> = []
     var positions: [Position?] = []
+    var sections: [CompareCardSpec.Section] = []
+    var onPickSection: (CompareCardSpec.Section) -> Void = { _ in }
     let onPick: (PlayerMetric) -> Void
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
+                if !sections.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        groupHeader("Cards")
+                        ForEach(sections) { section in sectionRow(section) }
+                    }
+                    groupHeader("Chart a stat by week")
+                }
                 ForEach(PlayerMetric.Group.allCases) { group in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(group.rawValue.uppercased())
@@ -107,6 +143,33 @@ struct MetricPickerList: View {
         }
         .frame(width: 290)
         .frame(maxHeight: 460)
+    }
+
+    private func groupHeader(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 8)
+    }
+
+    private func sectionRow(_ section: CompareCardSpec.Section) -> some View {
+        Button { onPickSection(section) } label: {
+            HStack(spacing: 8) {
+                Image(systemName: section.systemImage)
+                    .frame(width: 18)
+                    .foregroundStyle(Color.accentColor)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(section.title).font(.callout.weight(.medium))
+                    Text(section.blurb).font(.caption2).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 4)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("compare.addCard.\(section.rawValue)")
     }
 
     private func row(_ metric: PlayerMetric) -> some View {
@@ -228,11 +291,64 @@ struct CompareChartCard: View {
     }
 }
 
-/// A dashed tile that adds a chart of whatever's picked.
+/// A section card on a Compare panel: its title, and a menu that moves or
+/// removes it, as a chart card's does.
+struct CompareCardFrame<Content: View>: View {
+    let section: CompareCardSpec.Section
+    let canMoveEarlier: Bool
+    let canMoveLater: Bool
+    let onMove: (Int) -> Void
+    let onRemove: () -> Void
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Label(section.title, systemImage: section.systemImage)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                menu
+            }
+            content
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.surface.opacity(0.7)))
+        .accessibilityIdentifier("compare.card.\(section.rawValue)")
+    }
+
+    private var menu: some View {
+        Menu {
+            Button { onMove(-1) } label: { Label("Move earlier", systemImage: "arrow.left") }
+                .disabled(!canMoveEarlier)
+            Button { onMove(1) } label: { Label("Move later", systemImage: "arrow.right") }
+                .disabled(!canMoveLater)
+            Divider()
+            Button(role: .destructive, action: onRemove) { Label("Remove card", systemImage: "trash") }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .frame(width: 26, height: 26)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Card options")
+        .accessibilityLabel("\(section.title) options")
+    }
+}
+
+/// A dashed tile that adds a card: a section, or a chart of whatever's picked.
 struct AddChartTile: View {
     let inUse: Set<PlayerMetric>
     let positions: [Position?]
     let remaining: Int
+    var sections: [CompareCardSpec.Section] = []
+    var onAddSection: (CompareCardSpec.Section) -> Void = { _ in }
     let onAdd: (PlayerMetric) -> Void
     @State private var open = false
 
@@ -242,8 +358,9 @@ struct AddChartTile: View {
                 Image(systemName: "plus.circle.fill")
                     .font(.title2)
                     .foregroundStyle(Color.accentColor)
-                Text("Add chart").font(.subheadline.weight(.semibold))
-                Text(remaining > 0 ? "Chart another stat for these players" : "Six charts is the most")
+                Text("Add card").font(.subheadline.weight(.semibold))
+                Text(remaining > 0 ? "A chart of any stat, or a profile, schedule or status card"
+                                   : "\(CompareCardSpec.maxCards) cards is the most")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -257,7 +374,11 @@ struct AddChartTile: View {
         .disabled(remaining <= 0)
         .accessibilityIdentifier("compare.addChart")
         .popover(isPresented: $open, arrowEdge: .bottom) {
-            MetricPickerList(selection: nil, inUse: inUse, positions: positions) { metric in
+            MetricPickerList(selection: nil, inUse: inUse, positions: positions, sections: sections,
+                             onPickSection: { section in
+                                 open = false
+                                 onAddSection(section)
+                             }) { metric in
                 open = false
                 onAdd(metric)
             }

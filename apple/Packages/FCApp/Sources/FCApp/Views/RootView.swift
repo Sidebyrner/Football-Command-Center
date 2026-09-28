@@ -134,6 +134,7 @@ public struct RootView: View {
         .liveUpdates(services)
         .environment(\.appServices, services)
         .environmentObject(services.linkBus)
+        .environment(\.watchlist, services.watchlist)
         .environment(\.openScreen, OpenScreenAction { [router] screen in
             router.open(screen)
         })
@@ -176,7 +177,7 @@ public struct RootView: View {
 
     @ViewBuilder
     private func hubTab(_ hub: PhoneHub) -> some View {
-        let content = PhoneHubView(hub: hub, router: router) { screen in view(for: screen) }
+        let content = PhoneHubView(hub: hub, router: router, services: services) { screen in view(for: screen) }
         switch hub {
         case .lineup: LineupTabBadge(sitStart: services.sitStart, injuries: services.injuries) { content }
         default: content

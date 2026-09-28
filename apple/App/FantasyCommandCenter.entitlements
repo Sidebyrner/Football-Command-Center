@@ -8,5 +8,9 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- iCloud key-value storage: the watchlist, shared between the phone
+	     and the Mac. A few KB; nothing else goes to iCloud. -->
+	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
+	<string>$(TeamIdentifierPrefix)$(CFBundleIdentifier)</string>
 </dict>
 </plist>

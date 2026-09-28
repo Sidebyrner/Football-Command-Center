@@ -8,10 +8,15 @@ import FCData
 @main
 struct FantasyCommandCenterApp: App {
     @StateObject private var composition = Composition()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             RootView(services: composition.services, router: composition.router)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Pick up watchlist changes made on the other device.
+            if phase == .active { composition.services.watchlist.synchronize() }
         }
         #if os(macOS)
         .defaultSize(width: 1_280, height: 820)
@@ -99,7 +104,8 @@ final class Composition: ObservableObject {
             self.settingsStore = InMemorySettingsStore(DemoMode.settings)
             self.services = AppServices(
                 sleeper: sleeper, staticData: staticData, settingsStore: settingsStore,
-                workspacePersistence: InMemoryWorkspacePersistence(), now: Composition.clock
+                workspacePersistence: InMemoryWorkspacePersistence(),
+                watchlistStore: DemoMode.watchlistStore(), now: Composition.clock
             )
             self.router = AppRouter(selection: Composition.initialSelection(in: services.workspaces))
             return
@@ -117,7 +123,8 @@ final class Composition: ObservableObject {
         )
         self.settingsStore = UserDefaultsSettingsStore()
         self.services = AppServices(
-            sleeper: sleeper, staticData: staticData, settingsStore: settingsStore, now: Composition.clock
+            sleeper: sleeper, staticData: staticData, settingsStore: settingsStore,
+            watchlistStore: WatchlistStoreFactory.make(), now: Composition.clock
         )
         self.router = AppRouter(selection: Composition.initialSelection(in: services.workspaces))
     }

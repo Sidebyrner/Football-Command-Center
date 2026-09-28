@@ -39,6 +39,8 @@ public final class AppServices {
     public let workspaces: WorkspaceStore
     public let linkBus: LinkBus
     public let playerCards: PlayerCardCache
+    /// The saved targets, and the four of them being compared.
+    public let watchlist: WatchlistModel
 
     private var hasLoaded = false
 
@@ -47,6 +49,7 @@ public final class AppServices {
         staticData: StaticDataStore,
         settingsStore: AppSettingsStore,
         workspacePersistence: WorkspacePersistence = FileWorkspacePersistence(),
+        watchlistStore: WatchlistStore = InMemoryWatchlistStore(),
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.sleeper = sleeper
@@ -80,6 +83,15 @@ public final class AppServices {
         workspaces = WorkspaceStore(persistence: workspacePersistence)
         linkBus = LinkBus()
         playerCards = PlayerCardCache()
+
+        let watchlist = WatchlistModel(store: watchlistStore, now: now)
+        self.watchlist = watchlist
+        watchlist.setLeague(settingsStore.load().leagueID)
+        watchlist.availability = { [discovery] id in discovery.context?.availability(ofSleeperID: id) }
+        linkBus.watchlist = watchlist
+        watchlist.onCompareChange = { [weak linkBus] ids in
+            linkBus?.mirrorCompare(ids, in: LinkBus.watchlistGroup)
+        }
     }
 
     /// Loads every screen once the league is set up. `force` refetches — after
@@ -90,6 +102,7 @@ public final class AppServices {
         guard force || !hasLoaded else { return }
         guard let leagueID = settings.leagueID, let rosterID = settings.rosterID else { return }
         hasLoaded = true
+        watchlist.setLeague(leagueID)
         if force { playerCards.removeAll() }
         // In parallel: they share one league context through the loader's memo,
         // so this is one assembly, and no screen waits behind another.

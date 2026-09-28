@@ -85,8 +85,8 @@ public struct TrendComparison: Sendable {
     }
 }
 
-/// One chart on a Compare panel: a metric, raw or smoothed. A panel keeps its
-/// charts in order in `extra["charts"]` as `metric` or `metric:3`.
+/// One chart on a Compare panel: a metric, raw or smoothed, stored as
+/// `metric` or `metric:3`.
 public struct TrendChartSpec: Hashable, Sendable {
     public var metric: PlayerMetric
     /// 1 is raw; 3 is a 3-game rolling average.
@@ -97,24 +97,112 @@ public struct TrendChartSpec: Hashable, Sendable {
         self.smoothing = smoothing
     }
 
-    public static let maxCharts = 6
-    /// What a Compare panel shows before anyone picks: points by week.
-    public static let defaults = [TrendChartSpec(metric: .fantasyPoints)]
-
-    /// The stored list; unset is the default chart, empty is no charts.
-    public static func list(from stored: String?) -> [TrendChartSpec] {
-        guard let stored else { return defaults }
-        let specs = stored.split(separator: ",").compactMap { item -> TrendChartSpec? in
-            let parts = item.split(separator: ":")
-            guard let metric = parts.first.flatMap({ TrendComparison.metric(storedAs: String($0)) }) else { return nil }
-            let smoothing = parts.count > 1 && parts[1] == "3" ? 3 : 1
-            return TrendChartSpec(metric: metric, smoothing: smoothing)
-        }
-        return Array(specs.prefix(maxCharts))
+    init?(token: Substring) {
+        let parts = token.split(separator: ":")
+        guard let metric = parts.first.flatMap({ TrendComparison.metric(storedAs: String($0)) }) else { return nil }
+        self.init(metric: metric, smoothing: parts.count > 1 && parts[1] == "3" ? 3 : 1)
     }
 
-    public static func encode(_ specs: [TrendChartSpec]) -> String {
-        specs.prefix(maxCharts).map { $0.smoothing > 1 ? "\($0.metric.rawValue):\($0.smoothing)" : $0.metric.rawValue }
-            .joined(separator: ",")
+    var token: String { smoothing > 1 ? "\(metric.rawValue):\(smoothing)" : metric.rawValue }
+}
+
+/// One card on a Compare panel: a trend chart of any metric, or one of the
+/// fixed sections. A panel keeps its cards in order in `extra["charts"]`:
+/// charts as `metric` or `metric:3`, sections as `@name`.
+public enum CompareCardSpec: Hashable, Sendable, Identifiable {
+    case trend(TrendChartSpec)
+    case section(Section)
+
+    public enum Section: String, CaseIterable, Hashable, Sendable, Identifiable {
+        case perGame, table, range, profile, usage, schedule, status, verdict, availability
+
+        public var id: String { rawValue }
+
+        public var title: String {
+            switch self {
+            case .perGame: return "Per game"
+            case .table: return "Side by side"
+            case .range: return "Range this season"
+            case .profile: return "Position profile"
+            case .usage: return "Usage mix"
+            case .schedule: return "Schedule ahead"
+            case .status: return "Status & situation"
+            case .verdict: return "Verdict"
+            case .availability: return "Availability & news"
+            }
+        }
+
+        public var blurb: String {
+            switch self {
+            case .perGame: return "Points, xFP, projection and rest of season as bars"
+            case .table: return "The key numbers in a table, best picked out"
+            case .range: return "Worst and best game against this week's projection"
+            case .profile: return "Percentiles against his own position — works across positions"
+            case .usage: return "Expected points from rushing vs receiving, against what he scored"
+            case .schedule: return "The next five weeks, shaded by how soft each defense is"
+            case .status: return "Injury, practice, depth chart, team total and situation"
+            case .verdict: return "Who to go after first, and whether he's worth the claim"
+            case .availability: return "Free agent or rostered, Sleeper adds, latest headline, bye and playoff weeks"
+            }
+        }
+
+        public var systemImage: String {
+            switch self {
+            case .perGame: return "chart.bar"
+            case .table: return "tablecells"
+            case .range: return "arrow.left.and.right"
+            case .profile: return "person.crop.rectangle.stack"
+            case .usage: return "chart.bar.doc.horizontal"
+            case .schedule: return "calendar"
+            case .status: return "cross.case"
+            case .verdict: return "checkmark.seal"
+            case .availability: return "newspaper"
+            }
+        }
+    }
+
+    public var id: String { token }
+
+    var token: String {
+        switch self {
+        case .trend(let spec): return spec.token
+        case .section(let section): return "@" + section.rawValue
+        }
+    }
+
+    public static let maxCards = 10
+    /// What a Compare panel shows before anyone edits it.
+    public static let defaults: [CompareCardSpec] = [.trend(TrendChartSpec(metric: .fantasyPoints)),
+                                                      .section(.perGame), .section(.table), .section(.range)]
+    /// Sections every panel had before they became cards.
+    static let formerlyFixed: [CompareCardSpec] = [.section(.perGame), .section(.table), .section(.range)]
+    /// Marks a list saved as cards when it holds no section, so it isn't
+    /// read as one from before sections were cards.
+    static let formatMarker = "@cards"
+
+    /// The stored list; unset is the defaults. A list with no `@` token was
+    /// saved when only charts were cards, so the sections that were fixed
+    /// below them come back after them.
+    public static func list(from stored: String?) -> [CompareCardSpec] {
+        guard let stored else { return defaults }
+        let tokens = stored.split(separator: ",")
+        var out: [CompareCardSpec] = []
+        var sections: Set<Section> = []
+        for token in tokens {
+            if token.hasPrefix("@") {
+                guard let section = Section(rawValue: String(token.dropFirst())), sections.insert(section).inserted else { continue }
+                out.append(.section(section))
+            } else if let spec = TrendChartSpec(token: token) {
+                out.append(.trend(spec))
+            }
+        }
+        if !tokens.contains(where: { $0.hasPrefix("@") }) { out += formerlyFixed }
+        return Array(out.prefix(maxCards))
+    }
+
+    public static func encode(_ cards: [CompareCardSpec]) -> String {
+        let tokens = cards.prefix(maxCards).map(\.token)
+        let hasSection = cards.contains { if case .section = $0 { return true } else { return false } }
+        return (hasSection ? tokens : [formatMarker] + tokens).joined(separator: ",")
     }
 }
