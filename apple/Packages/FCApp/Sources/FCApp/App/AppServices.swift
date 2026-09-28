@@ -72,7 +72,8 @@ public final class AppServices {
                     return Calendar.current.component(.year, from: Date())
                 },
                 playerIndex: { try? await sleeper.playerIndex().value },
-                crosswalk: { try? await staticData.playerCrosswalk().value }
+                crosswalk: { try? await staticData.playerCrosswalk().value },
+                bundledCrosswalk: { await staticData.bundledPlayerCrosswalk() }
             )
         }
         settingsModel = SettingsModel(

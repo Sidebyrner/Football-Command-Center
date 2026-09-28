@@ -288,4 +288,12 @@ public actor StaticDataStore {
     public func playerCrosswalk(force: Bool = false) async throws -> Fetched<PlayerIDCrosswalk> {
         try await load(PlayerIDCrosswalk.self, resource: .playerIDs, force: force)
     }
+
+    /// The crosswalk shipped with this build, read directly. A refreshed copy
+    /// published by an older data pipeline can lack columns this build relies
+    /// on (ESPN ids, say); the bundled copy is the floor it must not fall below.
+    public func bundledPlayerCrosswalk() -> PlayerIDCrosswalk? {
+        guard let data = bundledData(for: .playerIDs) else { return nil }
+        return try? JSONDecoder().decode(PlayerIDCrosswalk.self, from: data)
+    }
 }
