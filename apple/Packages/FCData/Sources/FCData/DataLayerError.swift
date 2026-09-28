@@ -16,6 +16,10 @@ public enum DataLayerError: Error, Hashable, Sendable {
     case badURL(String)
     /// No bundled copy and no cached copy, so there is nothing to fall back to.
     case noFallbackAvailable(resource: String)
+    /// The endpoint refused the credentials it was given (401/403). Kept apart
+    /// from `httpStatus` because the fix — sign in again — is different from
+    /// "try later", and Settings needs to say which.
+    case unauthorized(path: String)
 }
 
 extension DataLayerError: CustomStringConvertible {
@@ -31,6 +35,8 @@ extension DataLayerError: CustomStringConvertible {
             return "Could not build a URL for \(path)"
         case .noFallbackAvailable(let resource):
             return "No bundled or cached copy of \(resource)"
+        case .unauthorized(let path):
+            return "Not authorised for \(path)"
         }
     }
 }

@@ -12,6 +12,9 @@ struct DiscoverView: View {
     @EnvironmentObject private var linkBus: LinkBus
     @State private var scope: Scope = .freeAgents
     @State private var comparing = false
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
     @AppStorage("discover.compareCharts") private var compareCharts: String?
 
     enum Scope: String, CaseIterable, Hashable {
@@ -126,7 +129,7 @@ struct DiscoverView: View {
                 .contextMenu { compareButton(row.id) }
             }
         } footer: {
-            Text("\(min(100, model.visible.count)) of \(model.visible.count) · sorted by \(model.sort.label.lowercased()). Swipe left to compare.")
+            Text("\(min(100, model.visible.count)) of \(model.visible.count) · sorted by \(model.sort.label.lowercased()). Swipe left to compare — it goes on your watchlist.")
         }
     }
 
@@ -202,7 +205,23 @@ struct DiscoverView: View {
         return PanelSettingsUpdate(settings: settings) { next in compareCharts = next.extra["charts"] }
     }
 
+    @ViewBuilder
     private var compareSheet: some View {
+        #if os(iOS)
+        if horizontalSizeClass == .compact {
+            NavigationStack {
+                PhoneCompareView(services: services, discovery: model, watchlist: services.watchlist)
+            }
+            .presentationDetents([.large])
+        } else {
+            panelCompareSheet
+        }
+        #else
+        panelCompareSheet
+        #endif
+    }
+
+    private var panelCompareSheet: some View {
         NavigationStack {
             ComparePanel(services: services, discovery: model, rows: 6)
                 .environment(\.panelLinkGroup, Self.compareGroup)

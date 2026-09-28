@@ -32,6 +32,11 @@ targets:
       - path: App
         excludes:
           - "Resources/**"
+          - "PrivacyInfo.xcprivacy"
+      # Required-reason API declarations (UserDefaults, file timestamps); no
+      # tracking and nothing collected. App Review reads this.
+      - path: App/PrivacyInfo.xcprivacy
+        buildPhase: resources
       # The nflverse files shipped at build time, so a first launch works with
       # no network (§9). Flattened into the bundle root, which is where
       # StaticDataStore looks when no subdirectory is given.

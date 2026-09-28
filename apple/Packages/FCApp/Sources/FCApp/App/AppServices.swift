@@ -15,6 +15,9 @@ import FCData
 @MainActor
 public final class AppServices {
     public let sleeper: SleeperService
+    /// Where the league comes from: Sleeper, or an ESPN service built from
+    /// the saved cookies. Settings swaps what is behind it.
+    public let leagueSource: SwitchableLeagueSource
     public let settingsStore: AppSettingsStore
     public let loader: LeagueContextLoader
     public let settingsModel: SettingsModel
@@ -39,6 +42,8 @@ public final class AppServices {
     public let workspaces: WorkspaceStore
     public let linkBus: LinkBus
     public let playerCards: PlayerCardCache
+    /// The saved targets, and the four of them being compared.
+    public let watchlist: WatchlistModel
 
     private var hasLoaded = false
 
@@ -47,12 +52,37 @@ public final class AppServices {
         staticData: StaticDataStore,
         settingsStore: AppSettingsStore,
         workspacePersistence: WorkspacePersistence = FileWorkspacePersistence(),
+        watchlistStore: WatchlistStore = InMemoryWatchlistStore(),
+        espnSecrets: SecretStore = KeychainSecretStore.espn,
+        cache: DiskCache = DiskCache(),
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.sleeper = sleeper
         self.settingsStore = settingsStore
-        settingsModel = SettingsModel(sleeper: sleeper, store: settingsStore)
-        let loader = LeagueContextLoader(sleeper: sleeper, staticData: staticData, now: now)
+        let leagueSource = SwitchableLeagueSource(sleeper)
+        self.leagueSource = leagueSource
+        // An ESPN service is built per set of cookies, so signing out and
+        // back in never reuses a client that held the old ones.
+        let makeESPN: (ESPNCredentials) -> ESPNLeagueService = { [sleeper, staticData] credentials in
+            ESPNLeagueService(
+                client: ESPNClient(credentials: credentials),
+                cache: cache,
+                season: {
+                    if let season = try? await sleeper.nflState().value.seasonYear { return season }
+                    return Calendar.current.component(.year, from: Date())
+                },
+                playerIndex: { try? await sleeper.playerIndex().value },
+                crosswalk: { try? await staticData.playerCrosswalk().value }
+            )
+        }
+        settingsModel = SettingsModel(
+            sleeper: sleeper, store: settingsStore, espnSecrets: espnSecrets,
+            leagueSource: leagueSource, makeESPNSource: makeESPN
+        )
+        let loader = LeagueContextLoader(
+            sleeper: sleeper, staticData: staticData, leagueSource: leagueSource,
+            provider: { [settingsStore] in settingsStore.load().provider }, now: now
+        )
         self.loader = loader
         // The relay is optional and every call through it fails soft, so a
         // missing base URL simply means the news section never appears (§0).
@@ -61,8 +91,11 @@ public final class AppServices {
         let relayBaseURL = settingsStore.load().relayBaseURL.flatMap { SettingsModel.usableRelay($0) }
         planning = PlanningModel(loader: loader, sleeper: sleeper)
         planning.relayBaseURL = relayBaseURL
-        dashboard = DashboardModel(loader: loader, sleeper: sleeper, relay: relayBaseURL.map { RelayClient(baseURL: $0) })
-        matchup = MatchupModel(loader: loader, sleeper: sleeper)
+        dashboard = DashboardModel(
+            loader: loader, sleeper: sleeper, leagueSource: leagueSource,
+            relay: relayBaseURL.map { RelayClient(baseURL: $0) }
+        )
+        matchup = MatchupModel(loader: loader, sleeper: sleeper, leagueSource: leagueSource)
         sitStart = SitStartModel(loader: loader)
         injuries = InjuryCenterModel(loader: loader, sleeper: sleeper)
         waivers = WaiverBoardModel(loader: loader, sleeper: sleeper)
@@ -80,6 +113,15 @@ public final class AppServices {
         workspaces = WorkspaceStore(persistence: workspacePersistence)
         linkBus = LinkBus()
         playerCards = PlayerCardCache()
+
+        let watchlist = WatchlistModel(store: watchlistStore, now: now)
+        self.watchlist = watchlist
+        watchlist.setLeague(settingsStore.load().leagueID)
+        watchlist.availability = { [discovery] id in discovery.context?.availability(ofSleeperID: id) }
+        linkBus.watchlist = watchlist
+        watchlist.onCompareChange = { [weak linkBus] ids in
+            linkBus?.mirrorCompare(ids, in: LinkBus.watchlistGroup)
+        }
     }
 
     /// Loads every screen once the league is set up. `force` refetches — after
@@ -90,6 +132,7 @@ public final class AppServices {
         guard force || !hasLoaded else { return }
         guard let leagueID = settings.leagueID, let rosterID = settings.rosterID else { return }
         hasLoaded = true
+        watchlist.setLeague(leagueID)
         if force { playerCards.removeAll() }
         // In parallel: they share one league context through the loader's memo,
         // so this is one assembly, and no screen waits behind another.

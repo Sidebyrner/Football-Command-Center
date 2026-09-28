@@ -144,6 +144,39 @@ Public, unofficial, **no authentication, no key**. Endpoints the app uses:
 Cache TTLs currently in use, reasonable to carry over: players 24 h, trending 15 min,
 rosters 5 min, odds 10 min, static nflverse files 7 days.
 
+### 3.1a ESPN fantasy API (`https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl`)
+
+Unofficial and undocumented, like Sleeper's — but **private leagues need the user's
+session.** Two cookies ESPN sets at sign-in, `espn_s2` and `SWID`, are all the fantasy
+API wants; without them a private league answers `401 AUTH_LEAGUE_NOT_VISIBLE`.
+
+How the app handles that, and the rules that must not be loosened:
+
+- **Sign-in happens on ESPN's own page**, in `ESPNSignInView` — a `WKWebView` with a
+  non-persistent data store, navigation restricted to ESPN/Disney hosts. The app never
+  sees the password. Once both cookies exist for `.espn.com` they are read out, the sheet
+  is dismissed, and the web view (and everything the page stored) is discarded.
+- **The cookies live in the Keychain only** (`KeychainSecretStore.espn`,
+  `…ThisDeviceOnly`, so never in iCloud Keychain or a backup). `ESPNCredentials`
+  redacts itself when printed.
+- **They are sent to exactly one host.** `ESPNClient` sets the `Cookie` header per
+  request to the fantasy host; the shared `URLSession` is ephemeral, so nothing is
+  persisted or replayed elsewhere. A 401/403 becomes `DataLayerError.unauthorized` and
+  Settings sends the user back to sign in.
+- **Sign-out purges everything**: the Keychain item and every `espn-*` cache entry.
+
+Shape-wise, ESPN is translated *into Sleeper's types* (`ESPNTranslator`) behind
+`LeagueDataSource`, so every screen keeps reading `SleeperLeague`/`SleeperRoster`/
+`SleeperMatchup`. Player ids are mapped ESPN → Sleeper through the crosswalk's `espnId`
+(about nine rostered players in ten), then Sleeper's own `espn_id`, then name + team +
+position; the rest keep a stable `espn:<id>` and show by name only. D/ST ids are
+`-16000 - proTeamId` → team abbreviation. Everything league-independent (player pool,
+projections, stats, live scores, news) still comes from Sleeper's public routes.
+
+Views the app requests: `mSettings`+`mTeam` (league, members), `mRoster`+`mTeam`
+(rosters), `mMatchupScore`+`mBoxscore`+`scoringPeriodId=` (a week's matchups).
+Transactions and drafts are not translated yet and come back empty.
+
 ### 3.2 Static nflverse-derived files
 
 Produced by `scripts/preprocess-nflverse.mjs` in the web repo, which pulls from

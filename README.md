@@ -127,6 +127,7 @@ On a bigger screen the app becomes a trading desk: **workspaces** of resizable p
 | Source | Used for |
 |---|---|
 | [Sleeper](https://docs.sleeper.com) | Your league, rosters, scoring rules, matchups and live points; weekly stat lines and Rotowire projections; player news; live game states (score, clock, possession) |
+| ESPN Fantasy | Your league, rosters, scoring rules and matchups when it lives on ESPN. Private leagues work: you sign in on ESPN's own page and the app keeps only ESPN's two session cookies, in your Keychain, sent only to ESPN |
 | [nflverse](https://github.com/nflverse/nflverse-data) | Season stats, snap counts, depth charts, official injury reports, schedules and closing lines — refreshed twice daily by a GitHub Action |
 | [ffopportunity](https://github.com/ffverse/ffopportunity) | Expected fantasy points (xFP) — what a player's usage should have scored |
 | [DynastyProcess](https://github.com/dynastyprocess/data) | ADP, bye weeks and the ID crosswalk between sources |
@@ -142,7 +143,7 @@ cd apple
 open FantasyCommandCenter.xcodeproj
 ```
 
-Pick an iPhone simulator, an iPad or **My Mac** and run. In Settings, enter your Sleeper username and pick your league.
+Pick an iPhone simulator, an iPad or **My Mac** and run. In Settings, enter your Sleeper username and pick your league — or choose ESPN, sign in on ESPN's page, and paste your league's id or address.
 
 **No league handy?** Add `-FCCDemoLeague` to the scheme's launch arguments (Product › Scheme › Edit Scheme › Arguments) to open a complete demo league frozen on a week-7 Sunday afternoon — which is what these screenshots show.
 

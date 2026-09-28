@@ -85,25 +85,37 @@ final class TrendComparisonTests: XCTestCase {
         XCTAssertNil(TrendComparison.metric(storedAs: "nonsense"))
     }
 
-    func testChartListRoundTripsInOrderWithSmoothing() {
-        let specs = [TrendChartSpec(metric: .targets), TrendChartSpec(metric: .snapShare, smoothing: 3),
-                     TrendChartSpec(metric: .fantasyPoints)]
-        let stored = TrendChartSpec.encode(specs)
-        XCTAssertEqual(stored, "targets,snapShare:3,fantasyPoints")
-        XCTAssertEqual(TrendChartSpec.list(from: stored), specs)
+    func testCardListRoundTripsInOrderWithSmoothingAndSections() {
+        let cards: [CompareCardSpec] = [.trend(TrendChartSpec(metric: .targets)), .section(.profile),
+                                        .trend(TrendChartSpec(metric: .snapShare, smoothing: 3)), .section(.table)]
+        let stored = CompareCardSpec.encode(cards)
+        XCTAssertEqual(stored, "targets,@profile,snapShare:3,@table")
+        XCTAssertEqual(CompareCardSpec.list(from: stored), cards)
     }
 
-    func testUnsetChartsIsPointsAndEmptyIsNone() {
-        XCTAssertEqual(TrendChartSpec.list(from: nil), [TrendChartSpec(metric: .fantasyPoints)])
-        XCTAssertEqual(TrendChartSpec.list(from: ""), [])
-        XCTAssertEqual(TrendChartSpec.encode([]), "")
+    func testUnsetIsTodaysLayout() {
+        XCTAssertEqual(CompareCardSpec.list(from: nil),
+                       [.trend(TrendChartSpec(metric: .fantasyPoints)), .section(.perGame), .section(.table), .section(.range)])
     }
 
-    func testChartListDropsUnknownsReadsOldKeysAndCapsAtSix() {
-        XCTAssertEqual(TrendChartSpec.list(from: "bogus,points:3,sacks"),
-                       [TrendChartSpec(metric: .fantasyPoints, smoothing: 3), TrendChartSpec(metric: .sacks)])
-        let many = Array(repeating: "targets", count: 9).joined(separator: ",")
-        XCTAssertEqual(TrendChartSpec.list(from: many).count, TrendChartSpec.maxCharts)
+    /// Lists saved when only charts were cards keep the sections that sat
+    /// fixed below them; a list saved now with every section removed stays so.
+    func testChartOnlyListsFromBeforeKeepTheirSections() {
+        XCTAssertEqual(CompareCardSpec.list(from: "targets"),
+                       [.trend(TrendChartSpec(metric: .targets)), .section(.perGame), .section(.table), .section(.range)])
+        XCTAssertEqual(CompareCardSpec.list(from: ""), [.section(.perGame), .section(.table), .section(.range)])
+
+        let chartsOnly: [CompareCardSpec] = [.trend(TrendChartSpec(metric: .targets))]
+        XCTAssertEqual(CompareCardSpec.list(from: CompareCardSpec.encode(chartsOnly)), chartsOnly)
+        XCTAssertEqual(CompareCardSpec.list(from: CompareCardSpec.encode([])), [])
+    }
+
+    func testCardListDropsUnknownsAndDuplicateSectionsReadsOldKeysAndCaps() {
+        XCTAssertEqual(CompareCardSpec.list(from: "bogus,points:3,@nope,@status,@status,sacks"),
+                       [.trend(TrendChartSpec(metric: .fantasyPoints, smoothing: 3)), .section(.status),
+                        .trend(TrendChartSpec(metric: .sacks))])
+        let many = (Array(repeating: "targets", count: 14) + ["@table"]).joined(separator: ",")
+        XCTAssertEqual(CompareCardSpec.list(from: many).count, CompareCardSpec.maxCards)
     }
 
     func testEveryMetricHasAPickerGroup() {

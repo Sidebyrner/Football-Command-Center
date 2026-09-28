@@ -6,6 +6,17 @@ import FCData
 public enum PlayerMetric: String, CaseIterable, Identifiable, Sendable {
     case fantasyPoints, snapShare, targets, targetShare, receptions, receivingYards, airYards,
          carries, rushingYards, redZoneTouches, expectedPoints, yardsAfterContact, tackles, sacks
+    // Passing
+    case passAttempts, passYards, passTouchdowns, interceptionsThrown, completionPct
+    // Scoring and usage detail
+    case rushTouchdowns, receivingTouchdowns, expectedRushPoints, expectedReceivingPoints, redZoneTargets,
+         brokenTackles, drops
+    // Kicking
+    case fieldGoalsMade, fieldGoalAttempts, longFieldGoals
+    // Team defense
+    case defenseSacks, takeaways, pointsAllowed
+    // IDP detail
+    case soloTackles, tacklesForLoss, quarterbackHits, passesDefended
 
     public var id: String { rawValue }
 
@@ -25,6 +36,28 @@ public enum PlayerMetric: String, CaseIterable, Identifiable, Sendable {
         case .yardsAfterContact: return "Yards after contact"
         case .tackles: return "Tackles"
         case .sacks: return "Sacks"
+        case .passAttempts: return "Pass attempts"
+        case .passYards: return "Passing yards"
+        case .passTouchdowns: return "Passing TDs"
+        case .interceptionsThrown: return "Interceptions thrown"
+        case .completionPct: return "Completion %"
+        case .rushTouchdowns: return "Rushing TDs"
+        case .receivingTouchdowns: return "Receiving TDs"
+        case .expectedRushPoints: return "Expected rushing points"
+        case .expectedReceivingPoints: return "Expected receiving points"
+        case .redZoneTargets: return "Red zone targets"
+        case .brokenTackles: return "Broken tackles"
+        case .drops: return "Drops"
+        case .fieldGoalsMade: return "Field goals made"
+        case .fieldGoalAttempts: return "Field goal attempts"
+        case .longFieldGoals: return "50+ yard field goals"
+        case .defenseSacks: return "Team sacks"
+        case .takeaways: return "Takeaways"
+        case .pointsAllowed: return "Points allowed"
+        case .soloTackles: return "Solo tackles"
+        case .tacklesForLoss: return "Tackles for loss"
+        case .quarterbackHits: return "QB hits"
+        case .passesDefended: return "Passes defended"
         }
     }
 
@@ -39,8 +72,24 @@ public enum PlayerMetric: String, CaseIterable, Identifiable, Sendable {
         case .carries: return "car"
         case .redZoneTouches: return "RZ"
         case .yardsAfterContact: return "yds/att"
-        case .tackles: return "tkl"
-        case .sacks: return "sk"
+        case .tackles, .soloTackles: return "tkl"
+        case .sacks, .defenseSacks: return "sk"
+        case .passAttempts: return "att"
+        case .passYards: return "yds"
+        case .passTouchdowns, .rushTouchdowns, .receivingTouchdowns: return "TD"
+        case .interceptionsThrown: return "INT"
+        case .completionPct: return ""
+        case .expectedRushPoints, .expectedReceivingPoints: return "xFP"
+        case .redZoneTargets: return "RZ tgt"
+        case .brokenTackles: return "BT"
+        case .drops: return "drops"
+        case .fieldGoalsMade, .longFieldGoals: return "FG"
+        case .fieldGoalAttempts: return "FGA"
+        case .takeaways: return "TO"
+        case .pointsAllowed: return "pts"
+        case .tacklesForLoss: return "TFL"
+        case .quarterbackHits: return "hits"
+        case .passesDefended: return "PD"
         }
     }
 
@@ -53,11 +102,28 @@ public enum PlayerMetric: String, CaseIterable, Identifiable, Sendable {
         case .carries, .rushingYards, .yardsAfterContact: return "figure.run"
         case .redZoneTouches: return "flag.checkered"
         case .expectedPoints: return "sparkles"
-        case .tackles, .sacks: return "shield.lefthalf.filled"
+        case .tackles, .sacks, .soloTackles, .tacklesForLoss, .quarterbackHits, .passesDefended: return "shield.lefthalf.filled"
+        case .passAttempts, .passYards, .completionPct: return "football"
+        case .passTouchdowns, .rushTouchdowns, .receivingTouchdowns: return "flag.checkered"
+        case .interceptionsThrown, .drops: return "exclamationmark.triangle"
+        case .expectedRushPoints, .expectedReceivingPoints: return "sparkles"
+        case .redZoneTargets: return "flag.checkered"
+        case .brokenTackles: return "figure.run"
+        case .fieldGoalsMade, .fieldGoalAttempts, .longFieldGoals: return "scope"
+        case .defenseSacks, .takeaways, .pointsAllowed: return "shield.fill"
         }
     }
 
-    public var isPercent: Bool { self == .snapShare || self == .targetShare }
+    public var isPercent: Bool { self == .snapShare || self == .targetShare || self == .completionPct }
+
+    /// Fewer is better: turnovers, drops and points given up. Leaderboards
+    /// rank these lowest first.
+    public var higherIsBetter: Bool {
+        switch self {
+        case .interceptionsThrown, .drops, .pointsAllowed: return false
+        default: return true
+        }
+    }
 
     /// Positions the metric means something for; `nil` is every position.
     public var positions: Set<Position>? {
@@ -67,7 +133,15 @@ public enum PlayerMetric: String, CaseIterable, Identifiable, Sendable {
         case .carries, .rushingYards: return [.qb, .rb, .wr]
         case .expectedPoints: return [.qb, .rb, .wr, .te]
         case .yardsAfterContact: return [.rb]
-        case .tackles, .sacks: return Set(Position.idp)
+        case .tackles, .sacks, .soloTackles, .tacklesForLoss, .quarterbackHits, .passesDefended: return Set(Position.idp)
+        case .passAttempts, .passYards, .passTouchdowns, .interceptionsThrown, .completionPct: return [.qb]
+        case .rushTouchdowns: return [.qb, .rb, .wr]
+        case .receivingTouchdowns, .redZoneTargets, .drops: return [.rb, .wr, .te]
+        case .expectedRushPoints: return [.qb, .rb]
+        case .expectedReceivingPoints: return [.rb, .wr, .te]
+        case .brokenTackles: return [.rb, .wr, .te]
+        case .fieldGoalsMade, .fieldGoalAttempts, .longFieldGoals: return [.k]
+        case .defenseSacks, .takeaways, .pointsAllowed: return [.def]
         }
     }
 
@@ -78,8 +152,8 @@ public enum PlayerMetric: String, CaseIterable, Identifiable, Sendable {
 
     public var source: String {
         switch self {
-        case .expectedPoints: return "ffopportunity via nflverse"
-        case .yardsAfterContact: return "PFR via nflverse"
+        case .expectedPoints, .expectedRushPoints, .expectedReceivingPoints: return "ffopportunity via nflverse"
+        case .yardsAfterContact, .brokenTackles, .drops: return "PFR via nflverse"
         case .fantasyPoints: return "Sleeper's lines in your scoring"
         default: return "Sleeper's weekly lines"
         }
@@ -88,7 +162,7 @@ public enum PlayerMetric: String, CaseIterable, Identifiable, Sendable {
     public func format(_ value: Double) -> String {
         if isPercent { return "\(Int((value * 100).rounded()))%" }
         switch self {
-        case .receivingYards, .airYards, .rushingYards: return "\(Int(value.rounded()))"
+        case .receivingYards, .airYards, .rushingYards, .passYards: return "\(Int(value.rounded()))"
         default: return value.formatted(.number.precision(.fractionLength(value.magnitude < 10 ? 1 : 0)))
         }
     }
@@ -97,7 +171,10 @@ public enum PlayerMetric: String, CaseIterable, Identifiable, Sendable {
     /// with no key is a real 0. Shares and model numbers stay `nil`.
     var zeroWhenAbsent: Bool {
         switch self {
-        case .targets, .receptions, .receivingYards, .airYards, .carries, .rushingYards, .redZoneTouches, .tackles, .sacks:
+        case .targets, .receptions, .receivingYards, .airYards, .carries, .rushingYards, .redZoneTouches, .tackles, .sacks,
+             .passAttempts, .passYards, .passTouchdowns, .interceptionsThrown, .rushTouchdowns, .receivingTouchdowns,
+             .redZoneTargets, .fieldGoalsMade, .fieldGoalAttempts, .longFieldGoals, .defenseSacks, .takeaways,
+             .soloTackles, .tacklesForLoss, .quarterbackHits, .passesDefended:
             return true
         default:
             return false
@@ -205,7 +282,10 @@ public final class PlayerMetricsIndex {
             guard points.count >= Self.minimumGamesForRank else { return nil }
             return (id, points.map(\.value).reduce(0, +) / Double(points.count))
         }
-        .sorted { $0.average == $1.average ? $0.id < $1.id : $0.average > $1.average }
+        .sorted { a, b in
+            guard a.average != b.average else { return a.id < b.id }
+            return metric.higherIsBetter ? a.average > b.average : a.average < b.average
+        }
         leaderboards[key] = board
         return board
     }
@@ -260,6 +340,53 @@ public final class PlayerMetricsIndex {
             raw = (solo == nil && assists == nil) ? nil : (solo ?? 0) + (assists ?? 0)
         case .sacks:
             raw = line.stats["idp_sack"]
+        case .passAttempts:
+            raw = line.stats["pass_att"]
+        case .passYards:
+            raw = line.stats["pass_yd"]
+        case .passTouchdowns:
+            raw = line.stats["pass_td"]
+        case .interceptionsThrown:
+            raw = line.stats["pass_int"]
+        case .completionPct:
+            guard let attempts = line.stats["pass_att"], attempts > 0 else { return nil }
+            return (line.stats["pass_cmp"] ?? 0) / attempts
+        case .rushTouchdowns:
+            raw = line.stats["rush_td"]
+        case .receivingTouchdowns:
+            raw = line.stats["rec_td"]
+        case .expectedRushPoints:
+            raw = usage(playerID)[week]?.expectedRushPoints
+        case .expectedReceivingPoints:
+            raw = usage(playerID)[week]?.expectedReceivingPoints
+        case .redZoneTargets:
+            raw = line.redZoneTargets
+        case .brokenTackles:
+            raw = usage(playerID)[week]?.brokenTackles
+        case .drops:
+            raw = usage(playerID)[week]?.drops ?? line.stats["rec_drop"]
+        case .fieldGoalsMade:
+            raw = line.stats["fgm"]
+        case .fieldGoalAttempts:
+            raw = line.stats["fga"]
+        case .longFieldGoals:
+            let fifties = line.stats["fgm_50_59"], sixties = line.stats["fgm_60p"]
+            raw = (fifties == nil && sixties == nil) ? nil : (fifties ?? 0) + (sixties ?? 0)
+        case .defenseSacks:
+            raw = line.stats["sack"]
+        case .takeaways:
+            let picks = line.stats["int"], recoveries = line.stats["fum_rec"]
+            raw = (picks == nil && recoveries == nil) ? nil : (picks ?? 0) + (recoveries ?? 0)
+        case .pointsAllowed:
+            raw = line.stats["pts_allow"]
+        case .soloTackles:
+            raw = line.stats["idp_tkl_solo"]
+        case .tacklesForLoss:
+            raw = line.stats["idp_tkl_loss"]
+        case .quarterbackHits:
+            raw = line.stats["idp_qb_hit"]
+        case .passesDefended:
+            raw = line.stats["idp_pass_def"]
         }
         if let raw { return raw }
         return metric.zeroWhenAbsent ? 0 : nil

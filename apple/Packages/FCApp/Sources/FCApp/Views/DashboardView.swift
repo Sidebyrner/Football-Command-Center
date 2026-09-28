@@ -161,9 +161,9 @@ public struct DashboardView: View {
                     }
                     .appear(index: offset)
                 }
-                if let url = model.context.flatMap({ SleeperLinks.team(leagueID: $0.league.leagueID) }) {
+                if let context = model.context, let url = SleeperLinks.team(for: context) {
                     Link(destination: url) {
-                        Label("Open in Sleeper", systemImage: "arrow.up.forward.app")
+                        Label("Open in \(context.provider.label)", systemImage: "arrow.up.forward.app")
                             .font(.caption.weight(.semibold))
                     }
                 }

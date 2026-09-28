@@ -29,14 +29,44 @@ public enum LinkChange: Hashable, Sendable {
 @MainActor
 public final class LinkBus: ObservableObject {
     public static let compareLimit = 4
+    /// The group whose compare list is the saved watchlist's, so it outlives
+    /// the launch and follows the user to their other devices. The other
+    /// colours are scratch lists.
+    public static let watchlistGroup: LinkGroup = .one
 
     @Published public private(set) var selections: [LinkGroup: LinkedSelection] = [:]
     /// The players each group is comparing, in the order they were added.
     @Published public private(set) var compare: [LinkGroup: [String]] = [:]
+    /// Takes the watchlist group's compare changes when set; its columns come
+    /// back through `mirrorCompare`.
+    public weak var watchlist: WatchlistModel?
 
     public init() {}
 
+    /// Shows the watchlist's compare columns as the group's list, without
+    /// sending them back.
+    public func mirrorCompare(_ ids: [String], in group: LinkGroup) {
+        let next: [String]? = ids.isEmpty ? nil : ids
+        guard compare[group] != next else { return }
+        compare[group] = next
+    }
+
     public func publish(_ change: LinkChange, to group: LinkGroup) {
+        if group == Self.watchlistGroup, let watchlist {
+            switch change {
+            case .addCompare(let id):
+                watchlist.add(id, compare: true)
+                return
+            case .removeCompare(let id):
+                if watchlist.isComparing(id) { watchlist.toggleCompare(id) }
+                return
+            case .clearCompare:
+                watchlist.clearCompare()
+                return
+            case .player, .team, .week:
+                break
+            }
+        }
         switch change {
         case .addCompare(let id):
             let list = compare[group] ?? []
@@ -75,7 +105,8 @@ public final class LinkBus: ObservableObject {
     }
 
     public func canAddToCompare(in group: LinkGroup?) -> Bool {
-        group != nil && compareList(for: group).count < Self.compareLimit
+        if group == Self.watchlistGroup, let watchlist { return watchlist.canCompareMore }
+        return group != nil && compareList(for: group).count < Self.compareLimit
     }
 
     public func selection(for group: LinkGroup?) -> LinkedSelection? {
@@ -84,6 +115,10 @@ public final class LinkBus: ObservableObject {
 
     public func clear(_ group: LinkGroup) {
         selections[group] = nil
-        compare[group] = nil
+        if group == Self.watchlistGroup, let watchlist {
+            watchlist.clearCompare()
+        } else {
+            compare[group] = nil
+        }
     }
 }

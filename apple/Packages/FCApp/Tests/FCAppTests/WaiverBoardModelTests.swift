@@ -128,6 +128,24 @@ final class WaiverBoardModelTests: XCTestCase {
         XCTAssertEqual(model.unvaluedCount, 1, "the projected-only back has no snap share yet and ranks last")
     }
 
+    /// A workspace panel ranks with its own position and sort, ignoring the
+    /// board's search and position, and never moves the board.
+    func testPanelRowsIgnoreTheBoardsFilters() async throws {
+        let model = await model(try await transport())
+        model.positionFilter = .wr
+        model.query = "njigba"
+
+        XCTAssertEqual(model.rows(position: .rb, sort: .projectedOverLine).map(\.id), [Self.projectedOnlyBack])
+
+        let bySnaps = model.rows(position: nil, sort: .snapShare)
+        XCTAssertGreaterThan(bySnaps.count, 1, "the board's search doesn't narrow the panel")
+        XCTAssertEqual(bySnaps.first?.id, Self.smithNjigba)
+        XCTAssertEqual(bySnaps.last?.id, Self.projectedOnlyBack, "no snap share ranks last")
+
+        XCTAssertEqual(model.sort, .projectedOverLine)
+        XCTAssertEqual(model.rows.map(\.id), [Self.smithNjigba])
+    }
+
     func testLeagueFactsStripReadsLiveSettings() async throws {
         let model = await model(try await transport())
         let facts = try XCTUnwrap(model.facts)

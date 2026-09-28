@@ -8,6 +8,7 @@ import FCData
 public struct WaiverBoardView: View {
     @ObservedObject var model: WaiverBoardModel
     @State private var adding: WaiverRow?
+    @Environment(\.watchlist) private var watchlist
 
     public init(model: WaiverBoardModel) {
         self.model = model
@@ -151,14 +152,27 @@ public struct WaiverBoardView: View {
         } else {
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(Array(model.rows.prefix(60).enumerated()), id: \.element.id) { offset, row in
-                    Button {
-                        adding = row
-                    } label: {
-                        WaiverRowView(row: row, sort: model.sort)
+                    // The star sits beside the row's button, not inside it, so
+                    // a tap on it never opens the add/drop sheet.
+                    HStack(spacing: 2) {
+                        Button {
+                            adding = row
+                        } label: {
+                            WaiverRowView(row: row, sort: model.sort)
+                        }
+                        .buttonStyle(.plain)
+                        .playerCardMenu(row.id, context: model.context)
+                        if let watchlist {
+                            WatchButton(watchlist: watchlist, playerID: row.id, name: row.name)
+                                .frame(width: 30)
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .playerCardMenu(row.id, context: model.context)
                     .appear(index: min(offset, 12))
+                }
+                if watchlist != nil {
+                    Text("Tap ☆ to shortlist a player for side-by-side comparison.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
                 if model.rows.count > 60 {
                     Text("Showing 60 of \(model.rows.count). Filter by position or search to narrow it.")
@@ -373,9 +387,9 @@ struct AddDropSheet: View {
                         }
                         .card()
                     }
-                    if let context = model.context, let url = SleeperLinks.team(leagueID: context.league.leagueID) {
+                    if let context = model.context, let url = SleeperLinks.team(for: context) {
                         Link(destination: url) {
-                            Label("Make the claim in Sleeper", systemImage: "arrow.up.forward.app")
+                            Label("Make the claim in \(context.provider.label)", systemImage: "arrow.up.forward.app")
                                 .font(.caption.weight(.semibold))
                         }
                     }

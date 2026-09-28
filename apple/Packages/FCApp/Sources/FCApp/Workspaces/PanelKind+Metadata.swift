@@ -1,3 +1,4 @@
+import SwiftUI
 import Foundation
 
 public extension PanelKind {
@@ -29,6 +30,12 @@ public extension PanelKind {
         case .metric: return "Metric"
         case .playerSearch: return "Player search"
         }
+    }
+
+    /// The panel's hue: the tab its screen lives in (a stream, its position's
+    /// colour). Player research — profile, trends, compare, search — is Market.
+    var hue: Color {
+        fullScreen.map(HubStyle.tint(for:)) ?? HubStyle.market
     }
 
     /// The full screen this panel summarises — the panel's "Open" button.

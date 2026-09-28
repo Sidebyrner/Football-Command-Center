@@ -55,6 +55,34 @@ final class PlayerMetricsTests: XCTestCase {
         XCTAssertFalse(PlayerMetric.yardsAfterContact.applies(to: .wr))
     }
 
+    func testPositionSpecificMetricsReadTheirOwnKeys() async throws {
+        let index = try await index()
+        let mahomes = WorkspaceFixture.mahomes
+        XCTAssertEqual(index.series(.passYards, playerID: mahomes).first?.value, 382)
+        XCTAssertEqual(index.series(.passTouchdowns, playerID: mahomes).first?.value, 3)
+        XCTAssertEqual(index.series(.passAttempts, playerID: mahomes).first?.value, 47)
+        XCTAssertEqual(index.series(.interceptionsThrown, playerID: mahomes).first?.value, 0, "no pick key in a played game is zero")
+        XCTAssertEqual(try XCTUnwrap(index.series(.completionPct, playerID: mahomes).first?.value), 32.0 / 47.0, accuracy: 1e-9)
+        XCTAssertTrue(index.series(.passYards, playerID: WorkspaceFixture.cook).isEmpty, "passing is QB only")
+
+        XCTAssertEqual(index.series(.rushTouchdowns, playerID: WorkspaceFixture.cook).first?.value, 1)
+        XCTAssertEqual(index.series(.receivingTouchdowns, playerID: WorkspaceFixture.cook).first?.value, 0)
+
+        let bolton = WorkspaceFixture.bolton
+        XCTAssertEqual(index.series(.soloTackles, playerID: bolton).first?.value, 6)
+        XCTAssertEqual(index.series(.tacklesForLoss, playerID: bolton).first?.value, 1)
+        XCTAssertEqual(index.series(.quarterbackHits, playerID: bolton).first?.value, 0)
+        XCTAssertTrue(index.series(.fieldGoalsMade, playerID: bolton).isEmpty, "kicking is K only")
+    }
+
+    func testFewerIsBetterMetricsRankLowestFirst() async throws {
+        let index = try await index()
+        XCTAssertFalse(PlayerMetric.interceptionsThrown.higherIsBetter)
+        XCTAssertTrue(PlayerMetric.passYards.higherIsBetter)
+        let board = index.leaderboard(.interceptionsThrown, position: .qb)
+        XCTAssertEqual(board.map(\.average), board.map(\.average).sorted())
+    }
+
     func testSummaryAndRankAtHisPosition() async throws {
         let index = try await index()
         let summary = try XCTUnwrap(index.summary(.rushingYards, playerID: WorkspaceFixture.cook))

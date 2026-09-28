@@ -137,9 +137,9 @@ public struct SitStartView: View {
                 if !model.sits.isEmpty {
                     changeList(title: "Sit", systemImage: "arrow.down.circle.fill", tint: Palette.sit, changes: model.sits)
                 }
-                if let url = model.context.flatMap({ SleeperLinks.team(leagueID: $0.league.leagueID) }) {
+                if let context = model.context, let url = SleeperLinks.team(for: context) {
                     Link(destination: url) {
-                        Label("Make these changes in Sleeper", systemImage: "arrow.up.forward.app")
+                        Label("Make these changes in \(context.provider.label)", systemImage: "arrow.up.forward.app")
                             .font(.footnote.weight(.semibold))
                     }
                     .padding(.top, 2)

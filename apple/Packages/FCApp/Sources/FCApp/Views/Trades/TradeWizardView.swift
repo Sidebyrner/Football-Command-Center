@@ -1007,7 +1007,7 @@ struct ApproachStep: View {
 
             if let url = model.sleeperLink {
                 Link(destination: url) {
-                    Label("Open in Sleeper", systemImage: "arrow.up.forward.app")
+                    Label("Open in \(model.context.provider.label)", systemImage: "arrow.up.forward.app")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)

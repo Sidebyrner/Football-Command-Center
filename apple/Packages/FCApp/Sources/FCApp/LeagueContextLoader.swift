@@ -13,6 +13,10 @@ public struct LeagueContextLoader: Sendable {
     private let sleeper: SleeperService
     private let staticData: StaticDataStore
     private let memo: ContextMemo
+    /// Where the league itself comes from. Defaults to Sleeper; an ESPN
+    /// league arrives through the same shapes, translated.
+    private let leagueSource: any LeagueDataSource
+    private let provider: @Sendable () -> LeagueProvider
 
     /// - Parameter reuseFor: how long an assembled context is handed to other
     ///   callers before being rebuilt. Dashboard, Matchup and Planning share one
@@ -25,11 +29,15 @@ public struct LeagueContextLoader: Sendable {
     public init(
         sleeper: SleeperService,
         staticData: StaticDataStore,
+        leagueSource: (any LeagueDataSource)? = nil,
+        provider: @escaping @Sendable () -> LeagueProvider = { .sleeper },
         now: @escaping @Sendable () -> Date = { Date() },
         reuseFor: TimeInterval = 60
     ) {
         self.sleeper = sleeper
         self.staticData = staticData
+        self.leagueSource = leagueSource ?? sleeper
+        self.provider = provider
         self.now = now
         self.memo = ContextMemo(maxAge: reuseFor)
     }
@@ -68,9 +76,9 @@ public struct LeagueContextLoader: Sendable {
         let scheduleSeason = season ?? state.value.seasonYear ?? Calendar.current.component(.year, from: Date())
         let currentWeek = state.value.week ?? 1
 
-        let league = try await sleeper.league(id: leagueID, force: force)
-        let rosters = try await sleeper.rosters(leagueID: leagueID, force: force)
-        let members = try await sleeper.members(leagueID: leagueID, force: force)
+        let league = try await leagueSource.league(id: leagueID, force: force)
+        let rosters = try await leagueSource.rosters(leagueID: leagueID, force: force)
+        let members = try await leagueSource.members(leagueID: leagueID, force: force)
         // The schedule first: it decides how fresh the player index — where the
         // injury tags live — has to be.
         let schedule = try await staticData.schedule(season: scheduleSeason)
@@ -158,6 +166,7 @@ public struct LeagueContextLoader: Sendable {
         )
         context.leagueFacts = LeagueFacts.from(league: league.value, userRoster: userRoster?.settings)
         context.inSeason = inSeason
+        context.provider = provider()
         return context
     }
 

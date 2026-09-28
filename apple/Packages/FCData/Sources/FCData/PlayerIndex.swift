@@ -40,6 +40,9 @@ public struct IndexedPlayer: Codable, Hashable, Sendable {
     /// "1996-04-21", as Sleeper sends it.
     public let birthDate: String?
     public let jerseyNumber: Int?
+    /// ESPN's id for the same player, when Sleeper carries it. Sleeper only
+    /// has it for a minority of players; the crosswalk is the primary bridge.
+    public let espnID: Int?
 
     public init(
         id: String,
@@ -59,8 +62,10 @@ public struct IndexedPlayer: Codable, Hashable, Sendable {
         heightInches: Int? = nil,
         weightPounds: Int? = nil,
         birthDate: String? = nil,
-        jerseyNumber: Int? = nil
+        jerseyNumber: Int? = nil,
+        espnID: Int? = nil
     ) {
+        self.espnID = espnID
         self.id = id
         self.name = name
         self.positionCode = positionCode
@@ -102,6 +107,7 @@ public struct IndexedPlayer: Codable, Hashable, Sendable {
         weightPounds = try container.decodeIfPresent(Int.self, forKey: .weightPounds)
         birthDate = try container.decodeIfPresent(String.self, forKey: .birthDate)
         jerseyNumber = try container.decodeIfPresent(Int.self, forKey: .jerseyNumber)
+        espnID = try container.decodeIfPresent(Int.self, forKey: .espnID)
     }
 
     /// `6'1"`, from inches.
@@ -205,7 +211,8 @@ public struct PlayerIndex: Codable, Hashable, Sendable {
                 heightInches: RawSleeperPlayer.inches(player.height?.value),
                 weightPounds: player.weight?.value.flatMap { Int($0.trimmingCharacters(in: .whitespaces)) },
                 birthDate: player.birthDate,
-                jerseyNumber: player.number
+                jerseyNumber: player.number,
+                espnID: player.espnId
             )
         }
         return PlayerIndex(players: trimmed, builtAt: now)
@@ -233,6 +240,7 @@ struct RawSleeperPlayer: Decodable {
     let weight: LenientString?
     let birthDate: String?
     let number: Int?
+    let espnId: Int?
 
     enum CodingKeys: String, CodingKey {
         case fullName = "full_name"
@@ -248,6 +256,7 @@ struct RawSleeperPlayer: Decodable {
         case age, college, height, weight, number
         case yearsExp = "years_exp"
         case birthDate = "birth_date"
+        case espnId = "espn_id"
     }
 
     /// One bad bio field must not cost the player, so each is decoded on its own.
@@ -277,6 +286,7 @@ struct RawSleeperPlayer: Decodable {
         weight = (try? c.decodeIfPresent(LenientString.self, forKey: .weight)) ?? nil
         birthDate = string(.birthDate)
         number = int(.number)
+        espnId = int(.espnId)
     }
 
     /// Sleeper sends height as inches (`"73"`) for most players and as

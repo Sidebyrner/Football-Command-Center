@@ -146,11 +146,16 @@ public final class DashboardModel: ObservableObject {
 
     private let loader: LeagueContextLoader
     private let sleeper: SleeperService
+    private let leagueSource: any LeagueDataSource
     private var relay: RelayClient?
 
-    public init(loader: LeagueContextLoader, sleeper: SleeperService, relay: RelayClient? = nil) {
+    public init(
+        loader: LeagueContextLoader, sleeper: SleeperService, leagueSource: (any LeagueDataSource)? = nil,
+        relay: RelayClient? = nil
+    ) {
         self.loader = loader
         self.sleeper = sleeper
+        self.leagueSource = leagueSource ?? sleeper
         self.relay = relay
         self.relayBaseURL = relay?.baseURL
     }
@@ -225,7 +230,7 @@ public final class DashboardModel: ObservableObject {
             byeStrip = Self.buildByeStrip(context: context)
 
             // Same cache entry the Matchup screen reads, so no second request.
-            if let matchups = try? await sleeper.matchups(
+            if let matchups = try? await leagueSource.matchups(
                 leagueID: leagueID, week: context.currentWeek, force: force
             ) {
                 thisWeek = Self.buildThisWeek(context: context, matchups: matchups.value)
@@ -242,7 +247,7 @@ public final class DashboardModel: ObservableObject {
             }
 
             let history = await SeasonHistory.load(
-                sleeper: sleeper, leagueID: leagueID, currentWeek: context.currentWeek
+                source: leagueSource, leagueID: leagueID, currentWeek: context.currentWeek
             )
             benchWeeks = Self.buildBenchWeeks(context: context, history: history)
             trend = Self.buildTrend(context: context, history: history)
@@ -253,7 +258,7 @@ public final class DashboardModel: ObservableObject {
             var future: [Int: [SleeperMatchup]] = [:]
             let lastWeek = context.seasonWeeks.max() ?? context.currentWeek
             for week in (context.currentWeek + 1)...max(context.currentWeek + 1, min(context.currentWeek + 3, lastWeek)) {
-                if let matchups = try? await sleeper.completedMatchups(leagueID: leagueID, week: week) {
+                if let matchups = try? await leagueSource.completedMatchups(leagueID: leagueID, week: week) {
                     future[week] = matchups.value
                 }
             }
@@ -447,13 +452,13 @@ public final class DashboardModel: ObservableObject {
             draftUnavailable = "Could not tell which picks were yours."
             return
         }
-        guard let drafts = try? await sleeper.drafts(leagueID: context.league.leagueID),
+        guard let drafts = try? await leagueSource.drafts(leagueID: context.league.leagueID),
               let draft = drafts.value.first
         else {
             draftUnavailable = "Sleeper returned no draft for this league."
             return
         }
-        guard let picks = try? await sleeper.draftPicks(draftID: draft.draftID) else {
+        guard let picks = try? await leagueSource.draftPicks(draftID: draft.draftID) else {
             draftUnavailable = "Could not load the draft picks."
             return
         }
@@ -501,7 +506,7 @@ public final class DashboardModel: ObservableObject {
 
         var summaries: [TransactionSummary] = []
         for week in weeks {
-            guard let fetched = try? await sleeper.transactions(
+            guard let fetched = try? await leagueSource.transactions(
                 leagueID: context.league.leagueID, week: week, force: force
             ) else { continue }
 

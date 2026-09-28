@@ -375,9 +375,9 @@ struct ReplacementFinderSheet: View {
                                 .playerCardMenu(candidate.id, context: model.context)
                         }
                     }
-                    if let context = model.context, let url = SleeperLinks.team(leagueID: context.league.leagueID) {
+                    if let context = model.context, let url = SleeperLinks.team(for: context) {
                         Link(destination: url) {
-                            Label("Make the move in Sleeper", systemImage: "arrow.up.forward.app")
+                            Label("Make the move in \(context.provider.label)", systemImage: "arrow.up.forward.app")
                                 .font(.caption.weight(.semibold))
                         }
                     }

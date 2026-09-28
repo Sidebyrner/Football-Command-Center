@@ -1,0 +1,96 @@
+{
+  "id": 987654,
+  "seasonId": 2026,
+  "scoringPeriodId": 3,
+  "settings": {
+    "name": "Test Private League",
+    "rosterSettings": {
+      "lineupSlotCounts": {"0": 1, "2": 2, "4": 2, "6": 1, "23": 1, "16": 1, "17": 1, "20": 6, "21": 1, "18": 0, "19": 0}
+    },
+    "scoringSettings": {
+      "scoringItems": [
+        {"statId": 3, "points": 0.04},
+        {"statId": 4, "points": 4},
+        {"statId": 20, "points": -2},
+        {"statId": 24, "points": 0.1},
+        {"statId": 25, "points": 6},
+        {"statId": 42, "points": 0.1},
+        {"statId": 43, "points": 6},
+        {"statId": 53, "points": 1},
+        {"statId": 72, "points": -2},
+        {"statId": 80, "points": 3},
+        {"statId": 77, "points": 4},
+        {"statId": 74, "points": 5},
+        {"statId": 86, "points": 1},
+        {"statId": 99, "points": 1},
+        {"statId": 95, "points": 2},
+        {"statId": 89, "points": 5},
+        {"statId": 999, "points": 42}
+      ]
+    },
+    "scheduleSettings": {"matchupPeriodCount": 14, "playoffTeamCount": 6},
+    "tradeSettings": {"deadlineDate": 1795000000000},
+    "acquisitionSettings": {
+      "acquisitionBudget": 100, "isUsingAcquisitionBudget": true,
+      "acquisitionType": "WAIVERS_TRADITIONAL", "waiverProcessDays": ["WEDNESDAY"]
+    }
+  },
+  "members": [
+    {"id": "{AAAAAAAA-0000-0000-0000-00000000AB12}", "displayName": "connor", "firstName": "Connor", "lastName": "B"},
+    {"id": "{BBBBBBBB-0000-0000-0000-000000000002}", "displayName": "rival", "firstName": "Riva", "lastName": "L"}
+  ],
+  "teams": [
+    {
+      "id": 1, "name": "Byrne Notice", "abbrev": "BN",
+      "owners": ["{aaaaaaaa-0000-0000-0000-00000000ab12}"],
+      "record": {"overall": {"wins": 2, "losses": 0, "ties": 0, "pointsFor": 251.5, "pointsAgainst": 200.25}},
+      "waiverRank": 8, "transactionCounter": {"acquisitionBudgetSpent": 12},
+      "roster": {"entries": [
+        {"playerId": 3139477, "lineupSlotId": 0, "playerPoolEntry": {"id": 3139477, "player": {"id": 3139477, "fullName": "Patrick Mahomes", "proTeamId": 12, "defaultPositionId": 1}}},
+        {"playerId": 4430807, "lineupSlotId": 2, "playerPoolEntry": {"id": 4430807, "player": {"id": 4430807, "fullName": "Bijan Robinson", "proTeamId": 1, "defaultPositionId": 2}}},
+        {"playerId": 4241389, "lineupSlotId": 4, "playerPoolEntry": {"id": 4241389, "player": {"id": 4241389, "fullName": "CeeDee Lamb", "proTeamId": 6, "defaultPositionId": 3}}},
+        {"playerId": 4360438, "lineupSlotId": 4, "playerPoolEntry": {"id": 4360438, "player": {"id": 4360438, "fullName": "Brandon Aiyuk", "proTeamId": 25, "defaultPositionId": 3}}},
+        {"playerId": 15847, "lineupSlotId": 6, "playerPoolEntry": {"id": 15847, "player": {"id": 15847, "fullName": "Travis Kelce", "proTeamId": 12, "defaultPositionId": 4}}},
+        {"playerId": 4362628, "lineupSlotId": 23, "playerPoolEntry": {"id": 4362628, "player": {"id": 4362628, "fullName": "Ja'Marr Chase", "proTeamId": 4, "defaultPositionId": 3}}},
+        {"playerId": -16012, "lineupSlotId": 16, "playerPoolEntry": {"id": -16012, "player": {"id": -16012, "fullName": "Chiefs D/ST", "proTeamId": 12, "defaultPositionId": 16}}},
+        {"playerId": 3055899, "lineupSlotId": 17, "playerPoolEntry": {"id": 3055899, "player": {"id": 3055899, "fullName": "Harrison Butker", "proTeamId": 12, "defaultPositionId": 5}}},
+        {"playerId": 4429615, "lineupSlotId": 20, "playerPoolEntry": {"id": 4429615, "player": {"id": 4429615, "fullName": "Zay Flowers", "proTeamId": 33, "defaultPositionId": 3}}},
+        {"playerId": 99999991, "lineupSlotId": 20, "playerPoolEntry": {"id": 99999991, "player": {"id": 99999991, "fullName": "Practice Squad Rookie", "proTeamId": 3, "defaultPositionId": 2}}},
+        {"playerId": 3116385, "lineupSlotId": 21, "playerPoolEntry": {"id": 3116385, "player": {"id": 3116385, "fullName": "Joe Mixon", "proTeamId": 34, "defaultPositionId": 2}}}
+      ]}
+    },
+    {
+      "id": 2, "location": "Waiver", "nickname": "Wire", "abbrev": "WW",
+      "owners": ["{BBBBBBBB-0000-0000-0000-000000000002}"],
+      "record": {"overall": {"wins": 0, "losses": 2, "ties": 0, "pointsFor": 200.25, "pointsAgainst": 251.5}},
+      "waiverRank": 1,
+      "roster": {"entries": [
+        {"playerId": 4040715, "lineupSlotId": 0, "playerPoolEntry": {"id": 4040715, "player": {"id": 4040715, "fullName": "Jalen Hurts", "proTeamId": 21, "defaultPositionId": 1}}},
+        {"playerId": 4241457, "lineupSlotId": 2, "playerPoolEntry": {"id": 4241457, "player": {"id": 4241457, "fullName": "Najee Harris", "proTeamId": 24, "defaultPositionId": 2}}},
+        {"playerId": 4241416, "lineupSlotId": 20, "playerPoolEntry": {"id": 4241416, "player": {"id": 4241416, "fullName": "Chuba Hubbard", "proTeamId": 29, "defaultPositionId": 2}}}
+      ]}
+    }
+  ],
+  "schedule": [
+    {"id": 1, "matchupPeriodId": 1, "winner": "HOME", "home": {"teamId": 1, "totalPoints": 130.5}, "away": {"teamId": 2, "totalPoints": 100.0}},
+    {"id": 2, "matchupPeriodId": 2, "winner": "AWAY", "home": {"teamId": 2, "totalPoints": 100.25}, "away": {"teamId": 1, "totalPoints": 121.0}},
+    {
+      "id": 3, "matchupPeriodId": 3, "winner": "UNDECIDED",
+      "home": {
+        "teamId": 1, "totalPoints": 48.2, "pointsByScoringPeriod": {"3": 48.2},
+        "rosterForCurrentScoringPeriod": {"entries": [
+          {"playerId": 3139477, "lineupSlotId": 0, "playerPoolEntry": {"id": 3139477, "appliedStatTotal": 24.5, "player": {"id": 3139477, "fullName": "Patrick Mahomes", "proTeamId": 12, "defaultPositionId": 1}}},
+          {"playerId": 4430807, "lineupSlotId": 2, "playerPoolEntry": {"id": 4430807, "appliedStatTotal": 12.3, "player": {"id": 4430807, "fullName": "Bijan Robinson", "proTeamId": 1, "defaultPositionId": 2}}},
+          {"playerId": -16012, "lineupSlotId": 16, "playerPoolEntry": {"id": -16012, "appliedStatTotal": 11.4, "player": {"id": -16012, "fullName": "Chiefs D/ST", "proTeamId": 12, "defaultPositionId": 16}}},
+          {"playerId": 4429615, "lineupSlotId": 20, "playerPoolEntry": {"id": 4429615, "appliedStatTotal": 9.9, "player": {"id": 4429615, "fullName": "Zay Flowers", "proTeamId": 33, "defaultPositionId": 3}}}
+        ]}
+      },
+      "away": {
+        "teamId": 2, "totalPoints": 30.0, "pointsByScoringPeriod": {"3": 30.0},
+        "rosterForCurrentScoringPeriod": {"entries": [
+          {"playerId": 4040715, "lineupSlotId": 0, "playerPoolEntry": {"id": 4040715, "appliedStatTotal": 30.0, "player": {"id": 4040715, "fullName": "Jalen Hurts", "proTeamId": 21, "defaultPositionId": 1}}}
+        ]}
+      }
+    }
+  ]
+}

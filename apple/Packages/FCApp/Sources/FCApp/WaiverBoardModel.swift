@@ -249,8 +249,24 @@ public final class WaiverBoardModel: ObservableObject {
             if !needle.isEmpty, !row.name.lowercased().contains(needle), !(row.team?.lowercased().contains(needle) ?? false) { return false }
             return true
         }
-        let sort = self.sort
-        out.sort { a, b in
+        rows = Self.sorted(out, by: sort)
+    }
+
+    /// A panel's own cut of the board: its position and sort, leaving out the
+    /// board's search, position and bye filters so the panel stands alone.
+    /// Rival benches follow the board.
+    public func rows(position: Position?, sort: WaiverSort) -> [WaiverRow] {
+        let out = allRows.filter { row in
+            if !includeRivalBenches, row.availability != .freeAgent { return false }
+            if let position, row.position != position { return false }
+            return true
+        }
+        return Self.sorted(out, by: sort)
+    }
+
+    /// Highest first; a missing number sorts after every real one.
+    static func sorted(_ rows: [WaiverRow], by sort: WaiverSort) -> [WaiverRow] {
+        rows.sorted { a, b in
             switch (a.value(sort), b.value(sort)) {
             case let (x?, y?): return x == y ? a.name < b.name : x > y
             case (_?, nil): return true
@@ -258,7 +274,6 @@ public final class WaiverBoardModel: ObservableObject {
             case (nil, nil): return a.name < b.name
             }
         }
-        rows = out
     }
 
     /// Positions the board can filter on: those the league starts, in template order.

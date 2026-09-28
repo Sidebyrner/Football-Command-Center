@@ -11,7 +11,7 @@
 //   weekly/index.json      { _meta, seasons: [{ season, file, weeks, complete, bytes }] }
 //   schedule-{season}.json { _meta, byWeek: { "1": [{ home, away, ... }] } }
 //   cohorts.json           { _meta, cohorts: { [position]: { [metric]: number[] } } }
-//   player-ids.json        { _meta, players: { [sleeper_id]: { gsisId, fantasyprosId, ... } } }
+//   player-ids.json        { _meta, players: { [sleeper_id]: { gsisId, fantasyprosId, espnId, ... } } }
 //   adp.json               { _meta, players: { [fantasypros_id]: { ecr, sd, bye, ... } } }
 //   injuries-{season}.json  { _meta, fields, byWeek }        current season only
 //   depth-{season}.json     { _meta, teams: { [team]: { [group]: [gsis] } } }
@@ -652,13 +652,16 @@ async function main() {
     bySleeper[sleeperId] = {
       gsisId: str(row.gsis_id),
       fantasyprosId: str(row.fantasypros_id),
+      // ESPN's id, so an ESPN league's roster can be keyed by Sleeper ids.
+      espnId: str(row.espn_id),
       name: str(row.name),
       position: str(row.position),
       team: str(row.team),
     }
   }
   const withBoth = Object.values(bySleeper).filter((p) => p.gsisId && p.fantasyprosId).length
-  console.log(`  ✓ ${Object.keys(bySleeper).length} sleeper ids (${withBoth} with gsis + fantasypros)`)
+  const withEspn = Object.values(bySleeper).filter((p) => p.espnId).length
+  console.log(`  ✓ ${Object.keys(bySleeper).length} sleeper ids (${withBoth} with gsis + fantasypros, ${withEspn} with espn)`)
   writeOut('player-ids.json', {
     _meta: { generated, source: 'dynastyprocess/data db_playerids' },
     players: bySleeper,

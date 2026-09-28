@@ -49,25 +49,7 @@ public actor SleeperService {
         force: Bool = false,
         fetch: () async throws -> Value
     ) async throws -> Fetched<Value> {
-        if !force, let hit = await cache.load(Value.self, key: key) {
-            return Fetched(value: hit.value, provenance: .cached(age: hit.age))
-        }
-        do {
-            let fresh = try await fetch()
-            // A cache write failure must not fail the fetch — we have the data.
-            // It is still worth not pretending it succeeded, hence `try?` here
-            // rather than silence inside DiskCache.
-            try? await cache.store(fresh, key: key, ttl: ttl)
-            return Fetched(value: fresh, provenance: .live)
-        } catch {
-            if let stale = await cache.load(Value.self, key: key, allowingStale: true) {
-                return Fetched(
-                    value: stale.value,
-                    provenance: .staleCache(age: stale.age, failure: String(describing: error))
-                )
-            }
-            throw error
-        }
+        try await cache.through(key: key, ttl: ttl, force: force, fetch: fetch)
     }
 
     // MARK: - League context

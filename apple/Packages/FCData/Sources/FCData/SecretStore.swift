@@ -12,10 +12,30 @@ public protocol SecretStore: Sendable {
 public struct KeychainSecretStore: SecretStore {
     private let service: String
     private let account: String
+    private let thisDeviceOnly: Bool
 
-    public init(service: String = "com.connorbyrne.FantasyCommandCenter.relay", account: String = "relay-token") {
+    /// - Parameter thisDeviceOnly: keep the item out of iCloud Keychain and
+    ///   device backups. Right for a session cookie another device could not
+    ///   use anyway and should never be able to read.
+    public init(
+        service: String = "com.connorbyrne.FantasyCommandCenter.relay",
+        account: String = "relay-token",
+        thisDeviceOnly: Bool = false
+    ) {
         self.service = service
         self.account = account
+        self.thisDeviceOnly = thisDeviceOnly
+    }
+
+    private var accessible: CFString {
+        thisDeviceOnly ? kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly : kSecAttrAccessibleAfterFirstUnlock
+    }
+
+    /// The store for ESPN's two session cookies, as one JSON value.
+    public static var espn: KeychainSecretStore {
+        KeychainSecretStore(
+            service: "com.connorbyrne.FantasyCommandCenter.espn", account: "credentials", thisDeviceOnly: true
+        )
     }
 
     private var query: [String: Any] {
@@ -39,7 +59,7 @@ public struct KeychainSecretStore: SecretStore {
         guard let value, !value.isEmpty, let data = value.data(using: .utf8) else { return }
         var item = query
         item[kSecValueData as String] = data
-        item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        item[kSecAttrAccessible as String] = accessible
         SecItemAdd(item as CFDictionary, nil)
     }
 }
