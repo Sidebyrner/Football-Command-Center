@@ -53,7 +53,7 @@ public struct MatchupView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .sheet(item: $selectedPair) { pair in
-            SlotDetailSheet(pair: pair, mine: model.mySide, theirs: model.opponentSide)
+            SlotDetailSheet(pair: pair, mine: model.mySide, theirs: model.opponentSide, providerLabel: model.context?.provider.label ?? "Sleeper")
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
@@ -220,7 +220,7 @@ public struct MatchupView: View {
                 Button {
                     selectedPair = pair
                 } label: {
-                    PairedSlotRow(pair: pair, hasOpponent: model.opponentSide != nil)
+                    PairedSlotRow(pair: pair, hasOpponent: model.opponentSide != nil, providerLabel: model.context?.provider.label ?? "Sleeper")
                 }
                 .buttonStyle(PressableCardStyle())
                 .accessibilityElement(children: .contain)
@@ -287,6 +287,7 @@ struct MatchupModePicker: View {
 struct PairedSlotRow: View {
     let pair: PairedSlot
     let hasOpponent: Bool
+    var providerLabel: String = "Sleeper"
 
     var body: some View {
         VStack(spacing: 6) {
@@ -342,7 +343,7 @@ struct PairedSlotRow: View {
                 Text("Empty")
                     .font(.subheadline)
                     .foregroundStyle(Palette.caution)
-                Text("set on Sleeper")
+                Text("set on \(providerLabel)")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -439,7 +440,7 @@ struct MatchupRowView: View {
                 .frame(width: 44, alignment: .leading)
 
             if row.isEmptySlot {
-                Text("Empty — set this slot on Sleeper")
+                Text("Empty — set this slot on \(context?.provider.label ?? "your league site")")
                     .font(.subheadline)
                     .foregroundStyle(Palette.caution)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -557,6 +558,7 @@ struct SlotDetailSheet: View {
     let pair: PairedSlot
     let mine: MatchupSide?
     let theirs: MatchupSide?
+    var providerLabel: String = "Sleeper"
 
     var body: some View {
         NavigationStack {
@@ -594,7 +596,7 @@ struct SlotDetailSheet: View {
             if let row, !row.isEmptySlot {
                 PlayerDetail(row: row)
             } else {
-                Text("Empty — set this slot on Sleeper")
+                Text("Empty — set this slot on \(providerLabel)")
                     .font(.subheadline)
                     .foregroundStyle(Palette.caution)
             }

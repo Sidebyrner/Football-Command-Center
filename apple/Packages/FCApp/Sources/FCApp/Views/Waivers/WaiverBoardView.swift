@@ -387,9 +387,9 @@ struct AddDropSheet: View {
                         }
                         .card()
                     }
-                    if let context = model.context, let url = SleeperLinks.team(leagueID: context.league.leagueID) {
+                    if let context = model.context, let url = SleeperLinks.team(for: context) {
                         Link(destination: url) {
-                            Label("Make the claim in Sleeper", systemImage: "arrow.up.forward.app")
+                            Label("Make the claim in \(context.provider.label)", systemImage: "arrow.up.forward.app")
                                 .font(.caption.weight(.semibold))
                         }
                     }

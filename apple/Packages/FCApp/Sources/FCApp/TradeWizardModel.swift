@@ -1059,7 +1059,7 @@ public final class TradeWizardModel: ObservableObject {
     }
 
     public var sleeperLink: URL? {
-        SleeperLinks.team(leagueID: context.league.leagueID)
+        SleeperLinks.team(for: context)
     }
 
     // MARK: - Navigation

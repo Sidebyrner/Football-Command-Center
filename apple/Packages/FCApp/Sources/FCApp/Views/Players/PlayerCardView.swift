@@ -174,7 +174,7 @@ public struct PlayerCardView: View {
                 }
             }
             Spacer()
-            if let url = model.context.league.leagueID.isEmpty ? nil : SleeperLinks.team(leagueID: model.context.league.leagueID) {
+            if let url = model.context.league.leagueID.isEmpty ? nil : SleeperLinks.team(for: model.context) {
                 Link(destination: url) {
                     Label("Sleeper", systemImage: "arrow.up.forward.app").font(.caption.weight(.semibold))
                 }

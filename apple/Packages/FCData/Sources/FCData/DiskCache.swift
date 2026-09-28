@@ -103,7 +103,18 @@ public actor DiskCache {
         try ensureDirectory()
         let envelope = Envelope(value: value, storedAt: now, expiresAt: now.addingTimeInterval(ttl))
         let data = try encoder.encode(envelope)
-        try data.write(to: url(for: key), options: .atomic)
+        // A private league's rosters are other people's data; keep the file
+        // unreadable until the device has been unlocked once after boot.
+        // Background refresh still works, because that state persists.
+        try data.write(to: url(for: key), options: DiskCache.writeOptions)
+    }
+
+    private static var writeOptions: Data.WritingOptions {
+        #if os(iOS)
+        return [.atomic, .completeFileProtectionUntilFirstUserAuthentication]
+        #else
+        return [.atomic]
+        #endif
     }
 
     /// Reads a value back.
@@ -137,6 +148,47 @@ public actor DiskCache {
 
     public func removeAll() {
         try? fileManager.removeItem(at: directory)
+    }
+
+    /// Removes every entry whose key starts with `prefix` — one provider's
+    /// data, say, when the user signs out of it.
+    public func removeAll(keyPrefix prefix: String) {
+        let safePrefix = url(for: prefix).deletingPathExtension().lastPathComponent
+        guard let names = try? fileManager.contentsOfDirectory(atPath: directory.path) else { return }
+        for name in names where name.hasPrefix(safePrefix) {
+            try? fileManager.removeItem(at: directory.appendingPathComponent(name))
+        }
+    }
+
+    /// The one read path shared by every service: a fresh entry wins, then
+    /// the network, and if that fails an **expired** entry is served rather
+    /// than an error — labelled via `Fetched.Provenance` so the UI can say it
+    /// is old. That ordering is what makes the app usable with no signal (§8.1).
+    public func through<Value: Codable & Sendable>(
+        key: String,
+        ttl: TimeInterval,
+        force: Bool = false,
+        fetch: () async throws -> Value
+    ) async throws -> Fetched<Value> {
+        if !force, let hit = load(Value.self, key: key) {
+            return Fetched(value: hit.value, provenance: .cached(age: hit.age))
+        }
+        do {
+            let fresh = try await fetch()
+            // A cache write failure must not fail the fetch — we have the data.
+            // It is still worth not pretending it succeeded, hence `try?` here
+            // rather than silence inside `store`.
+            try? store(fresh, key: key, ttl: ttl)
+            return Fetched(value: fresh, provenance: .live)
+        } catch {
+            if let stale = load(Value.self, key: key, allowingStale: true) {
+                return Fetched(
+                    value: stale.value,
+                    provenance: .staleCache(age: stale.age, failure: String(describing: error))
+                )
+            }
+            throw error
+        }
     }
 
     /// Whether an unexpired entry exists, without paying to decode it.

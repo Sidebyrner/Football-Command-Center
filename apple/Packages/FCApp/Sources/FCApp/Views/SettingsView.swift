@@ -13,12 +13,20 @@ public struct SettingsView: View {
         self.onReady = onReady
     }
 
+    @State private var showESPNSignIn = false
+
     public var body: some View {
         Form {
-            usernameSection
+            providerSection
 
-            if !model.leagues.isEmpty {
-                leagueSection
+            switch model.settings.provider {
+            case .sleeper:
+                usernameSection
+                if !model.leagues.isEmpty {
+                    leagueSection
+                }
+            case .espn:
+                espnSection
             }
 
             if model.stage == .pickingTeam && !model.teams.isEmpty {
@@ -45,6 +53,82 @@ public struct SettingsView: View {
         .navigationTitle("Settings")
         .onChange(of: model.stage) { _, stage in
             if stage == .ready { onReady() }
+        }
+        .sheet(isPresented: $showESPNSignIn) {
+            ESPNSignInView { credentials in
+                model.saveESPNCredentials(credentials)
+            }
+        }
+    }
+
+    // MARK: - Provider
+
+    private var providerSection: some View {
+        Section {
+            Picker("League platform", selection: Binding(
+                get: { model.settings.provider },
+                set: { model.setProvider($0) }
+            )) {
+                ForEach(LeagueProvider.allCases, id: \.self) { provider in
+                    Text(provider.label).tag(provider)
+                }
+            }
+            .pickerStyle(.segmented)
+        } header: {
+            Text("League platform")
+        } footer: {
+            Text("Player data, projections and live scores come from public sources whichever platform hosts your league.")
+        }
+    }
+
+    // MARK: - ESPN
+
+    private var espnSection: some View {
+        Section {
+            if model.hasESPNCredentials {
+                HStack {
+                    Label("Signed in to ESPN", systemImage: "checkmark.seal.fill")
+                        .foregroundStyle(Palette.start)
+                    Spacer()
+                    if let suffix = model.espnAccountSuffix {
+                        Text("account …\(suffix)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                TextField("League id or espn.com league address", text: $model.espnLeagueText)
+                    .autocorrectionDisabled()
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.URL)
+                    #endif
+                    .onSubmit { Task { await model.connectESPNLeague() } }
+                Button {
+                    Task { await model.connectESPNLeague() }
+                } label: {
+                    if model.isWorking {
+                        ProgressView()
+                    } else {
+                        Text("Connect league")
+                    }
+                }
+                .disabled(model.espnLeagueText.trimmingCharacters(in: .whitespaces).isEmpty || model.isWorking)
+                Button("Sign out of ESPN", role: .destructive) { model.signOutESPN() }
+            } else {
+                Button {
+                    showESPNSignIn = true
+                } label: {
+                    Label("Sign in to ESPN", systemImage: "person.crop.circle.badge.checkmark")
+                }
+            }
+        } header: {
+            Text("ESPN")
+        } footer: {
+            if model.hasESPNCredentials {
+                Text("Your league id is the number after leagueId= in any espn.com league address. Private leagues work — you're signed in.")
+            } else {
+                Text("You sign in on ESPN's own page. The app never sees your password; it keeps only the two session cookies ESPN issues, in your Keychain on this device, and sends them only to ESPN.")
+            }
         }
     }
 

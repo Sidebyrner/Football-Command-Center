@@ -20,13 +20,16 @@ public struct PlayerIDCrosswalk: Decodable, Sendable {
     public struct Entry: Decodable, Hashable, Sendable {
         public let gsisId: String?
         public let fantasyprosId: String?
+        /// ESPN's numeric player id, as a string. Absent from files built
+        /// before ESPN leagues were supported, and for team defenses always.
+        public let espnId: String?
         public let name: String?
         /// The **dynastyprocess** spelling. Use `position` rather than this.
         public let positionCode: String?
         public let team: String?
 
         enum CodingKeys: String, CodingKey {
-            case gsisId, fantasyprosId, name, team
+            case gsisId, fantasyprosId, espnId, name, team
             case positionCode = "position"
         }
 
@@ -72,6 +75,17 @@ public struct PlayerIDCrosswalk: Decodable, Sendable {
 
     public func entry(forSleeperID sleeperID: String) -> Entry? {
         players[sleeperID]
+    }
+
+    /// ESPN id → Sleeper id, built on demand, for translating an ESPN roster
+    /// into the Sleeper ids everything else is keyed by.
+    public func sleeperIDsByESPN() -> [String: String] {
+        var reverse: [String: String] = [:]
+        for (sleeperID, entry) in players {
+            guard let espnId = entry.espnId, !espnId.isEmpty else { continue }
+            reverse[espnId] = sleeperID
+        }
+        return reverse
     }
 
     /// Reverse lookup, built on demand. The forward map is the common case;

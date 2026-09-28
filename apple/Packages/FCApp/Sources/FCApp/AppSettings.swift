@@ -1,10 +1,14 @@
 import Foundation
+import FCData
 
 /// What the app remembers between launches: which league, and whose team.
 ///
 /// Small, scalar and user-chosen, so `UserDefaults` is the right home — the
 /// prohibition in §3.1 is about the 5 MB player payload, not about a league id.
 public struct AppSettings: Codable, Hashable, Sendable {
+    /// Which platform `leagueID` and `rosterID` belong to. Settings saved
+    /// before ESPN existed decode as Sleeper.
+    public var provider: LeagueProvider
     public var sleeperUsername: String?
     public var userID: String?
     public var leagueID: String?
@@ -28,6 +32,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var gradeWeights: [String: Double]
 
     public init(
+        provider: LeagueProvider = .sleeper,
         sleeperUsername: String? = nil,
         userID: String? = nil,
         leagueID: String? = nil,
@@ -38,6 +43,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
         hasSeenPlanningIntro: Bool = false,
         gradeWeights: [String: Double] = [:]
     ) {
+        self.provider = provider
         self.sleeperUsername = sleeperUsername
         self.userID = userID
         self.leagueID = leagueID
@@ -50,7 +56,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case sleeperUsername, userID, leagueID, rosterID, relayBaseURL
+        case provider, sleeperUsername, userID, leagueID, rosterID, relayBaseURL
         case accentTheme, themeVersion, hasSeenPlanningIntro, gradeWeights
     }
 
@@ -60,6 +66,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
     /// decode here silently resets the user's league selection.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        provider = (try? container.decodeIfPresent(LeagueProvider.self, forKey: .provider)) ?? .sleeper
         sleeperUsername = try container.decodeIfPresent(String.self, forKey: .sleeperUsername)
         userID = try container.decodeIfPresent(String.self, forKey: .userID)
         leagueID = try container.decodeIfPresent(String.self, forKey: .leagueID)

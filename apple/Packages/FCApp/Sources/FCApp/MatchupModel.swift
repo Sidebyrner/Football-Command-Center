@@ -189,10 +189,12 @@ public final class MatchupModel: ObservableObject {
 
     private let loader: LeagueContextLoader
     private let sleeper: SleeperService
+    private let leagueSource: any LeagueDataSource
 
-    public init(loader: LeagueContextLoader, sleeper: SleeperService) {
+    public init(loader: LeagueContextLoader, sleeper: SleeperService, leagueSource: (any LeagueDataSource)? = nil) {
         self.loader = loader
         self.sleeper = sleeper
+        self.leagueSource = leagueSource ?? sleeper
     }
 
     /// The single team shown in an individual mode; `nil` in head-to-head.
@@ -249,7 +251,7 @@ public final class MatchupModel: ObservableObject {
             self.context = context
             self.week = context.currentWeek
 
-            let matchups = try await sleeper.matchups(leagueID: leagueID, week: context.currentWeek, force: force)
+            let matchups = try await leagueSource.matchups(leagueID: leagueID, week: context.currentWeek, force: force)
             // Defense-vs-position scores every row of the season, so it runs off
             // the main thread rather than stalling the screen while it does.
             let rows = matchups.value
@@ -304,7 +306,7 @@ public final class MatchupModel: ObservableObject {
     @discardableResult
     public func liveTick() async -> Bool {
         guard let context, let request = lastRequest, anyGameLive else { return false }
-        guard let matchups = try? await sleeper.matchups(
+        guard let matchups = try? await leagueSource.matchups(
             leagueID: request.leagueID, week: context.currentWeek, force: true
         ) else { return false }
         let table = defenseTable

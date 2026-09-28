@@ -317,7 +317,7 @@ public struct RootView: View {
         ContentUnavailableView {
             Label("Connect your league", systemImage: "link")
         } description: {
-            Text("Add your Sleeper username in Settings to load your league.")
+            Text("Connect your Sleeper or ESPN league in Settings to load it.")
         } actions: {
             Button("Open Settings") { router.open(.settings) }
         }

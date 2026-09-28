@@ -71,7 +71,7 @@ public struct SeasonHistory: Sendable {
     /// including it would make "points left on your bench" accuse the user of
     /// a mistake they can still fix.
     public static func load(
-        sleeper: SleeperService,
+        source: any LeagueDataSource,
         leagueID: String,
         currentWeek: Int
     ) async -> SeasonHistory {
@@ -85,7 +85,7 @@ public struct SeasonHistory: Sendable {
         for week in completed {
             // A week that fails to load is skipped rather than failing the
             // screen — a missing week 3 should not cost the user weeks 1 and 2.
-            guard let fetched = try? await sleeper.completedMatchups(
+            guard let fetched = try? await source.completedMatchups(
                 leagueID: leagueID, week: week
             ) else { continue }
 

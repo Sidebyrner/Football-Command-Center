@@ -72,6 +72,9 @@ public struct LeagueTeam: Hashable, Sendable, Identifiable {
 /// the production data, nflverse team spellings throughout.
 public struct LeagueContext: Sendable {
     public let league: SleeperLeague
+    /// Which platform the league lives on. Set by the loader after assembly;
+    /// screens use it to link to the right site and to label the source.
+    public var provider: LeagueProvider = .sleeper
     /// The season the schedule, byes and opponents come from — the current one.
     public let scheduleSeason: Int
     /// The season the production numbers come from. Early in a year this is

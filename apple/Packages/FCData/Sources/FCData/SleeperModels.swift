@@ -60,6 +60,14 @@ public struct SleeperLeagueMember: Codable, Hashable, Sendable {
         case teamName = "team_name"
     }
 
+    /// For members built from another provider's payload (ESPN's `members`).
+    public init(userID: String, displayName: String?, avatar: String? = nil, teamName: String?) {
+        self.userID = userID
+        self.displayName = displayName
+        self.avatar = avatar
+        self.teamName = teamName
+    }
+
     /// Accepts both shapes: Sleeper's, where the team name is nested under
     /// `metadata`, and our own flattened one written by the cache. Without the
     /// second, a member round-tripped through disk would come back with its
@@ -113,6 +121,24 @@ public struct SleeperLeague: Codable, Hashable, Sendable {
         case rosterPositions = "roster_positions"
         case scoringSettings = "scoring_settings"
         case previousLeagueID = "previous_league_id"
+    }
+
+    /// For leagues translated from another provider. The shape is Sleeper's
+    /// because every screen reads it; the *values* come from ESPN.
+    public init(
+        leagueID: String, name: String?, season: String?, status: String? = nil, totalRosters: Int?,
+        rosterPositions: [String]?, scoringSettings: [String: Double]?, previousLeagueID: String? = nil,
+        settings: LeagueSettings?
+    ) {
+        self.leagueID = leagueID
+        self.name = name
+        self.season = season
+        self.status = status
+        self.totalRosters = totalRosters
+        self.rosterPositions = rosterPositions
+        self.scoringSettings = scoringSettings
+        self.previousLeagueID = previousLeagueID
+        self.settings = settings
     }
 
     /// The parts of Sleeper's league `settings` the app acts on. Every field is
@@ -219,6 +245,23 @@ public struct SleeperRoster: Codable, Hashable, Sendable {
             case waiverPosition = "waiver_position"
         }
 
+        /// Whole-point values; `fptsDecimal` is left nil, so `pointsFor` is
+        /// exactly what was passed in.
+        public init(
+            wins: Int?, losses: Int?, ties: Int?, pointsFor: Double?, pointsAgainst: Double?,
+            waiverBudgetUsed: Int? = nil, waiverPosition: Int? = nil
+        ) {
+            self.wins = wins
+            self.losses = losses
+            self.ties = ties
+            self.fpts = pointsFor
+            self.fptsDecimal = nil
+            self.fptsAgainst = pointsAgainst
+            self.fptsAgainstDecimal = nil
+            self.waiverBudgetUsed = waiverBudgetUsed
+            self.waiverPosition = waiverPosition
+        }
+
         /// Sleeper splits points either side of the decimal point.
         public var pointsFor: Double? {
             guard let fpts else { return nil }
@@ -236,6 +279,20 @@ public struct SleeperRoster: Codable, Hashable, Sendable {
         case ownerID = "owner_id"
         case leagueID = "league_id"
         case players, starters, reserve, taxi, settings
+    }
+
+    public init(
+        rosterID: Int, ownerID: String?, leagueID: String?, players: [String]?, starters: [String]?,
+        reserve: [String]?, taxi: [String]? = nil, settings: Settings?
+    ) {
+        self.rosterID = rosterID
+        self.ownerID = ownerID
+        self.leagueID = leagueID
+        self.players = players
+        self.starters = starters
+        self.reserve = reserve
+        self.taxi = taxi
+        self.settings = settings
     }
 
     /// The starter ids with unset slots removed, still in slot order.
@@ -276,6 +333,19 @@ public struct SleeperMatchup: Codable, Hashable, Sendable {
         case points, starters, players
         case playersPoints = "players_points"
         case startersPoints = "starters_points"
+    }
+
+    public init(
+        rosterID: Int, matchupID: Int?, points: Double?, starters: [String]?, players: [String]?,
+        playersPoints: [String: Double]?, startersPoints: [Double]?
+    ) {
+        self.rosterID = rosterID
+        self.matchupID = matchupID
+        self.points = points
+        self.starters = starters
+        self.players = players
+        self.playersPoints = playersPoints
+        self.startersPoints = startersPoints
     }
 }
 
