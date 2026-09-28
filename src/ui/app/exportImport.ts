@@ -1,11 +1,11 @@
 /**
  * Moving your setup between browsers and devices: one JSON file holding every
  * saved setting — league, accent, Board layout, workspaces, stream overrides
- * and snapshots. The relay token is never included.
+ * and snapshots. The relay token and ESPN cookies are never included.
  */
 /** Board layout keeps the native app's own key (`board.layout.v1`). */
 const PREFIXES = ['fcc.', 'FantasyCommandCenter/', 'board.layout']
-const EXCLUDED = new Set(['fcc.relay-token', 'fcc.theme-probe'])
+const EXCLUDED = new Set(['fcc.relay-token', 'fcc.espn-credentials', 'fcc.theme-probe'])
 export const EXPORT_FORMAT = 'football-command-center-export'
 
 export interface ExportFile {

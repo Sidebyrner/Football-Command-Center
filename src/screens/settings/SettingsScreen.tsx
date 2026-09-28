@@ -6,8 +6,10 @@
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Check, Download, FlaskConical, MessageSquareHeart, Palette, Server, Upload, UserRound } from 'lucide-react'
+import { Check, Download, FlaskConical, KeyRound, MessageSquareHeart, Palette, Server, Upload, UserRound } from 'lucide-react'
 import { ACCENT_THEMES, ACCENT_THEME_HEX, accentThemeLabel, accentThemeSharedStatus, isConfigured } from '@models/settings/AppSettings'
+import { LEAGUE_PROVIDERS, providerLabel } from '@data/LeagueDataSource'
+import { parseCredentials } from '@data/espnCredentials'
 import { ScreenHero, ScreenSection } from '@ui/components/Screen'
 import { useApp, useModel } from '@ui/app/AppContext'
 import { enterDemo, leaveDemo } from '@ui/app/createServices'
@@ -32,10 +34,12 @@ export function SettingsScreen() {
       <ScreenHero
         overline="Settings"
         icon={UserRound}
-        answer={demo ? 'You’re in the demo league' : configured ? 'Your league is connected' : 'Connect your Sleeper league'}
+        answer={demo ? 'You’re in the demo league' : configured ? 'Your league is connected' : model.settings.provider === 'espn' ? 'Connect your ESPN league' : 'Connect your Sleeper league'}
         detail={demo
           ? 'A generated league, frozen on Sunday of week 7 2025, so you can try every screen. Nothing you do here touches a real league.'
-          : 'Sleeper’s API is public — no password, and nothing to authorise.'}
+          : model.settings.provider === 'espn'
+            ? 'ESPN needs your own session for a private league. You paste two cookies; they stay in this browser and go only to ESPN.'
+            : 'Sleeper’s API is public — no password, and nothing to authorise.'}
         hue={hue}
       />
 
@@ -47,7 +51,10 @@ export function SettingsScreen() {
           </div>
         </ScreenSection>
       ) : (
-        <SleeperSetup onReady={finishSetup} />
+        <>
+          <ProviderSection />
+          {model.settings.provider === 'espn' ? <ESPNSetup onReady={finishSetup} /> : <SleeperSetup onReady={finishSetup} />}
+        </>
       )}
 
       <BetaSection />
@@ -60,6 +67,133 @@ export function SettingsScreen() {
           <button type="button" className="button danger" onClick={() => model.changeLeague()}>Switch league</button>
         </div>
       )}
+    </>
+  )
+}
+
+function ProviderSection() {
+  const { services } = useApp()
+  const model = useModel(services.settingsModel)
+  return (
+    <ScreenSection title="League platform" hue="var(--hue-team)"
+      subtitle="Player data, projections and live scores come from public sources whichever platform hosts your league.">
+      <div className="card settings-card">
+        <div className="segmented" role="radiogroup" aria-label="League platform">
+          {LEAGUE_PROVIDERS.map((p) => (
+            <button key={p} type="button" role="radio" aria-checked={model.settings.provider === p} className={model.settings.provider === p ? 'on' : ''} onClick={() => model.setProvider(p)}>
+              {providerLabel(p)}
+            </button>
+          ))}
+        </div>
+      </div>
+    </ScreenSection>
+  )
+}
+
+/** Setup is done when the stage reaches ready — by picking a team, or automatically. */
+function useReadyStage(stage: string, onReady: () => void) {
+  const previousStage = useRef(stage)
+  useEffect(() => {
+    if (stage === 'ready' && previousStage.current !== 'ready') onReady()
+    previousStage.current = stage
+  }, [stage, onReady])
+}
+
+/**
+ * The web counterpart of `ESPNSignInView`. A page cannot read another site's
+ * cookies, so instead of a sign-in sheet the user copies the two values ESPN
+ * set in their own browser. They are kept in this browser only, left out of
+ * export files, and sent only to the site's own ESPN proxy.
+ */
+function ESPNSetup({ onReady }: { onReady: () => void }) {
+  const { services } = useApp()
+  const model = useModel(services.settingsModel)
+  const hue = 'var(--hue-team)'
+  const [s2, setS2] = useState('')
+  const [swid, setSwid] = useState('')
+  const [pasteError, setPasteError] = useState<string>()
+  useReadyStage(model.stage, onReady)
+
+  const save = (e: FormEvent) => {
+    e.preventDefault()
+    const credentials = parseCredentials(s2, swid)
+    if (!credentials) {
+      setPasteError('Those don’t look like ESPN’s cookies. espn_s2 is a long value; SWID looks like {XXXXXXXX-XXXX-…}.')
+      return
+    }
+    setPasteError(undefined)
+    model.saveESPNCredentials(credentials)
+    setS2(''); setSwid('')
+  }
+  const connect = (e: FormEvent) => {
+    e.preventDefault()
+    void model.connectESPNLeague()
+  }
+
+  return (
+    <>
+      {model.hasESPNCredentials ? (
+        <ScreenSection title="ESPN" icon={KeyRound} hue={hue}
+          subtitle="Your league id is the number after leagueId= in any espn.com league address. Private leagues work — you’re signed in.">
+          <form className="card settings-card" onSubmit={connect}>
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <span className="t-body" style={{ color: 'var(--start)' }}><Check size={15} aria-hidden /> Signed in to ESPN</span>
+              {model.espnAccountSuffix && <span className="t-meta muted">account …{model.espnAccountSuffix}</span>}
+            </div>
+            <label className="field">
+              <span className="t-meta muted">League id or espn.com league address</span>
+              <input value={model.espnLeagueText} onChange={(e) => { model.espnLeagueText = e.target.value }}
+                inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                placeholder="https://fantasy.espn.com/football/team?leagueId=…" />
+            </label>
+            <div className="row">
+              <button type="submit" className="button primary" disabled={model.espnLeagueText.trim() === '' || model.isWorking}>
+                {model.isWorking ? 'Connecting…' : 'Connect league'}
+              </button>
+              <button type="button" className="button danger" onClick={() => model.signOutESPN()}>Sign out of ESPN</button>
+            </div>
+          </form>
+        </ScreenSection>
+      ) : (
+        <ScreenSection title="ESPN" icon={KeyRound} hue={hue}
+          subtitle="ESPN has no public API for private leagues, so the site needs the two session cookies your browser already holds for espn.com. The app never sees your password.">
+          <form className="card settings-card" onSubmit={save}>
+            <ol className="t-meta muted espn-steps">
+              <li>Sign in at <a href="https://www.espn.com/fantasy/football/" target="_blank" rel="noreferrer">espn.com</a> in this browser.</li>
+              <li>Open the browser’s developer tools (⌥⌘I on Mac, F12 elsewhere) → <b>Application</b> (Chrome/Edge) or <b>Storage</b> (Firefox/Safari) → <b>Cookies</b> → <b>espn.com</b>.</li>
+              <li>Copy the values of <b>espn_s2</b> and <b>SWID</b> into the fields below.</li>
+            </ol>
+            <label className="field">
+              <span className="t-meta muted">espn_s2</span>
+              <input type="password" value={s2} onChange={(e) => setS2(e.target.value)} autoComplete="off" spellCheck={false} placeholder="AEB…" />
+            </label>
+            <label className="field">
+              <span className="t-meta muted">SWID</span>
+              <input value={swid} onChange={(e) => setSwid(e.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} placeholder="{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}" />
+            </label>
+            {pasteError && <div className="t-meta" style={{ color: 'var(--sit)' }}>{pasteError}</div>}
+            <div className="row">
+              <button type="submit" className="button primary" disabled={s2.trim() === '' || swid.trim() === ''}>Save and continue</button>
+            </div>
+            <p className="t-meta muted">They stay in this browser only, are left out of export files, and are sent only to this site’s ESPN proxy, which forwards them to ESPN and keeps nothing.</p>
+          </form>
+        </ScreenSection>
+      )}
+
+      {model.stage === 'pickingTeam' && model.teams.length > 0 && (
+        <ScreenSection title="Which team is yours?" hue={hue}>
+          <div className="card list">
+            {model.teams.map((team) => (
+              <button key={team.rosterID} type="button" className="list-row" onClick={() => model.selectTeam(team.rosterID)}>
+                <span className="t-body">{team.manager}</span>
+                {model.settings.rosterID === team.rosterID && <Check size={18} color="var(--accent)" aria-label="Selected" />}
+              </button>
+            ))}
+          </div>
+        </ScreenSection>
+      )}
+
+      {model.errorMessage && <div className="card t-meta" role="alert" style={{ color: 'var(--sit)' }}>{model.errorMessage}</div>}
     </>
   )
 }

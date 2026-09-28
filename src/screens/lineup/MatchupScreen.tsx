@@ -6,6 +6,7 @@
  * team in full detail. The phone swipes between the three; here the picker
  * switches them. The phone's slot sheet opens in place, under the slot.
  */
+import { providerLabel } from '@data/LeagueDataSource'
 import { useState, type CSSProperties } from 'react'
 import { Clock, Lock, TriangleAlert, Users } from 'lucide-react'
 import { formatFixed } from '@core/numeric'
@@ -161,7 +162,7 @@ function HeadToHead({ model, context }: { model: MatchupModel; context: LeagueCo
               aria-controls={`matchup-slot-${pair.index}`}
               onClick={() => setOpen(expanded ? undefined : pair.index)}
             >
-              <PairedSlotRow pair={pair} hasOpponent={hasOpponent} />
+              <PairedSlotRow pair={pair} hasOpponent={hasOpponent} provider={providerLabel(context.provider)} />
             </button>
             {expanded && (
               <div id={`matchup-slot-${pair.index}`} className="pair-detail">
@@ -179,14 +180,14 @@ function HeadToHead({ model, context }: { model: MatchupModel; context: LeagueCo
 }
 
 /** Both players in one slot, with a bar showing who is ahead. */
-function PairedSlotRow({ pair, hasOpponent }: { pair: PairedSlot; hasOpponent: boolean }) {
+function PairedSlotRow({ pair, hasOpponent, provider = 'Sleeper' }: { pair: PairedSlot; hasOpponent: boolean; provider?: string }) {
   return (
     <>
       <span className="pair-line">
-        <PairSide row={pair.mine} value={pair.myValue} trailing={false} leading={pair.leader === 'mine'} />
+        <PairSide row={pair.mine} value={pair.myValue} trailing={false} leading={pair.leader === 'mine'} provider={provider} />
         <span className="pair-slot">{pair.slot}</span>
         {hasOpponent
-          ? <PairSide row={pair.theirs} value={pair.theirValue} trailing leading={pair.leader === 'theirs'} />
+          ? <PairSide row={pair.theirs} value={pair.theirValue} trailing leading={pair.leader === 'theirs'} provider={provider} />
           : <span style={{ flex: 1 }} />}
       </span>
       {hasOpponent && <SlotShareBar share={myShare(pair)} leader={pair.leader} />}
@@ -194,12 +195,12 @@ function PairedSlotRow({ pair, hasOpponent }: { pair: PairedSlot; hasOpponent: b
   )
 }
 
-function PairSide({ row, value, trailing, leading }: { row?: MatchupRow; value?: number; trailing: boolean; leading: boolean }) {
+function PairSide({ row, value, trailing, leading, provider = 'Sleeper' }: { row?: MatchupRow; value?: number; trailing: boolean; leading: boolean; provider?: string }) {
   if (!row || rowIsEmptySlot(row)) {
     return (
       <span className={`pair-side${trailing ? ' trailing' : ''}`}>
         <span className="t-body" style={{ color: 'var(--caution)' }}>Empty</span>
-        <span className="t-meta muted" style={{ fontSize: '0.6875rem' }}>set on Sleeper</span>
+        <span className="t-meta muted" style={{ fontSize: '0.6875rem' }}>set on {provider}</span>
       </span>
     )
   }
@@ -258,7 +259,7 @@ function SlotDetailPlayer({ row, manager, context }: { row?: MatchupRow; manager
       </div>
       {row && !rowIsEmptySlot(row)
         ? <PlayerDetail row={row} context={context} />
-        : <span className="t-body" style={{ color: 'var(--caution)' }}>Empty — set this slot on Sleeper</span>}
+        : <span className="t-body" style={{ color: 'var(--caution)' }}>Empty — set this slot on {providerLabel(context.provider)}</span>}
     </div>
   )
 }
@@ -286,7 +287,7 @@ function Individual({ side, context }: { side: MatchupSide; context: LeagueConte
         <div key={row.index} className="card matchup-row">
           <span className="slot-token">{row.slot}</span>
           {rowIsEmptySlot(row) ? (
-            <span className="t-body" style={{ flex: 1, color: 'var(--caution)' }}>Empty — set this slot on Sleeper</span>
+            <span className="t-body" style={{ flex: 1, color: 'var(--caution)' }}>Empty — set this slot on {providerLabel(context.provider)}</span>
           ) : (
             <>
               <div style={{ flex: 1, minWidth: 0 }}><PlayerDetail row={row} context={context} /></div>

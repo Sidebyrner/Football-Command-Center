@@ -30,6 +30,7 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 | Sleeper client and cache-through service | ✅ | IndexedDB cache instead of files; same keys and TTLs |
 | Static data store (bundled → ETag refresh from the `data` branch) | ✅ | bundled copy is the site's `public/data` |
 | Relay client, secret store | ✅ | token in `localStorage` (no Keychain in a browser) |
+| ESPN leagues (client, translator, id mapper, cache-through service, provider seam) | ✅ | same fixture as Swift; cookies are pasted, not captured from a sign-in sheet, and private-league reads go through `netlify/functions/espn.mjs` because a page can't set a `Cookie` header |
 | Demo league | ✅ | `public/demo/routes.json`, exported from the native demo |
 
 ## App models (FCApp)
@@ -69,7 +70,8 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 
 ## Known platform differences
 
-- **Storage:** the phone keeps its cache in Application Support and secrets in the Keychain; the web uses IndexedDB and `localStorage`. Settings, Board layout and workspaces move between devices with an export file.
+- **Storage:** the phone keeps its cache in Application Support and secrets in the Keychain; the web uses IndexedDB and `localStorage`.
+- **ESPN sign-in:** the phone signs in on ESPN's page in a throwaway web view and reads the two cookies out; a browser page cannot read another site's cookies, so the web asks the user to paste `espn_s2` and `SWID` from dev tools. The web also needs the site's Netlify function as a proxy for private leagues; public leagues are read straight from the browser. Settings, Board layout and workspaces move between devices with an export file.
 - **Sort stability:** JavaScript's sort is stable and Swift's isn't. Where Swift relies on an explicit tie-break the port copies it; exact ties with no tie-break (display-only breakdown lists) may order differently.
 - **Stream snapshots** are stored in a web-specific JSON shape; they don't move between devices yet.
 - **Number formatting** rounds exact halves to even, as Foundation does (`formatNumber`).

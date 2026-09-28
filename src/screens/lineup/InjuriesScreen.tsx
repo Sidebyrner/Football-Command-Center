@@ -14,7 +14,8 @@ import {
   SquareArrowOutUpRight, UserCog, X,
 } from 'lucide-react'
 import { formatNumber } from '@core/numeric'
-import { formatCountdown, kickoffLabel, sleeperTeamLink } from '@models/league/GameDayWindow'
+import { formatCountdown, kickoffLabel, teamLink } from '@models/league/GameDayWindow'
+import { providerLabel } from '@data/LeagueDataSource'
 import { availabilityLabel, blocksStart, startAvailability, type LeagueContext } from '@models/league/LeagueContext'
 import {
   injuredPlayerHeadline, InjurySeverity, REPLACEMENT_BASES, REPLACEMENT_BASIS_HINT, REPLACEMENT_BASIS_LABEL,
@@ -364,8 +365,8 @@ export function ReplacementFinder({ model, context, injured, onClose }: {
           ) : (
             candidates.map((c) => <CandidateRow key={c.id} candidate={c} context={context} />)
           )}
-          <a className="lineup-link small" href={sleeperTeamLink(context.league.leagueID)} target="_blank" rel="noopener noreferrer">
-            <SquareArrowOutUpRight size={13} aria-hidden /> Make the move in Sleeper
+          <a className="lineup-link small" href={teamLink(context)} target="_blank" rel="noopener noreferrer">
+            <SquareArrowOutUpRight size={13} aria-hidden /> Make the move in {providerLabel(context.provider)}
           </a>
         </div>
       </div>

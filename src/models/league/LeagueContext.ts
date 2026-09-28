@@ -4,6 +4,7 @@
  * the three feeds, so every dialect is already translated here: Sleeper ids on
  * rosters, gsis ids on production, nflverse team spellings throughout.
  */
+import type { LeagueProvider } from '@data/LeagueDataSource'
 import type { Baselines } from '@core/Baselines'
 import type { ByeCalendar } from '@core/ByeWeeks'
 import type { RosterEntry } from '@core/ByeCrunch'
@@ -166,6 +167,8 @@ export interface LeagueContextInit {
   staticProvenance: Provenance
   leagueFacts?: LeagueFacts
   inSeason?: InSeasonData
+  /** Which platform the league lives on; screens link to the right site and label the source. */
+  provider?: LeagueProvider
 }
 
 /** The current season becomes the stats season once it has this many weeks. */
@@ -173,6 +176,7 @@ export const MINIMUM_WEEKS_FOR_STATS_SEASON = 3
 
 export class LeagueContext {
   readonly league!: SleeperLeague
+  provider: LeagueProvider = 'sleeper'
   readonly scheduleSeason!: number
   /** Early in a year this is last season — a weekly file can't exist before games. */
   readonly statsSeason!: number
@@ -208,6 +212,7 @@ export class LeagueContext {
     Object.assign(this, init)
     this.leagueFacts = init.leagueFacts ?? UNKNOWN_FACTS
     this.inSeason = init.inSeason ?? EMPTY_IN_SEASON
+    this.provider = init.provider ?? 'sleeper'
   }
 
   /** What a starting position can be valued from in this context. */

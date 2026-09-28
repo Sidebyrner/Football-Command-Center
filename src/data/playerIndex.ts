@@ -36,6 +36,8 @@ export interface IndexedPlayer {
   /** "1996-04-21", as Sleeper sends it. */
   birthDate?: string
   jerseyNumber?: number
+  /** ESPN's id for the same player, when Sleeper carries it (a minority). */
+  espnID?: number
 }
 
 export interface PlayerIndex {
@@ -123,6 +125,7 @@ export function buildPlayerIndex(payload: unknown, now: number = Date.now()): Pl
       weightPounds: weight === undefined ? undefined : parseIntStrict(weight.trim()),
       birthDate,
       jerseyNumber: i(raw, 'number'),
+      espnID: i(raw, 'espn_id'),
     })
   }
   return { players, builtAt: now }

@@ -24,7 +24,7 @@ import type { RelayClient } from '@data/RelayClient'
 import { LocalStorageSecretStore, type SecretStore } from '@data/secretStore'
 import { EMPTY_STARTER_SLOT, effectiveTradeDeadline } from '@data/sleeperModels'
 import { Observable } from '../Observable'
-import { sleeperTeamLink } from '../league/GameDayWindow'
+import { teamLink } from '../league/GameDayWindow'
 import { hasProjections } from '../league/InSeasonData'
 import {
   blocksStart, playoffWeeks, startAvailability, startBadge,
@@ -1195,7 +1195,7 @@ export class TradeWizardModel extends Observable {
   }
 
   get sleeperLink(): string | undefined {
-    return sleeperTeamLink(this.context.league.leagueID)
+    return teamLink(this.context)
   }
 
   // MARK: - Navigation

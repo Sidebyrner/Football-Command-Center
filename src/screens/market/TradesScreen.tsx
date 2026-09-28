@@ -10,6 +10,7 @@ import {
   Circle, Clock, Copy, ExternalLink, Info, Lock, RotateCcw, Sparkles, TriangleAlert,
 } from 'lucide-react'
 import { formatFixed } from '@core/numeric'
+import { providerLabel } from '@data/LeagueDataSource'
 import {
   injuryBadge, isWindowClosed, lineupDelta, mustDrop, TRADE_STEPS, tradePlayerValue, tradeStepTitle, tradeWindowLabel,
   TradeWizardModel, type DealSide, type PartnerFit, type ShortfallChange, type TradeBasis, type TradeGoal, type TradePlayer,
@@ -616,10 +617,10 @@ function ApproachStep({ model }: { model: TradeWizardModel }) {
       )}
       {model.sleeperLink !== undefined && (
         <a className="button primary mk-wide" href={model.sleeperLink} target="_blank" rel="noreferrer">
-          <ExternalLink size={16} aria-hidden /> Open in Sleeper
+          <ExternalLink size={16} aria-hidden /> Open in {providerLabel(model.context.provider)}
         </a>
       )}
-      <p className="t-meta muted">Sleeper doesn't let other apps send offers. Propose the trade there, then paste this message into the trade.</p>
+      <p className="t-meta muted">{providerLabel(model.context.provider)} doesn't let other apps send offers. Propose the trade there, then paste this message into the trade.</p>
       <div className="card mk-stack-tight">
         <SectionHeader title="The facts it uses" subtitle="Only what helps them say yes — your own reasons stay with you." />
         {model.pitchFacts.map((fact) => (

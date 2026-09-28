@@ -11,6 +11,7 @@
  * `SecretStore`.
  */
 import { LocalKeyValueStorage, type KeyValueStorage } from '@models/workspaces/KeyValueStorage'
+import { LEAGUE_PROVIDERS, type LeagueProvider } from '@data/LeagueDataSource'
 
 // MARK: - Accent theme
 
@@ -74,6 +75,8 @@ export function accentThemeFromStored(stored: string | undefined): AccentTheme {
 export const CURRENT_THEME_VERSION = 2
 
 export interface AppSettings {
+  /** Which platform `leagueID` and `rosterID` belong to. Settings saved before ESPN existed decode as Sleeper. */
+  provider: LeagueProvider
   sleeperUsername?: string
   userID?: string
   leagueID?: string
@@ -102,6 +105,7 @@ export interface AppSettings {
 export function makeAppSettings(fields: Partial<AppSettings> = {}): AppSettings {
   return {
     ...fields,
+    provider: fields.provider ?? 'sleeper',
     accentTheme: fields.accentTheme ?? DEFAULT_ACCENT_THEME,
     themeVersion: fields.themeVersion ?? CURRENT_THEME_VERSION,
     hasSeenPlanningIntro: fields.hasSeenPlanningIntro ?? false,
@@ -126,7 +130,7 @@ export function isConfigured(settings: AppSettings): boolean {
 
 /** CodingKeys, in declaration order — also the order `encodeAppSettings` writes. */
 export const APP_SETTINGS_CODING_KEYS = [
-  'sleeperUsername', 'userID', 'leagueID', 'rosterID', 'relayBaseURL',
+  'provider', 'sleeperUsername', 'userID', 'leagueID', 'rosterID', 'relayBaseURL',
   'accentTheme', 'themeVersion', 'hasSeenPlanningIntro', 'gradeWeights',
 ] as const
 
@@ -137,6 +141,7 @@ export const APP_SETTINGS_CODING_KEYS = [
  */
 export function encodeAppSettings(settings: AppSettings): Record<string, unknown> {
   const out: Record<string, unknown> = {}
+  out.provider = settings.provider
   if (settings.sleeperUsername !== undefined) out.sleeperUsername = settings.sleeperUsername
   if (settings.userID !== undefined) out.userID = settings.userID
   if (settings.leagueID !== undefined) out.leagueID = settings.leagueID
@@ -198,7 +203,9 @@ export function decodeAppSettings(json: unknown): AppSettings {
   // Amber saved under version 1 was the old default, not a choice: move it to
   // the new one, once. Amber picked after that stays amber.
   const accentTheme = storedVersion < 2 && storedTheme === 'amber' ? DEFAULT_ACCENT_THEME : storedTheme
+  const provider = lenient(json, 'provider', isString)
   const settings: AppSettings = {
+    provider: provider !== undefined && (LEAGUE_PROVIDERS as readonly string[]).includes(provider) ? (provider as LeagueProvider) : 'sleeper',
     accentTheme,
     themeVersion: CURRENT_THEME_VERSION,
     hasSeenPlanningIntro: lenient(json, 'hasSeenPlanningIntro', isBool) ?? false,

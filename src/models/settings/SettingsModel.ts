@@ -7,6 +7,9 @@
  * cache (see `SleeperService.user`).
  */
 import { DataLayerError } from '@data/errors'
+import { ESPNLeagueService } from '@data/ESPNLeagueService'
+import { clearCredentials, ESPN_SECRET_KEY, loadCredentials, saveCredentials, swidSuffix, type ESPNCredentials } from '@data/espnCredentials'
+import { SwitchableLeagueSource, type LeagueDataSource, type LeagueProvider } from '@data/LeagueDataSource'
 import { LocalStorageSecretStore, type SecretStore } from '@data/secretStore'
 import type { SleeperService } from '@data/SleeperService'
 import { memberLabel, seasonYear, type SleeperLeague } from '@data/sleeperModels'
@@ -16,7 +19,18 @@ import {
   type AccentTheme, type AppSettings, type AppSettingsStore,
 } from './AppSettings'
 
-export type SettingsStage = 'needsUsername' | 'pickingLeague' | 'pickingTeam' | 'ready'
+export type SettingsStage =
+  | 'needsUsername' | 'pickingLeague' | 'pickingTeam' | 'ready'
+  /** ESPN: no cookies saved, or ESPN rejected the saved ones. */
+  | 'needsESPNSignIn'
+  /** ESPN: signed in, waiting for a league id. */
+  | 'needsESPNLeague'
+
+export interface SettingsModelOptions {
+  espnSecrets?: SecretStore
+  leagueSource?: SwitchableLeagueSource
+  makeESPNSource?: (credentials: ESPNCredentials) => ESPNLeagueService
+}
 
 export interface SettingsTeam {
   rosterID: number
@@ -39,18 +53,149 @@ export class SettingsModel extends Observable {
    * store except in a request header to the relay.
    */
   hasRelayToken = false
+  /** Whether ESPN cookies are saved. They never leave the store except to the site's own ESPN proxy. */
+  hasESPNCredentials = false
+  /** "…ab12", for saying which account is signed in without showing the id. */
+  espnAccountSuffix?: string
+  private espnLeagueTextValue = ''
+  private readonly espnSecrets: SecretStore
+  private readonly leagueSource?: SwitchableLeagueSource
+  private readonly makeESPNSource?: (credentials: ESPNCredentials) => ESPNLeagueService
+  private espnService?: ESPNLeagueService
 
   constructor(
     private readonly sleeper: SleeperService,
     private readonly store: AppSettingsStore,
     private readonly secrets: SecretStore = new LocalStorageSecretStore(),
+    options: SettingsModelOptions = {},
   ) {
     super()
+    this.espnSecrets = options.espnSecrets ?? new LocalStorageSecretStore(ESPN_SECRET_KEY)
+    this.leagueSource = options.leagueSource
+    this.makeESPNSource = options.makeESPNSource
     this.hasRelayToken = secrets.load() !== undefined
     const loaded = store.load()
     this.settings = loaded
     this.usernameValue = loaded.sleeperUsername ?? ''
-    this.stage = isConfigured(loaded) ? 'ready' : 'needsUsername'
+    const credentials = loadCredentials(this.espnSecrets)
+    this.hasESPNCredentials = credentials !== undefined
+    this.espnAccountSuffix = credentials && swidSuffix(credentials)
+    this.stage = initialStage(loaded, this.hasESPNCredentials)
+    this.applyLeagueSource()
+  }
+
+  /** What the user pasted for their ESPN league: an id, or the league's URL. */
+  get espnLeagueText(): string { return this.espnLeagueTextValue }
+  set espnLeagueText(value: string) {
+    this.espnLeagueTextValue = value
+    this.changed()
+  }
+
+  /** The league reads for setup, from whichever provider is current. */
+  private get source(): LeagueDataSource { return this.leagueSource ?? this.sleeper }
+
+  /**
+   * Points the shared league source at the right provider. Sleeper when ESPN
+   * is selected but not signed in — every read then fails plainly rather than
+   * with a cookie error.
+   */
+  private applyLeagueSource(): void {
+    if (!this.leagueSource) return
+    if (this.settings.provider === 'espn') {
+      const credentials = loadCredentials(this.espnSecrets)
+      if (credentials && this.makeESPNSource) {
+        this.espnService = this.makeESPNSource(credentials)
+        this.leagueSource.use(this.espnService)
+        return
+      }
+    }
+    this.espnService = undefined
+    this.leagueSource.use(this.sleeper)
+  }
+
+  // MARK: - Provider
+
+  /** Switches platform. The league selection is cleared — an id from one platform means nothing on the other — but credentials for each are kept. */
+  setProvider(provider: LeagueProvider): void {
+    if (provider === this.settings.provider) return
+    this.leagues = []
+    this.teams = []
+    this.errorMessage = undefined
+    this.update((s) => {
+      s.provider = provider
+      delete s.leagueID
+      delete s.rosterID
+    })
+    this.applyLeagueSource()
+    this.stage = initialStage(this.settings, this.hasESPNCredentials)
+    this.changed()
+  }
+
+  // MARK: - ESPN
+
+  /** Saves the pasted cookies and moves on to the league. */
+  saveESPNCredentials(credentials: ESPNCredentials): void {
+    saveCredentials(this.espnSecrets, credentials)
+    this.hasESPNCredentials = true
+    this.espnAccountSuffix = swidSuffix(credentials)
+    this.errorMessage = undefined
+    this.applyLeagueSource()
+    this.stage = isConfigured(this.settings) ? 'ready' : 'needsESPNLeague'
+    this.changed()
+  }
+
+  /** Forgets the cookies and every cached ESPN response. The league selection goes too: it cannot be loaded without them. */
+  signOutESPN(): void {
+    clearCredentials(this.espnSecrets)
+    this.hasESPNCredentials = false
+    this.espnAccountSuffix = undefined
+    void this.espnService?.purgeCache()
+    this.teams = []
+    this.errorMessage = undefined
+    this.update((s) => {
+      delete s.leagueID
+      delete s.rosterID
+    })
+    this.applyLeagueSource()
+    this.stage = 'needsESPNSignIn'
+    this.changed()
+  }
+
+  /** Connects the league the user pasted — its id, or its URL on espn.com. */
+  async connectESPNLeague(): Promise<void> {
+    const leagueID = parseESPNLeagueID(this.espnLeagueText)
+    if (leagueID === undefined) {
+      this.errorMessage = "Paste your league's id, or its address from espn.com."
+      this.changed()
+      return
+    }
+    if (!this.hasESPNCredentials) {
+      this.stage = 'needsESPNSignIn'
+      this.changed()
+      return
+    }
+    this.isWorking = true
+    this.errorMessage = undefined
+    this.changed()
+    try {
+      // The league read doubles as the cookie check.
+      await this.source.league(leagueID, true)
+      this.update((s) => { s.leagueID = leagueID })
+      await this.loadTeams(leagueID)
+    } catch (error) {
+      this.update((s) => { delete s.leagueID })
+      if (error instanceof DataLayerError && error.detail.kind === 'unauthorized') {
+        // Expired cookies, or a league this account isn't in. Either way the fix starts with signing in again.
+        this.errorMessage = "ESPN wouldn't show that league to this account. Sign in again, and check the league id."
+        this.stage = 'needsESPNSignIn'
+      } else {
+        this.errorMessage = espnErrorMessage(error)
+        this.stage = 'needsESPNLeague'
+      }
+    } finally {
+      this.isWorking = false
+      this.changed()
+    }
   }
 
   get username(): string { return this.usernameValue }
@@ -121,26 +266,7 @@ export class SettingsModel extends Observable {
     this.update((s) => { s.leagueID = league.leagueID })
 
     try {
-      const rosters = await this.sleeper.rosters(league.leagueID)
-      const members = await this.sleeper.members(league.leagueID)
-      const names = new Map<string, string>()
-      for (const m of members.value) if (!names.has(m.userID)) names.set(m.userID, memberLabel(m))
-
-      this.teams = rosters.value
-        .map((roster) => ({
-          rosterID: roster.rosterID,
-          manager: (roster.ownerID !== undefined ? names.get(roster.ownerID) : undefined) ?? `Roster ${roster.rosterID}`,
-        }))
-        .sort((a, b) => a.rosterID - b.rosterID)
-
-      // If we can tell which roster is theirs, take it and skip a step.
-      const userID = this.settings.userID
-      const mine = userID !== undefined ? rosters.value.find((r) => r.ownerID === userID) : undefined
-      if (mine) {
-        this.selectTeam(mine.rosterID)
-      } else {
-        this.stage = 'pickingTeam'
-      }
+      await this.loadTeams(league.leagueID)
     } catch (error) {
       this.errorMessage = describeError(error)
       this.stage = 'pickingLeague'
@@ -150,20 +276,54 @@ export class SettingsModel extends Observable {
     }
   }
 
+  /** Loads a league's rosters and managers, picks the user's team when the owner id says which it is, and otherwise asks. */
+  private async loadTeams(leagueID: string): Promise<void> {
+    const rosters = await this.source.rosters(leagueID, true)
+    const members = await this.source.members(leagueID, true)
+    const names = new Map<string, string>()
+    for (const m of members.value) if (!names.has(m.userID)) names.set(m.userID, memberLabel(m))
+
+    this.teams = rosters.value
+      .map((roster) => ({
+        rosterID: roster.rosterID,
+        manager: (roster.ownerID !== undefined ? names.get(roster.ownerID) : undefined) ?? `Roster ${roster.rosterID}`,
+      }))
+      .sort((a, b) => a.rosterID - b.rosterID)
+
+    // If we can tell which roster is theirs, take it and skip a step.
+    const mine = rosters.value.find((r) => this.isUsersOwn(r.ownerID))
+    if (mine) {
+      this.selectTeam(mine.rosterID)
+    } else {
+      this.stage = 'pickingTeam'
+    }
+  }
+
+  /** Sleeper rosters carry the user id; ESPN teams carry the SWID, which ESPN compares case-insensitively. */
+  private isUsersOwn(ownerID: string | undefined): boolean {
+    if (ownerID === undefined) return false
+    if (this.settings.provider === 'espn') {
+      const swid = loadCredentials(this.espnSecrets)?.swid
+      return swid !== undefined && ownerID.toUpperCase() === swid.toUpperCase()
+    }
+    return ownerID === this.settings.userID
+  }
+
   selectTeam(rosterID: number): void {
     this.stage = 'ready'
     this.update((s) => { s.rosterID = rosterID })
   }
 
-  /** Clears the league selection but keeps the username, which is what "switch league" means in practice. */
+  /** Clears the league selection but keeps the username — or the ESPN sign-in — which is what "switch league" means in practice. */
   changeLeague(): void {
     this.leagues = []
     this.teams = []
-    this.stage = 'needsUsername'
     this.update((s) => {
       delete s.leagueID
       delete s.rosterID
     })
+    this.stage = initialStage(this.settings, this.hasESPNCredentials)
+    this.changed()
   }
 
   /** Saves the relay token to the secret store; an empty value removes it. */
@@ -244,6 +404,38 @@ export class SettingsModel extends Observable {
     }
     return new Date().getFullYear()
   }
+}
+
+function initialStage(settings: AppSettings, hasESPNCredentials: boolean): SettingsStage {
+  if (settings.provider === 'espn') {
+    // Configured but signed out (cleared storage, say) still needs a sign-in; the screens keep working from cache until it happens.
+    if (!hasESPNCredentials) return 'needsESPNSignIn'
+    return isConfigured(settings) ? 'ready' : 'needsESPNLeague'
+  }
+  return isConfigured(settings) ? 'ready' : 'needsUsername'
+}
+
+/** Accepts `123456`, or any espn.com address carrying `leagueId=123456`. (`SettingsModel.parseESPNLeagueID`.) */
+export function parseESPNLeagueID(text: string): string | undefined {
+  const trimmed = text.trim()
+  if (trimmed === '') return undefined
+  if (/^\d+$/.test(trimmed)) return trimmed
+  try {
+    const url = new URL(trimmed.includes('://') ? trimmed : 'https://' + trimmed)
+    for (const [name, value] of url.searchParams) {
+      if (name.toLowerCase() === 'leagueid' && /^\d+$/.test(value.trim())) return value.trim()
+    }
+  } catch {
+    // Not an address either.
+  }
+  return undefined
+}
+
+export function espnErrorMessage(error: unknown): string {
+  if (error instanceof DataLayerError && error.detail.kind === 'httpStatus' && error.detail.status === 404) {
+    return 'ESPN has no league with that id this season.'
+  }
+  return describeError(error)
 }
 
 /** The saved relay address, or `undefined` when it can't be reached as written. (`SettingsModel.usableRelay`.) */

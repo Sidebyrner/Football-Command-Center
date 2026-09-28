@@ -50,6 +50,8 @@ export interface CacheStore {
   delete(key: string): Promise<void>
   clear(): Promise<void>
   has(key: string): Promise<boolean>
+  /** Every key in the store. */
+  keys(): Promise<string[]>
 }
 
 export class MemoryStore implements CacheStore {
@@ -59,6 +61,7 @@ export class MemoryStore implements CacheStore {
   async delete(key: string) { this.entries.delete(key) }
   async clear() { this.entries.clear() }
   async has(key: string) { return this.entries.has(key) }
+  async keys() { return [...this.entries.keys()] }
 }
 
 /** One object store in one database; opened lazily and shared. */
@@ -93,6 +96,7 @@ export class IndexedDBStore implements CacheStore {
   async delete(key: string) { await this.run('readwrite', (s) => s.delete(key)) }
   async clear() { await this.run('readwrite', (s) => s.clear()) }
   async has(key: string) { return (await this.run('readonly', (s) => s.count(key))) > 0 }
+  async keys() { return (await this.run('readonly', (s) => s.getAllKeys())).map(String) }
 }
 
 /** Where the browser has IndexedDB, use it; otherwise (tests, SSR) memory. */
@@ -148,6 +152,13 @@ export class Cache {
 
   remove(key: string) { return this.backing.delete(key).catch(() => {}) }
   removeAll() { return this.backing.clear().catch(() => {}) }
+
+  /** Removes every entry whose key starts with `prefix` — one provider's data, say, on sign-out. */
+  async removeAllWithPrefix(prefix: string): Promise<void> {
+    let keys: string[]
+    try { keys = await this.backing.keys() } catch { return }
+    for (const key of keys) if (key.startsWith(prefix)) await this.backing.delete(key).catch(() => {})
+  }
   contains(key: string) { return this.backing.has(key).catch(() => false) }
 }
 

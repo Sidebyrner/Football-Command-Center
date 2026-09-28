@@ -2,6 +2,7 @@
  * The hours around kickoffs when data changes fast — a port of FCApp
  * `GameDayWindow`, `LockCountdown` and `SleeperLinks`.
  */
+import type { LeagueContext } from './LeagueContext'
 import type { KickoffCalendar } from '@core/GameClock'
 import { CacheTTL } from '@data/cache'
 
@@ -41,4 +42,12 @@ export function kickoffLabel(ms: number): string {
 /** Sleeper's API is read-only, so every recommended change is made in Sleeper. */
 export function sleeperTeamLink(leagueID: string): string {
   return `https://sleeper.com/leagues/${encodeURIComponent(leagueID)}/team`
+}
+
+/** The user's team page on whichever platform hosts the league. */
+export function teamLink(context: Pick<LeagueContext, 'league' | 'provider' | 'userRosterID'>): string {
+  if (context.provider === 'espn') {
+    return `https://fantasy.espn.com/football/team?leagueId=${encodeURIComponent(context.league.leagueID)}&teamId=${context.userRosterID}`
+  }
+  return sleeperTeamLink(context.league.leagueID)
 }

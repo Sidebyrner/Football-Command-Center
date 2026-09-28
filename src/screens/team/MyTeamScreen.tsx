@@ -13,7 +13,8 @@ import {
   ChevronRight, ExternalLink, Inbox, LayoutGrid, ListOrdered, LockOpen, Newspaper, RefreshCw, SquareDashed, Trophy,
 } from 'lucide-react'
 import { formatFixed } from '@core/numeric'
-import { formatCountdown, kickoffLabel, sleeperTeamLink } from '@models/league/GameDayWindow'
+import { formatCountdown, kickoffLabel, teamLink } from '@models/league/GameDayWindow'
+import { providerLabel } from '@data/LeagueDataSource'
 import {
   draftSurplus, LineupAlertKind, lineupAlertID, standingsRecord, type DashboardModel, type TrendPoint,
 } from '@models/team/DashboardModel'
@@ -185,9 +186,9 @@ function AlertsSection({ model }: { model: DashboardModel }) {
             </div>
           )
         })}
-        {leagueID !== undefined && (
-          <a className="t-meta bt-link bt-row-6" href={sleeperTeamLink(leagueID)} target="_blank" rel="noreferrer">
-            <ExternalLink size={13} aria-hidden /> Open in Sleeper
+        {model.context !== undefined && (
+          <a className="t-meta bt-link bt-row-6" href={teamLink(model.context)} target="_blank" rel="noreferrer">
+            <ExternalLink size={13} aria-hidden /> Open in {providerLabel(model.context.provider)}
           </a>
         )}
       </div>

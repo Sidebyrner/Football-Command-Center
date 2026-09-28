@@ -8,7 +8,8 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { ArrowUpDown, ExternalLink, Inbox, RefreshCcw, TriangleAlert, Upload } from 'lucide-react'
 import { formatNumber } from '@core/numeric'
-import { sleeperTeamLink } from '@models/league/GameDayWindow'
+import { teamLink } from '@models/league/GameDayWindow'
+import { providerLabel } from '@data/LeagueDataSource'
 import { availabilityLabel, waiverLabel } from '@models/league/LeagueContext'
 import {
   WAIVER_SORT_LABEL, WAIVER_SORT_SOURCE, WAIVER_SORT_UNIT, WAIVER_SORTS, waiverRowValue,
@@ -306,8 +307,8 @@ export function AddDropDialog({ model, add, onClose }: { model: WaiverBoardModel
             )
           })}
           {context && (
-            <a className="mk-link t-meta" href={sleeperTeamLink(context.league.leagueID)} target="_blank" rel="noreferrer">
-              <ExternalLink size={14} aria-hidden /> Make the claim in Sleeper
+            <a className="mk-link t-meta" href={teamLink(context)} target="_blank" rel="noreferrer">
+              <ExternalLink size={14} aria-hidden /> Make the claim in {providerLabel(context.provider)}
             </a>
           )}
         </div>

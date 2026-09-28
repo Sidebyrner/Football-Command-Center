@@ -41,3 +41,6 @@
 }
 .chip.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+.espn-steps { margin: 0; padding-left: 1.25em; display: grid; gap: 4px; }
+.espn-steps a { color: var(--accent); }

@@ -10,6 +10,8 @@ export type DataLayerErrorKind =
   | { kind: 'badURL'; path: string }
   | { kind: 'noFallbackAvailable'; resource: string }
   | { kind: 'timeout'; path: string }
+  /** The endpoint refused the credentials it was given (401/403). The fix is to sign in again, not to retry. */
+  | { kind: 'unauthorized'; path: string }
 
 export class DataLayerError extends Error {
   constructor(readonly detail: DataLayerErrorKind) {
@@ -30,5 +32,6 @@ function describe(d: DataLayerErrorKind): string {
     case 'badURL': return `Could not build a URL for ${d.path}`
     case 'noFallbackAvailable': return `No bundled or cached copy of ${d.resource}`
     case 'timeout': return `Timed out waiting for ${d.path}`
+    case 'unauthorized': return `Not authorised for ${d.path}`
   }
 }

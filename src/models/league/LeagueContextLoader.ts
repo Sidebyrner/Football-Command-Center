@@ -20,6 +20,7 @@ import { playerNflverseTeam, playerPosition, type PlayerIndex } from '@data/play
 import { sleeperIDsByGSIS } from '@data/playerIdCrosswalk'
 import { filledStarters, memberLabel, seasonYear, type SleeperRoster } from '@data/sleeperModels'
 import type { SleeperService } from '@data/SleeperService'
+import type { LeagueDataSource, LeagueProvider } from '@data/LeagueDataSource'
 import type { StaticDataStore } from '@data/StaticDataStore'
 import { playerIndexMaxAge } from './GameDayWindow'
 import type { InSeasonData } from './InSeasonData'
@@ -42,13 +43,21 @@ export class LeagueContextLoader {
    *   Board, Matchup and Planning share one loader.
    * @param now the clock, injected so tests and the demo league can fix it.
    */
+  /** Where the league itself comes from; defaults to Sleeper. An ESPN league arrives through the same shapes, translated. */
+  private readonly leagueSource: LeagueDataSource
+  private readonly provider: () => LeagueProvider
+
   constructor(
     private readonly sleeper: SleeperService,
     private readonly staticData: StaticDataStore,
     private readonly now: () => number = Date.now,
     reuseForMs = 60_000,
+    leagueSource?: LeagueDataSource,
+    provider: () => LeagueProvider = () => 'sleeper',
   ) {
     this.memo = new ContextMemo(reuseForMs)
+    this.leagueSource = leagueSource ?? sleeper
+    this.provider = provider
   }
 
   load(request: LoadRequest): Promise<LeagueContext> {
@@ -60,9 +69,9 @@ export class LeagueContextLoader {
     const state = await this.sleeper.nflState(force)
     const scheduleSeason = season ?? seasonYear(state.value) ?? new Date(this.now()).getFullYear()
     const currentWeek = state.value.week ?? 1
-    const league = await this.sleeper.league(leagueID, force)
-    const rosters = await this.sleeper.rosters(leagueID, force)
-    const members = await this.sleeper.members(leagueID, force)
+    const league = await this.leagueSource.league(leagueID, force)
+    const rosters = await this.leagueSource.rosters(leagueID, force)
+    const members = await this.leagueSource.members(leagueID, force)
     // The schedule first: it decides how fresh the player index has to be.
     const schedule = await this.staticData.schedule(scheduleSeason)
     const kickoffs = new KickoffCalendar(schedule.value)
@@ -96,6 +105,7 @@ export class LeagueContextLoader {
 
     return new LeagueContext({
       league: league.value,
+      provider: this.provider(),
       scheduleSeason,
       statsSeason: stats.season,
       currentSeasonWeeks: stats.currentSeasonWeeks,

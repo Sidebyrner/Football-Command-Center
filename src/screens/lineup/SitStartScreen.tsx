@@ -11,7 +11,8 @@ import {
   Lock, LockOpen, SlidersHorizontal, Split, SquareArrowOutUpRight, type LucideIcon,
 } from 'lucide-react'
 import { formatFixed } from '@core/numeric'
-import { formatCountdown, sleeperTeamLink } from '@models/league/GameDayWindow'
+import { formatCountdown, teamLink } from '@models/league/GameDayWindow'
+import { providerLabel } from '@data/LeagueDataSource'
 import { startBadge, type LeagueContext } from '@models/league/LeagueContext'
 import {
   LINEUP_BASES, LINEUP_BASIS_HINT, LINEUP_BASIS_LABEL, SitStartModel, unrankedTotal, type LineupChange,
@@ -152,8 +153,8 @@ function Recommendation({ model, context }: { model: SitStartModel; context: Lea
           {model.sits.length > 0 && (
             <ChangeList title="Sit" icon={CircleArrowDown} tint="var(--sit)" changes={model.sits} context={context} />
           )}
-          <a className="lineup-link" href={sleeperTeamLink(context.league.leagueID)} target="_blank" rel="noopener noreferrer" style={{ paddingTop: 2 }}>
-            <SquareArrowOutUpRight size={14} aria-hidden /> Make these changes in Sleeper
+          <a className="lineup-link" href={teamLink(context)} target="_blank" rel="noopener noreferrer" style={{ paddingTop: 2 }}>
+            <SquareArrowOutUpRight size={14} aria-hidden /> Make these changes in {providerLabel(context.provider)}
           </a>
           {model.moves.length > 0 && (
             <div className="moves">

@@ -13,6 +13,7 @@ import type { Position } from '@core/Position'
 import { RelayClient, type NewsItem } from '@data/RelayClient'
 import { EMPTY_STARTER_SLOT, isTransactionComplete, pointsAgainst, pointsFor, type SleeperMatchup } from '@data/sleeperModels'
 import type { SleeperService } from '@data/SleeperService'
+import type { LeagueDataSource } from '@data/LeagueDataSource'
 import { freshnessLabel, isDegraded } from '../league/Freshness'
 import type { LeagueContext } from '../league/LeagueContext'
 import type { LeagueContextLoader } from '../league/LeagueContextLoader'
@@ -345,13 +346,17 @@ export class DashboardModel extends Observable {
    *   private, so it is read off the client only as a fallback (Swift reads
    *   `relay?.baseURL`).
    */
+  private readonly leagueSource: LeagueDataSource
+
   constructor(
     private readonly loader: LeagueContextLoader,
     private readonly sleeper: SleeperService,
     relay?: RelayClient,
     relayBaseURL?: string,
+    leagueSource?: LeagueDataSource,
   ) {
     super()
+    this.leagueSource = leagueSource ?? sleeper
     this.relay = relay
     this.relayBaseURL = relayBaseURL ?? relay?.baseURL
   }
@@ -432,7 +437,7 @@ export class DashboardModel extends Observable {
       // Same cache entry the Matchup screen reads, so no second request.
       let matchups: SleeperMatchup[] | undefined
       try {
-        matchups = (await this.sleeper.matchups(leagueID, context.currentWeek, force)).value
+        matchups = (await this.leagueSource.matchups(leagueID, context.currentWeek, force)).value
       } catch {
         matchups = undefined
       }
@@ -448,7 +453,7 @@ export class DashboardModel extends Observable {
       }
       this.changed()
 
-      const history = await SeasonHistory.load(this.sleeper, leagueID, context.currentWeek)
+      const history = await SeasonHistory.load(this.leagueSource, leagueID, context.currentWeek)
       this.benchWeeks = buildBenchWeeks(context, history)
       this.trend = buildTrend(context, history)
       this.results = buildResults(context, history)
@@ -460,7 +465,7 @@ export class DashboardModel extends Observable {
       const upper = Math.max(context.currentWeek + 1, Math.min(context.currentWeek + 3, lastWeek))
       for (let week = context.currentWeek + 1; week <= upper; week++) {
         try {
-          future.set(week, (await this.sleeper.completedMatchups(leagueID, week)).value)
+          future.set(week, (await this.leagueSource.completedMatchups(leagueID, week)).value)
         } catch {
           // A week Sleeper can't answer is simply left out.
         }
@@ -501,7 +506,7 @@ export class DashboardModel extends Observable {
     }
     let draftID: string | undefined
     try {
-      draftID = (await this.sleeper.drafts(context.league.leagueID)).value[0]?.draftID
+      draftID = (await this.leagueSource.drafts(context.league.leagueID)).value[0]?.draftID
     } catch {
       draftID = undefined
     }
@@ -511,7 +516,7 @@ export class DashboardModel extends Observable {
     }
     let picks
     try {
-      picks = (await this.sleeper.draftPicks(draftID)).value
+      picks = (await this.leagueSource.draftPicks(draftID)).value
     } catch {
       this.draftUnavailable = 'Could not load the draft picks.'
       return
@@ -564,7 +569,7 @@ export class DashboardModel extends Observable {
     for (let week = context.currentWeek; week >= through; week--) {
       let fetched
       try {
-        fetched = await this.sleeper.transactions(context.league.leagueID, week, force)
+        fetched = await this.leagueSource.transactions(context.league.leagueID, week, force)
       } catch {
         continue
       }

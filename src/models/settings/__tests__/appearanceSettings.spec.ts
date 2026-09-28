@@ -106,7 +106,7 @@ describe('Appearance settings', () => {
 describe('AppSettings JSON parity', () => {
   it('encodes only present optionals, under the CodingKeys', () => {
     expect(encodeAppSettings(makeAppSettings({ leagueID: 'L1', rosterID: 2, relayBaseURL: 'https://r.example.com' }))).toEqual({
-      leagueID: 'L1', rosterID: 2, relayBaseURL: 'https://r.example.com',
+      provider: 'sleeper', leagueID: 'L1', rosterID: 2, relayBaseURL: 'https://r.example.com',
       accentTheme: 'indigo', themeVersion: 2, hasSeenPlanningIntro: false, gradeWeights: {},
     })
   })

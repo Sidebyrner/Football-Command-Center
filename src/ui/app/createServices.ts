@@ -6,6 +6,7 @@
 import { Cache, defaultCacheStore } from '@data/cache'
 import { loadDemoRoutes, makeDemoServices, DEMO_SETTINGS } from '@data/demo'
 import { InMemorySecretStore, LocalStorageSecretStore } from '@data/secretStore'
+import { ESPN_SECRET_KEY } from '@data/espnCredentials'
 import { SleeperClient } from '@data/SleeperClient'
 import { SleeperService } from '@data/SleeperService'
 import { StaticDataStore } from '@data/StaticDataStore'
@@ -47,6 +48,7 @@ export async function createServices(): Promise<CreatedServices> {
       settingsStore: new InMemorySettingsStore(makeAppSettings({ ...DEMO_SETTINGS })),
       workspacePersistence: new InMemoryWorkspacePersistence(),
       secrets: new InMemorySecretStore(),
+      espnSecrets: new InMemorySecretStore(),
       now: demo.now,
     })
     return { services, demo: true }
@@ -58,6 +60,8 @@ export async function createServices(): Promise<CreatedServices> {
     settingsStore: new KeyValueSettingsStore(),
     workspacePersistence: new StorageWorkspacePersistence(),
     secrets: new LocalStorageSecretStore(),
+    espnSecrets: new LocalStorageSecretStore(ESPN_SECRET_KEY),
+    cache,
   })
   return { services, demo: false }
 }

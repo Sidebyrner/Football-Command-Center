@@ -7,7 +7,7 @@
  * every season aggregate re-fetching every past week every five minutes.
  */
 import { live, weakestProvenance, type Provenance } from '@data/fetched'
-import type { SleeperService } from '@data/SleeperService'
+import type { LeagueDataSource } from '@data/LeagueDataSource'
 
 /** One roster's week, as Sleeper reported it after the fact. */
 export interface RosterWeek {
@@ -79,7 +79,8 @@ export class SeasonHistory {
    * including it would make "points left on your bench" accuse the user of
    * a mistake they can still fix.
    */
-  static async load(sleeper: SleeperService, leagueID: string, currentWeek: number): Promise<SeasonHistory> {
+  static async load(
+    sleeper: LeagueDataSource, leagueID: string, currentWeek: number): Promise<SeasonHistory> {
     const completed: number[] = []
     for (let w = 1; w < Math.max(1, currentWeek); w++) completed.push(w)
     if (completed.length === 0) return SeasonHistory.empty

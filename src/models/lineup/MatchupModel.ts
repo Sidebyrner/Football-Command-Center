@@ -12,6 +12,7 @@ import { played, scoreLine } from '@data/insightsModels'
 import { playerNflverseTeam, playerPosition } from '@data/playerIndex'
 import { EMPTY_STARTER_SLOT, type SleeperMatchup } from '@data/sleeperModels'
 import type { SleeperService } from '@data/SleeperService'
+import type { LeagueDataSource } from '@data/LeagueDataSource'
 import { Observable } from '../Observable'
 import { isDegraded } from '../league/Freshness'
 import { statLines } from '../league/InSeasonData'
@@ -222,8 +223,11 @@ export class MatchupModel extends Observable {
 
   private lastRequest?: { leagueID: string; rosterID: number; season?: number }
 
-  constructor(private readonly loader: LeagueContextLoader, private readonly sleeper: SleeperService) {
+  private readonly leagueSource: LeagueDataSource
+
+  constructor(private readonly loader: LeagueContextLoader, private readonly sleeper: SleeperService, leagueSource?: LeagueDataSource) {
     super()
+    this.leagueSource = leagueSource ?? sleeper
   }
 
   /** The single team shown in an individual mode; `undefined` in head-to-head. */
@@ -269,7 +273,7 @@ export class MatchupModel extends Observable {
       this.context = context
       this.week = context.currentWeek
 
-      const matchups = await this.sleeper.matchups(leagueID, context.currentWeek, force)
+      const matchups = await this.leagueSource.matchups(leagueID, context.currentWeek, force)
       const lookup = DefenseLookup.build(context)
       this.defenseTable = lookup.nflverse
       this.defenseLookup = lookup
@@ -316,7 +320,7 @@ export class MatchupModel extends Observable {
     if (!context || !request || !this.anyGameLive) return false
     let matchups: SleeperMatchup[]
     try {
-      matchups = (await this.sleeper.matchups(request.leagueID, context.currentWeek, true)).value
+      matchups = (await this.leagueSource.matchups(request.leagueID, context.currentWeek, true)).value
     } catch {
       return false
     }

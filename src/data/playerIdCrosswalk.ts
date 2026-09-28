@@ -14,6 +14,8 @@ import { asObject, compact, isObject, str } from './decode'
 export interface CrosswalkEntry {
   gsisId?: string
   fantasyprosId?: string
+  /** ESPN's numeric player id, as a string. Absent for team defenses. */
+  espnId?: string
   name?: string
   /** The **dynastyprocess** spelling. Use `crosswalkPosition` instead. */
   positionCode?: string
@@ -38,6 +40,7 @@ export function decodeCrosswalk(json: unknown): PlayerIDCrosswalk {
     out[id] = compact({
       gsisId: str(raw, 'gsisId'),
       fantasyprosId: str(raw, 'fantasyprosId'),
+      espnId: str(raw, 'espnId'),
       name: str(raw, 'name'),
       positionCode: str(raw, 'position'),
       team: str(raw, 'team'),
@@ -60,6 +63,15 @@ export const isFreeAgent = (e: CrosswalkEntry) => e.team === 'FA'
 
 /** `undefined` is routine: every team defense has no row. */
 export const gsisID = (c: PlayerIDCrosswalk, sleeperID: string) => c.players[sleeperID]?.gsisId
+
+/** ESPN id → Sleeper id, for translating an ESPN roster into the ids everything else is keyed by. */
+export function sleeperIDsByESPN(c: PlayerIDCrosswalk): Record<string, string> {
+  const reverse: Record<string, string> = {}
+  for (const [sleeperID, entry] of Object.entries(c.players)) {
+    if (entry.espnId) reverse[entry.espnId] = sleeperID
+  }
+  return reverse
+}
 
 export function sleeperIDsByGSIS(c: PlayerIDCrosswalk): Record<string, string> {
   const reverse: Record<string, string> = {}

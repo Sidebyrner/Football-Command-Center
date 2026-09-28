@@ -5,6 +5,8 @@
  * The header carries the context-menu actions the phone offers on a player:
  * "Trade for…" / "Offer in trade" and "Copy name".
  */
+import { teamLink } from '@models/league/GameDayWindow'
+import { providerLabel } from '@data/LeagueDataSource'
 import { useMemo, useState, type CSSProperties } from 'react'
 import {
   ArrowLeftRight, CalendarDays, Copy, Cross, ExternalLink, Newspaper,
@@ -40,8 +42,6 @@ const fmtOpt = (x: number | undefined, digits = 1) => (x === undefined ? '—' :
 /** Swift `Int(x * 100)` — truncates. */
 const pct100 = (x: number) => Math.trunc(x * 100)
 
-/** Swift `SleeperLinks.team(leagueID:)`. */
-const sleeperTeamURL = (leagueID: string) => `https://sleeper.com/leagues/${encodeURIComponent(leagueID)}/team`
 
 export function PlayerCardView({ model, initialTab = 'overview' }: { model: PlayerCardModel; initialTab?: PlayerCardTab }) {
   const card = useModel(model)
@@ -81,8 +81,8 @@ function Header({ model }: { model: PlayerCardModel }) {
           {subtitle && <div className="t-meta muted">{subtitle}</div>}
         </div>
         {leagueID !== '' && (
-          <a className="pc-link t-meta" href={sleeperTeamURL(leagueID)} target="_blank" rel="noreferrer">
-            <ExternalLink size={13} aria-hidden /> Sleeper
+          <a className="pc-link t-meta" href={teamLink(context)} target="_blank" rel="noreferrer">
+            <ExternalLink size={13} aria-hidden /> {providerLabel(context.provider)}
           </a>
         )}
       </div>
