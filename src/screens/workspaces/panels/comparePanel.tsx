@@ -37,6 +37,7 @@ import {
   BarChart, MetricPicker, MetricPickerList, PickRow, Popover, shortName, TrendComparisonChart, TrendLegend, useObserve,
 } from './chartViews'
 import { toggled } from './chartTrendPanel'
+import { CompareVerdictCard } from './compareVerdictCard'
 
 export function ComparePanel({ settings, rows }: PanelProps) {
   const { services } = useApp()
@@ -94,7 +95,10 @@ function CompareContent({ group, context, settings, rows }: PanelProps & { group
                   </span>
                   <span className="compare-chip-text">
                     <span className="t-meta" style={{ fontWeight: 600 }}>{player.name}</span>
-                    <span className="t-meta muted">{[player.position, player.team].filter(Boolean).join(' · ')}</span>
+                    <span className="t-meta muted">
+                      {[player.position, player.team].filter(Boolean).join(' · ')}
+                      {player.availability?.kind === 'mine' && <span className="compare-yours"> YOURS</span>}
+                    </span>
                   </span>
                 </button>
                 <button type="button" className="chart-icon-button" aria-label={`Remove ${player.name} from compare`}
@@ -134,6 +138,7 @@ function CompareContent({ group, context, settings, rows }: PanelProps & { group
         </div>
       ) : (
         <>
+          <CompareVerdictCard comparison={comparison} context={context} />
           <ChartGrid specs={specs} trend={trend} positions={comparison.players.map((p) => p.position)}
             hidden={hidden} onToggle={(id) => setHidden((h) => toggled(h, id))} edit={edit} />
           <div className="compare-bars-row">

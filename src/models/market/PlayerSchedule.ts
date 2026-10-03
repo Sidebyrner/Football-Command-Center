@@ -66,11 +66,13 @@ export function buildPlayerSchedule(
   context: LeagueContext,
   defense: DefenseLookup,
   liveLines: ReadonlyMap<number, Readonly<Record<string, TeamGameLine>>> = new Map(),
+  /** The weeks to cover — the rest of the regular season unless asked for others, such as the playoffs. */
+  scheduleWeeks: readonly number[] = context.remainingWeeks,
 ): PlayerSchedule {
   const team = context.nflTeam(playerID)
   const position = context.position(playerID)
   const weeks: PlayerScheduleWeek[] = []
-  for (const week of context.remainingWeeks) {
+  for (const week of scheduleWeeks) {
     if (context.byeCalendar.isOnBye(team, week)) {
       weeks.push({ week, isBye: true })
       continue

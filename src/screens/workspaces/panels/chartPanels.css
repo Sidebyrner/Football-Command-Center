@@ -126,3 +126,20 @@
 .metric-stat { display: inline-flex; align-items: baseline; gap: 4px; }
 .metric-stat b { font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .metric-player-line { display: flex; align-items: center; gap: 8px; }
+
+/* Compare verdict + gut check */
+.compare-verdict { gap: 4px; }
+.compare-verdict-headline { display: flex; align-items: baseline; gap: 6px; font-weight: 600; font-size: 0.875rem; }
+.compare-verdict-headline > svg, .compare-verdict-line > svg { flex: none; align-self: center; }
+.compare-verdict-line { display: flex; align-items: flex-start; gap: 6px; }
+.compare-verdict-ranked { margin: 2px 0 0; padding-left: 18px; font-size: 0.75rem; display: flex; flex-direction: column; gap: 2px; }
+.compare-verdict-ranked li { display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline; }
+.compare-verdict-ranked li::marker { color: var(--text-2); }
+.compare-verdict-name { font-weight: 600; }
+.compare-yours { font-size: 0.5625rem; font-weight: 700; color: var(--accent); letter-spacing: 0.02em; }
+.compare-gut { border-top: 1px solid var(--separator, color-mix(in srgb, var(--text) 10%, transparent)); margin-top: 4px; padding-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.compare-gut-toggle { appearance: none; border: 0; background: none; padding: 0; font: inherit; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 6px; min-height: 24px; }
+.compare-gut-title { font-size: 0.75rem; font-weight: 600; }
+.compare-gut-chip { font-size: 0.6875rem; font-weight: 700; padding: 1px 6px; border-radius: 999px; }
+.compare-gut-summary { margin: 0; }
+.compare-gut-points ul { margin: 2px 0 0; padding-left: 16px; list-style: disc; font-size: 0.75rem; display: flex; flex-direction: column; gap: 2px; }

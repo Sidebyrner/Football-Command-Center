@@ -3,9 +3,12 @@
  * Waiver Board's usage columns — a port of FCApp `PlayerComparison.swift`.
  * Pure given the models' current state.
  */
+import type { PracticeStatus } from '@core/InSeasonFiles'
 import { formatNumber } from '@core/numeric'
 import type { Position } from '@core/Position'
 import { roundAwayFromZero } from '@core/rounding'
+import { playoffWeeks, type Availability } from '../league/LeagueContext'
+import { buildPlayerSchedule } from '../market/PlayerSchedule'
 import type { WaiverRow } from '../market/WaiverBoardModel'
 import { LinkBus } from '../workspaces/LinkBus'
 import type { DefenseLookup } from './DefenseLookup'
@@ -60,6 +63,21 @@ export interface ComparisonPlayer {
   floor?: number
   expected?: number
   ceiling?: number
+  /** Where he stands in the league: a claim, a trade, or already yours. */
+  availability?: Availability
+  /** One of the user's own players, measured against rather than ranked. */
+  isBaseline?: boolean
+  /** The official designation, else Sleeper's tag — "Out", "IR", "Q". */
+  injuryDesignation?: string
+  practice?: PracticeStatus
+  /** The newest headline Sleeper carries for him. */
+  headline?: { title: string; published?: Date }
+  /** 1 is the starter. */
+  depthRank?: number
+  trendingAdds?: number
+  /** Schedule multipliers, 1.0 average and above 1 softer: the rest of the season, then the playoff weeks. */
+  strengthOfSchedule?: number
+  playoffMatchups?: number
 }
 
 export class PlayerComparison {
@@ -77,7 +95,10 @@ export class PlayerComparison {
   /** The column holding the best value on a row; `undefined` when fewer than two players have a value or they're all equal. */
   bestIndex(metric: ComparisonMetric): number | undefined {
     const present: [number, number][] = []
-    this.values(metric).forEach((value, index) => { if (value !== undefined) present.push([index, value]) })
+    // The baseline is never the best — he's the bar the targets are measured against.
+    this.values(metric).forEach((value, index) => {
+      if (value !== undefined && !this.players[index]!.isBaseline) present.push([index, value])
+    })
     if (present.length < 2 || new Set(present.map(([, v]) => v)).size <= 1) return undefined
     // Swift's `max(by:)` / `min(by:)` keep the first of equal extremes.
     let best = present[0]!
@@ -92,6 +113,7 @@ export class PlayerComparison {
     rows: (id: string) => WaiverRow | undefined,
     defense: DefenseLookup,
     lastN: number,
+    baselineID?: string,
   ): PlayerComparison {
     const weeks = new Set<number>()
     const players = cards.slice(0, LinkBus.compareLimit).map((card, index): ComparisonPlayer => {
@@ -118,8 +140,29 @@ export class PlayerComparison {
         floor: points.length === 0 ? undefined : Math.min(...points),
         expected: card.rotowireThisWeek ?? values.pointsPerGame,
         ceiling: points.length === 0 ? undefined : Math.max(...points),
+        availability: card.status?.availability ?? card.context.availabilityOf(card.id),
+        isBaseline: card.id === baselineID,
+        injuryDesignation: card.status?.report?.designation ?? card.status?.sleeperTag,
+        practice: card.status?.report?.practice,
+        headline: newestHeadline(card),
+        // The depth chart counts from zero; the starter reads as 1.
+        depthRank: card.status?.depthRank !== undefined ? card.status.depthRank + 1 : undefined,
+        trendingAdds: row?.trendingAdds,
+        strengthOfSchedule: buildPlayerSchedule(card.id, card.context, defense).strengthOfSchedule,
+        playoffMatchups: buildPlayerSchedule(card.id, card.context, defense, new Map(),
+                                             playoffWeeks(card.context.leagueFacts)).strengthOfSchedule,
       }
     })
     return new PlayerComparison(players, lastN, [...weeks].sort((a, b) => a - b))
   }
+}
+
+function newestHeadline(card: PlayerCardModel): ComparisonPlayer['headline'] {
+  let newest: (typeof card.news)[number] | undefined
+  for (const item of card.news) {
+    if (!item.metadata?.title) continue
+    if (!newest || (newest.published ?? 0) < (item.published ?? 0)) newest = item
+  }
+  if (!newest) return undefined
+  return { title: newest.metadata!.title!, published: newest.published !== undefined ? new Date(newest.published) : undefined }
 }
