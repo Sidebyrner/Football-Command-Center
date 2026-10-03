@@ -109,7 +109,7 @@ struct ComparePanel: View {
                         HStack(spacing: 4) {
                             Text([player.position?.rawValue, player.team].compactMap { $0 }.joined(separator: " · "))
                                 .font(.caption2).foregroundStyle(.secondary)
-                            if player.isBaseline {
+                            if player.isBaseline || player.availability == .mine {
                                 Text("YOURS").font(.system(size: 9).weight(.bold)).foregroundStyle(Color.accentColor)
                             } else if case .rivalBench = player.availability {
                                 Circle().fill(Palette.caution).frame(width: 6, height: 6).help(player.availability?.label ?? "")
@@ -256,10 +256,7 @@ struct ComparePanel: View {
         case .schedule: CompareScheduleCard(comparison: comparison)
         case .status: CompareStatusCard(comparison: comparison)
         case .verdict:
-            VerdictCard(verdict: CompareVerdict.compute(
-                CompareVerdict.inputs(from: comparison),
-                league: CompareVerdict.League(facts: context.leagueFacts, currentWeek: context.currentWeek)
-            ), compact: true)
+            VerdictCard(comparison: comparison, context: context, compact: true)
         case .availability: CompareAvailabilityCard(comparison: comparison, playoffWeeks: context.leagueFacts.playoffWeeks)
         }
     }

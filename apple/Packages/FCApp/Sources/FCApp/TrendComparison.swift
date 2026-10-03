@@ -141,7 +141,7 @@ public enum CompareCardSpec: Hashable, Sendable, Identifiable {
             case .usage: return "Expected points from rushing vs receiving, against what he scored"
             case .schedule: return "The next five weeks, shaded by how soft each defense is"
             case .status: return "Injury, practice, depth chart, team total and situation"
-            case .verdict: return "Who to go after first, and whether he's worth the claim"
+            case .verdict: return "Keep your player or go after someone — and whether it's worth the claim"
             case .availability: return "Free agent or rostered, Sleeper adds, latest headline, bye and playoff weeks"
             }
         }

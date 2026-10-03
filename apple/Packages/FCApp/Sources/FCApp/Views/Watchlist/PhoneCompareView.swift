@@ -56,14 +56,11 @@ struct PhoneCompareView: View {
                 if comparison.players.isEmpty {
                     emptyState
                 } else {
-                    VerdictCard(verdict: CompareVerdict.compute(
-                        CompareVerdict.inputs(from: comparison),
-                        league: CompareVerdict.League(facts: context.leagueFacts, currentWeek: context.currentWeek)
-                    ))
+                    VerdictCard(comparison: comparison, context: context)
                     .card()
                     .accessibilityIdentifier("compare.phone.verdict")
                     grid(comparison, context: context)
-                    Text("Best on each row in green; your baseline isn't ranked. Swipe the columns sideways.")
+                    Text("Best on each row in green; your players are ranked too. Swipe the columns sideways.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
