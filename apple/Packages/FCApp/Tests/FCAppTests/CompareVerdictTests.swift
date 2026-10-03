@@ -19,14 +19,70 @@ final class CompareVerdictTests: XCTestCase {
         XCTAssertNil(verdict.faab, "a priority league never shows a bid")
     }
 
-    func testTheBaselineAndYourOwnPlayersAreNotRanked() {
-        var mine = fa("mine", ros: 20)
-        mine.availability = .mine
-        mine.isBaseline = true
-        var other = fa("benchguy", ros: 30)
-        other.availability = .mine
-        let verdict = CompareVerdict.compute([mine, other, fa("target", ros: 8)], league: priorityLeague)
-        XCTAssertEqual(verdict.ranked.map(\.id), ["target"])
+    private func mine(_ id: String, ros: Double?, baseline: Bool = false) -> CompareVerdict.Input {
+        var input = fa(id, ros: ros)
+        input.availability = .mine
+        input.isBaseline = baseline
+        return input
+    }
+
+    func testYourBetterPlayerIsKept() {
+        let verdict = CompareVerdict.compute([mine("mine", ros: 30), fa("target", ros: 8)], league: priorityLeague)
+        XCTAssertEqual(verdict.ranked.map(\.id), ["mine", "target"], "your own player is ranked with everyone else")
+        XCTAssertTrue(verdict.ranked[0].isMine)
+        XCTAssertTrue(verdict.ranked[0].isBaseline)
+        XCTAssertEqual(verdict.headline, "Keep Mine over Target")
+        guard case .keep(let text) = verdict.priority else { return XCTFail("\(verdict.priority)") }
+        XCTAssertTrue(text.contains("22.0 pts/gm less"), text)
+        XCTAssertEqual(verdict.pickID, "mine")
+        XCTAssertEqual(verdict.alternativeID, "target")
+        XCTAssertNil(verdict.faab)
+    }
+
+    func testAClearUpgradeSaysAddAndDrop() {
+        let verdict = CompareVerdict.compute([mine("mine", ros: 8), fa("big", ros: 12)], league: priorityLeague)
+        XCTAssertEqual(verdict.headline, "Add Big, drop Mine")
+        guard case .spend(let text) = verdict.priority else { return XCTFail("\(verdict.priority)") }
+        XCTAssertTrue(text.contains("+4.0 pts/gm over Mine"), text)
+        XCTAssertEqual(verdict.pickID, "big")
+        XCTAssertEqual(verdict.alternativeID, "mine")
+    }
+
+    func testASmallUpgradeKeepsYourPlayer() {
+        let verdict = CompareVerdict.compute([mine("mine", ros: 8), fa("small", ros: 9)], league: priorityLeague)
+        XCTAssertEqual(verdict.ranked.first?.id, "small", "he edges it on paper")
+        XCTAssertEqual(verdict.headline, "Keep Mine over Small")
+        guard case .keep(let text) = verdict.priority else { return XCTFail("\(verdict.priority)") }
+        XCTAssertTrue(text.contains("only +1.0 pts/gm"), text)
+    }
+
+    func testWithoutAChosenBaselineYourWeakestPlayerIsTheYardstick() {
+        let verdict = CompareVerdict.compute([mine("star", ros: 20), mine("scrub", ros: 6), fa("target", ros: 10)],
+                                             league: priorityLeague)
+        XCTAssertEqual(verdict.ranked.map(\.id), ["star", "target", "scrub"])
+        XCTAssertEqual(verdict.ranked.first { $0.isBaseline }?.id, "scrub")
+        XCTAssertEqual(verdict.headline, "Add Target, drop Scrub")
+    }
+
+    func testAChosenBaselineWins() {
+        let verdict = CompareVerdict.compute([mine("star", ros: 20, baseline: true), mine("scrub", ros: 6), fa("target", ros: 10)],
+                                             league: priorityLeague)
+        XCTAssertEqual(verdict.headline, "Keep Star over Target")
+    }
+
+    func testARivalTargetAheadOfYourPlayerIsATrade() {
+        var starter = fa("starter", ros: 20)
+        starter.availability = .rivalStarter(rosterID: 2, manager: "Mike")
+        let verdict = CompareVerdict.compute([mine("mine", ros: 6), starter], league: priorityLeague)
+        XCTAssertEqual(verdict.headline, "Best target: Starter (trade — Mike), over Mine")
+        guard case .notAClaim = verdict.priority else { return XCTFail("\(verdict.priority)") }
+    }
+
+    func testAllYoursRanksThem() {
+        let verdict = CompareVerdict.compute([mine("a", ros: 6), mine("b", ros: 12)], league: priorityLeague)
+        XCTAssertEqual(verdict.ranked.map(\.id), ["b", "a"])
+        XCTAssertEqual(verdict.headline, "B ranks highest of yours")
+        guard case .nothing = verdict.priority else { return XCTFail("\(verdict.priority)") }
     }
 
     func testARivalStarterIsDiscountedAndReadsAsATrade() {
@@ -54,18 +110,17 @@ final class CompareVerdictTests: XCTestCase {
         XCTAssertEqual(verdict.ranked.first { $0.id == "full" }?.thinData, false)
     }
 
-    func testAgainstABaselineTheGapDecidesSpendOrHold() {
-        var mine = fa("mine", ros: 8)
-        mine.availability = .mine
-        mine.isBaseline = true
-        let upgrade = CompareVerdict.compute([mine, fa("big", ros: 10.5)], league: priorityLeague)
+    func testAgainstABaselineTheGapDecidesSpendOrKeep() {
+        let base = mine("mine", ros: 8, baseline: true)
+        let upgrade = CompareVerdict.compute([base, fa("big", ros: 10.5)], league: priorityLeague)
         guard case .spend(let spend) = upgrade.priority else { return XCTFail("\(upgrade.priority)") }
         XCTAssertTrue(spend.contains("+2.5 pts/gm over Mine"), spend)
         XCTAssertTrue(spend.contains("waiver priority"))
 
-        let marginal = CompareVerdict.compute([mine, fa("small", ros: 9)], league: priorityLeague)
-        guard case .hold(let hold) = marginal.priority else { return XCTFail("\(marginal.priority)") }
-        XCTAssertTrue(hold.contains("Only +1.0"), hold)
+        let marginal = CompareVerdict.compute([base, fa("small", ros: 9)], league: priorityLeague)
+        guard case .keep(let keep) = marginal.priority else { return XCTFail("\(marginal.priority)") }
+        XCTAssertTrue(keep.contains("only +1.0"), keep)
+        XCTAssertFalse(keep.contains("back of the order"))
     }
 
     func testWithoutABaselineDemandDecides() {
@@ -84,11 +139,17 @@ final class CompareVerdictTests: XCTestCase {
     }
 
     func testNothingToGoAfter() {
-        var mine = fa("mine", ros: 8)
-        mine.availability = .mine
-        let verdict = CompareVerdict.compute([mine], league: priorityLeague)
-        XCTAssertTrue(verdict.ranked.isEmpty)
+        let verdict = CompareVerdict.compute([mine("mine", ros: 8)], league: priorityLeague)
+        XCTAssertEqual(verdict.ranked.map(\.id), ["mine"])
+        XCTAssertEqual(verdict.headline, "Mine is yours")
+        XCTAssertNil(verdict.alternativeID)
         guard case .nothing = verdict.priority else { return XCTFail("\(verdict.priority)") }
+    }
+
+    func testAKeepNeverShowsABid() {
+        let league = CompareVerdict.League(waivers: .faab(budget: 100), faabRemaining: 60, currentWeek: 4)
+        XCTAssertNil(CompareVerdict.compute([mine("mine", ros: 14), fa("target", ros: 8, adds: 40_000)], league: league).faab)
+        XCTAssertNotNil(CompareVerdict.compute([mine("mine", ros: 6), fa("target", ros: 14, adds: 40_000)], league: league).faab)
     }
 
     func testAFAABBidStaysInsideTheBudgetAndScalesWithTheCall() throws {

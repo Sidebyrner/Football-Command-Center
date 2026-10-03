@@ -1,8 +1,9 @@
 import Foundation
 import FCCore
 
-/// The one-line call on a comparison: who to go after first, and whether he's
-/// worth the move — a waiver claim under priority, a bid under FAAB. Pure,
+/// The one-line call on a comparison: keep your player or go after someone,
+/// and whether the move is worth it — a waiver claim under priority, a bid
+/// under FAAB. Your own players are ranked with everyone else. Pure,
 /// and deliberately simple rules with the reasons shown, so the call can be
 /// argued with.
 public struct CompareVerdict: Hashable, Sendable {
@@ -68,12 +69,19 @@ public struct CompareVerdict: Hashable, Sendable {
     public struct Ranked: Hashable, Sendable, Identifiable {
         public let id: String
         public let name: String
-        /// 0…1, each measure as a share of the best target's, before the
+        public let availability: Availability
+        /// The user's player everyone else is measured against.
+        public let isBaseline: Bool
+        /// 0…1, each measure as a share of the best player's, before the
         /// injury and availability adjustments.
         public let score: Double
+        /// After them — what the order is sorted on.
+        public let adjustedScore: Double
         public let reasons: [String]
         /// Some measures were missing and counted as middling.
         public let thinData: Bool
+
+        public var isMine: Bool { availability == .mine }
     }
 
     public enum Priority: Hashable, Sendable {
@@ -81,6 +89,8 @@ public struct CompareVerdict: Hashable, Sendable {
         case spend(String)
         /// Probably not worth it; wait.
         case hold(String)
+        /// Your own player is the better hold — don't make the move.
+        case keep(String)
         /// The top target is on a roster — a trade, not a claim.
         case notAClaim(String)
         /// Nothing in the comparison can be acquired.
@@ -88,7 +98,7 @@ public struct CompareVerdict: Hashable, Sendable {
 
         public var text: String {
             switch self {
-            case .spend(let text), .hold(let text), .notAClaim(let text), .nothing(let text): return text
+            case .spend(let text), .hold(let text), .keep(let text), .notAClaim(let text), .nothing(let text): return text
             }
         }
     }
@@ -109,13 +119,19 @@ public struct CompareVerdict: Hashable, Sendable {
         public static let contestedAdds = 5_000.0
     }
 
-    /// Acquirable targets, best first. The baseline and the user's own
-    /// players aren't ranked.
+    /// Everyone compared, best first — the user's own players included, so a
+    /// keeper can beat a pickup.
     public let ranked: [Ranked]
     public let headline: String
     public let priority: Priority
     /// Only in FAAB leagues.
     public let faab: FAABBid?
+    /// The player the call lands on, and the one it passes over — what the
+    /// gut check argues about. `nil` with fewer than two players.
+    public let pickID: String?
+    public let alternativeID: String?
+    /// How far apart the two are on adjusted score, 0…1. Small is a close call.
+    public let margin: Double?
 
     // MARK: - Computing
 
@@ -125,44 +141,71 @@ public struct CompareVerdict: Hashable, Sendable {
     ]
 
     public static func compute(_ inputs: [Input], league: League) -> CompareVerdict {
-        let targets = inputs.filter { !$0.isBaseline && $0.availability.isAcquirable }
-        let baseline = inputs.first(where: \.isBaseline)
-        guard !targets.isEmpty else {
-            return CompareVerdict(ranked: [], headline: "Nobody here to go after",
-                                  priority: .nothing("Everyone in the comparison is already yours."), faab: nil)
+        guard !inputs.isEmpty else {
+            return CompareVerdict(ranked: [], headline: "Nobody to compare", priority: .nothing("Add players to compare."),
+                                  faab: nil, pickID: nil, alternativeID: nil, margin: nil)
         }
 
-        // Each measure as a share of the best target's, 0…1 — so 11.5 against
+        // Each measure as a share of the best player's, 0…1 — so 11.5 against
         // 12 is close, not last. Adds on a log scale so one viral name
         // doesn't flatten the rest.
         func scaled(_ path: KeyPath<Input, Double?>, _ input: Input) -> Double? {
             let transform: (Double) -> Double = path == \Input.trendingAdds ? { log1p(max($0, 0)) } : { max($0, 0) }
             guard let value = input[keyPath: path].map(transform) else { return nil }
-            let best = targets.compactMap { $0[keyPath: path] }.map(transform).max() ?? 0
+            let best = inputs.compactMap { $0[keyPath: path] }.map(transform).max() ?? 0
             return best > 0 ? min(value / best, 1) : 1
         }
 
-        let ranked = targets.map { input -> (Ranked, Double) in
+        let scored = inputs.map { input -> (input: Input, score: Double, adjusted: Double, thin: Bool) in
             var score = 0.0
             var missing = 0
             for (path, weight) in weights {
                 if let value = scaled(path, input) { score += value * weight } else { score += 0.5 * weight; missing += 1 }
             }
             let adjusted = score * availabilityFactor(input.availability) - injuryPenalty(input.injuryDesignation)
-            return (Ranked(id: input.id, name: input.name, score: score, reasons: reasons(input, among: targets, baseline: baseline),
-                           thinData: missing >= 2), adjusted)
+            return (input, score, adjusted, missing >= 2)
         }
-        .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0.name < $1.0.name }
-        .map(\.0)
+        .sorted { $0.adjusted != $1.adjusted ? $0.adjusted > $1.adjusted : $0.input.name < $1.input.name }
 
-        let byID = Dictionary(uniqueKeysWithValues: targets.map { ($0.id, $0) })
-        let top = byID[ranked[0].id]!
-        let priority = priority(top: top, ranked: ranked, byID: byID, baseline: baseline, league: league)
+        // The yardstick: the one the user named, else his weakest player
+        // here — the one a claim would drop.
+        let baseline = inputs.first(where: \.isBaseline) ?? scored.last(where: { $0.input.availability == .mine })?.input
+        let ranked = scored.map {
+            Ranked(id: $0.input.id, name: $0.input.name, availability: $0.input.availability,
+                   isBaseline: $0.input.id == baseline?.id, score: $0.score, adjustedScore: $0.adjusted,
+                   reasons: reasons($0.input, baseline: baseline), thinData: $0.thin)
+        }
+        let byID = Dictionary(uniqueKeysWithValues: inputs.map { ($0.id, $0) })
+        let rankOf = Dictionary(uniqueKeysWithValues: ranked.enumerated().map { ($1.id, $0) })
+
+        guard let topTarget = ranked.first(where: { $0.availability.isAcquirable }).flatMap({ byID[$0.id] }) else {
+            let headline = ranked.count == 1 ? "\(ranked[0].name) is yours" : "\(ranked[0].name) ranks highest of yours"
+            return CompareVerdict(ranked: ranked, headline: headline,
+                                  priority: .nothing("Everyone in the comparison is already yours."), faab: nil,
+                                  pickID: ranked[0].id, alternativeID: ranked.count > 1 ? ranked[1].id : nil,
+                                  margin: margin(ranked, ranked[0].id, ranked.count > 1 ? ranked[1].id : nil))
+        }
+
+        let call: Call
+        if let baseline {
+            call = callAgainst(baseline: baseline, target: topTarget,
+                               targetAhead: rankOf[topTarget.id]! < rankOf[baseline.id]!, league: league)
+        } else {
+            let targets = ranked.filter { $0.availability.isAcquirable }
+            call = Call(headline: headline(targets: targets, byID: byID),
+                        priority: priority(top: topTarget, targets: targets, byID: byID, league: league),
+                        pickID: topTarget.id, alternativeID: targets.count > 1 ? targets[1].id : nil)
+        }
+        var priority = call.priority
+        // Near the back of a priority order, a claim costs little.
+        if case .hold(let text) = priority, isNearBack(league) {
+            priority = .hold(text + " You're near the back of the order anyway, so a claim is cheap.")
+        }
         return CompareVerdict(
-            ranked: ranked,
-            headline: headline(ranked: ranked, byID: byID),
-            priority: priority,
-            faab: faabBid(top: top, priority: priority, league: league)
+            ranked: ranked, headline: call.headline, priority: priority,
+            faab: faabBid(top: topTarget, priority: priority, league: league),
+            pickID: call.pickID, alternativeID: call.alternativeID,
+            margin: margin(ranked, call.pickID, call.alternativeID)
         )
     }
 
@@ -182,12 +225,14 @@ public struct CompareVerdict: Hashable, Sendable {
 
     // MARK: - Rules
 
+    /// Keeping costs nothing and a claim costs a claim; that cost lives in the
+    /// threshold a move has to clear, not here. A trade is discounted for how
+    /// hard the ask is.
     static func availabilityFactor(_ availability: Availability) -> Double {
         switch availability {
-        case .freeAgent: return 1.0
+        case .freeAgent, .mine: return 1.0
         case .rivalBench: return 0.85
         case .rivalStarter: return 0.7
-        case .mine: return 0
         }
     }
 
@@ -199,59 +244,94 @@ public struct CompareVerdict: Hashable, Sendable {
         }
     }
 
-    private static func headline(ranked: [Ranked], byID: [String: Input]) -> String {
-        let top = ranked[0]
-        let topInput = byID[top.id]!
+    private struct Call {
+        let headline: String
+        let priority: Priority
+        let pickID: String
+        let alternativeID: String?
+    }
+
+    private static func margin(_ ranked: [Ranked], _ pick: String?, _ alternative: String?) -> Double? {
+        guard let pick = ranked.first(where: { $0.id == pick }),
+              let alternative = ranked.first(where: { $0.id == alternative }) else { return nil }
+        return abs(pick.adjustedScore - alternative.adjustedScore)
+    }
+
+    /// One of the user's players against the best thing he could get: keep,
+    /// or make the move — and a move has to clear the bar, not just edge it.
+    private static func callAgainst(baseline: Input, target: Input, targetAhead: Bool, league: League) -> Call {
+        let gap: Double? = target.outlook.flatMap { theirs in baseline.outlook.map { theirs - $0 } }
+        let amount = gap.map { abs($0).formatted(.number.precision(.fractionLength(1))) }
+        let keepHeadline = "Keep \(baseline.name) over \(target.name)"
+        func keep(_ text: String) -> Call {
+            Call(headline: keepHeadline, priority: .keep(text), pickID: baseline.id, alternativeID: target.id)
+        }
+        guard targetAhead else {
+            guard let gap, let amount else { return keep("Keep \(baseline.name) — he rates ahead of \(target.name) on what's here.") }
+            return gap > 0
+                ? keep("Keep \(baseline.name) — \(target.name)'s +\(amount) pts/gm outlook doesn't outweigh the rest of his numbers.")
+                : keep("Keep \(baseline.name) — \(target.name) projects \(amount) pts/gm less the rest of the way.")
+        }
+        switch target.availability {
+        case .rivalBench(_, let manager), .rivalStarter(_, let manager):
+            return Call(headline: "Best target: \(target.name) (trade — \(manager)), over \(baseline.name)",
+                        priority: .notAClaim("\(target.name) is on a roster — this is a trade, not a waiver claim."),
+                        pickID: target.id, alternativeID: baseline.id)
+        case .freeAgent, .mine:
+            break
+        }
+        let move = "Add \(target.name), drop \(baseline.name)"
+        guard let gap, let amount else {
+            return Call(headline: "Lean \(target.name) over \(baseline.name)",
+                        priority: .hold("\(target.name) rates ahead, but there's no rest-of-season number to size the gap — a cheap claim at most."),
+                        pickID: target.id, alternativeID: baseline.id)
+        }
+        if gap >= Thresholds.overBaseline {
+            return Call(headline: move,
+                        priority: .spend("Worth your \(claimWord(league)): +\(amount) pts/gm over \(baseline.name)."),
+                        pickID: target.id, alternativeID: baseline.id)
+        }
+        return keep(gap > 0
+            ? "Keep \(baseline.name) — \(target.name) is only +\(amount) pts/gm better, not worth your \(claimWord(league))."
+            : "Keep \(baseline.name) — \(target.name) projects \(amount) pts/gm less the rest of the way.")
+    }
+
+    private static func headline(targets: [Ranked], byID: [String: Input]) -> String {
+        let top = targets[0]
         let first: String
-        switch topInput.availability {
+        switch byID[top.id]!.availability {
         case .freeAgent: first = "Best add: \(top.name)"
         case .rivalBench(_, let manager), .rivalStarter(_, let manager):
             first = "Best target: \(top.name) (trade — \(manager))"
         case .mine: first = top.name
         }
-        guard ranked.count > 1 else { return first }
-        return "\(first), then \(ranked[1].name)"
+        guard targets.count > 1 else { return first }
+        return "\(first), then \(targets[1].name)"
     }
 
-    private static func priority(top: Input, ranked: [Ranked], byID: [String: Input], baseline: Input?, league: League) -> Priority {
+    /// No player of the user's in the comparison: demand and the gap to the
+    /// next free agent decide.
+    private static func priority(top: Input, targets: [Ranked], byID: [String: Input], league: League) -> Priority {
         guard top.availability == .freeAgent else {
             return .notAClaim("\(top.name) is on a roster — this is a trade, not a waiver claim.")
         }
         let name = top.name
-        let base: Priority
-        if let baseline, let targetOutlook = top.outlook, let baseOutlook = baseline.outlook {
-            let gap = targetOutlook - baseOutlook
-            let amount = gap.formatted(.number.precision(.fractionLength(1)))
-            if gap >= Thresholds.overBaseline {
-                base = .spend("Worth your \(claimWord(league)): +\(amount) pts/gm over \(baseline.name).")
-            } else if gap > 0 {
-                base = .hold("Only +\(amount) pts/gm over \(baseline.name) — not worth your \(claimWord(league)).")
-            } else {
-                base = .hold("Not an upgrade on \(baseline.name) (\(amount) pts/gm) — keep your \(claimWord(league)).")
-            }
+        let nextFreeAgent = targets.dropFirst().compactMap { byID[$0.id] }.first { $0.availability == .freeAgent }
+        let gap: Double? = {
+            guard let mine = top.outlook, let next = nextFreeAgent?.outlook else { return nil }
+            return mine - next
+        }()
+        let contested = (top.trendingAdds ?? 0) >= Thresholds.contestedAdds
+        let clearlyBetter = gap.map { $0 >= Thresholds.overNext } ?? (nextFreeAgent == nil)
+        if clearlyBetter && contested {
+            return .spend("Worth your \(claimWord(league)): \(name) is clearly best here and others are adding him.")
+        } else if contested {
+            return .spend("Others are adding \(name) — claim now if you want him.")
+        } else if clearlyBetter {
+            return .hold("\(name) is best here but few are adding him — he'll likely clear waivers.")
         } else {
-            let nextFreeAgent = ranked.dropFirst().compactMap { byID[$0.id] }.first { $0.availability == .freeAgent }
-            let gap: Double? = {
-                guard let mine = top.outlook, let next = nextFreeAgent?.outlook else { return nil }
-                return mine - next
-            }()
-            let contested = (top.trendingAdds ?? 0) >= Thresholds.contestedAdds
-            let clearlyBetter = gap.map { $0 >= Thresholds.overNext } ?? (nextFreeAgent == nil)
-            if clearlyBetter && contested {
-                base = .spend("Worth your \(claimWord(league)): \(name) is clearly best here and others are adding him.")
-            } else if contested {
-                base = .spend("Others are adding \(name) — claim now if you want him.")
-            } else if clearlyBetter {
-                base = .hold("\(name) is best here but few are adding him — he'll likely clear waivers.")
-            } else {
-                base = .hold("Close call and nobody's rushing — save your \(claimWord(league)).")
-            }
+            return .hold("Close call and nobody's rushing — save your \(claimWord(league)).")
         }
-        // Near the back of a priority order, a claim costs little.
-        if case .hold(let text) = base, isNearBack(league) {
-            return .hold(text + " You're near the back of the order anyway, so a claim is cheap.")
-        }
-        return base
     }
 
     private static func claimWord(_ league: League) -> String {
@@ -275,6 +355,7 @@ public struct CompareVerdict: Hashable, Sendable {
     private static func faabBid(top: Input, priority: Priority, league: League) -> FAABBid? {
         guard case .faab = league.waivers, let remaining = league.faabRemaining, remaining > 0 else { return nil }
         guard top.availability == .freeAgent else { return nil }
+        if case .keep = priority { return nil }
         let contested = (top.trendingAdds ?? 0) >= Thresholds.contestedAdds
         let range: (Double, Double)
         let note: String
@@ -296,9 +377,9 @@ public struct CompareVerdict: Hashable, Sendable {
         return FAABBid(low: low, high: high, note: note)
     }
 
-    private static func reasons(_ input: Input, among targets: [Input], baseline: Input?) -> [String] {
+    private static func reasons(_ input: Input, baseline: Input?) -> [String] {
         var out: [String] = []
-        if let baseline, let mine = baseline.outlook, let theirs = input.outlook {
+        if let baseline, baseline.id != input.id, let mine = baseline.outlook, let theirs = input.outlook {
             let gap = theirs - mine
             out.append("\(gap >= 0 ? "+" : "")\(gap.formatted(.number.precision(.fractionLength(1)))) RoS/gm vs \(baseline.name)")
         } else if let outlook = input.outlook {
