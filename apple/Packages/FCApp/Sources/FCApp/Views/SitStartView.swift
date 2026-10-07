@@ -9,6 +9,9 @@ import FCData
 /// who the basis couldn't value and why.
 public struct SitStartView: View {
     @ObservedObject var model: SitStartModel
+    @Environment(\.appServices) private var services
+    /// The slot being decided head to head.
+    @State private var deciding: DecideSession?
 
     public init(model: SitStartModel) {
         self.model = model
@@ -73,6 +76,9 @@ public struct SitStartView: View {
         .sensoryFeedback(.success, trigger: model.refreshCount)
         .sensoryFeedback(.selection, trigger: model.basis)
         .navigationTitle("Sit/Start")
+        .sheet(item: $deciding) { session in
+            if let services { DecideSheet(services: services, session: session) }
+        }
     }
 
     // MARK: - Hero
@@ -205,6 +211,31 @@ public struct SitStartView: View {
 
     // MARK: - Lineup
 
+    /// Opens the slot head to head; a spacer where there's nothing to decide,
+    /// so the values stay in a column.
+    @ViewBuilder
+    private func decideButton(_ slot: DecideSlot?) -> some View {
+        if let slot {
+            Button { open(slot) } label: {
+                Image(systemName: "scalemass")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(slot.isCloseCall ? Palette.caution : slot.hasBenchOption ? Color.accentColor : Color.secondary)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Decide \(slot.token)")
+            .accessibilityIdentifier("sitstart.decide.\(slot.index)")
+        } else {
+            Color.clear.frame(width: 28, height: 28)
+        }
+    }
+
+    private func open(_ slot: DecideSlot) {
+        guard let services else { return }
+        deciding = services.decide.session(for: slot)
+    }
+
     private var lineupSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             SectionHeader(
@@ -215,6 +246,8 @@ public struct SitStartView: View {
                 systemImage: "list.bullet.rectangle"
             )
             .padding(.bottom, 4)
+            let decidable = Dictionary(uniqueKeysWithValues: (services?.decide.slots() ?? [])
+                .filter(\.canDecide).map { ($0.index, $0) })
             ForEach(model.lineup) { slot in
                 HStack(spacing: 8) {
                     Text(slot.slot)
@@ -249,6 +282,12 @@ public struct SitStartView: View {
                         .foregroundStyle(.secondary)
                         .frame(width: 40, alignment: .trailing)
                         .contentTransition(.numericText())
+                    decideButton(decidable[slot.index])
+                }
+                .contextMenu {
+                    if let decide = decidable[slot.index] {
+                        Button { open(decide) } label: { Label("Decide \(slot.slot)", systemImage: "scalemass") }
+                    }
                 }
                 .padding(.vertical, 5)
                 .padding(.horizontal, 8)

@@ -252,6 +252,12 @@ public final class WaiverBoardModel: ObservableObject {
         rows = Self.sorted(out, by: sort)
     }
 
+    /// Every free agent at these positions, whatever the board's filters say —
+    /// the Decide hopper must not change when the user sorts the board.
+    public func freeAgents(eligible: Set<Position>) -> [WaiverRow] {
+        allRows.filter { $0.availability == .freeAgent && eligible.contains($0.position) }
+    }
+
     /// A panel's own cut of the board: its position and sort, leaving out the
     /// board's search, position and bye filters so the panel stands alone.
     /// Rival benches follow the board.

@@ -55,7 +55,7 @@ final class PhoneHubTests: XCTestCase {
 
     func testTheBoardComesFirstAndInjuriesLiveInLineup() {
         XCTAssertEqual(PhoneHub.allCases.map(\.title), ["Board", "Team", "Lineup", "Market", "Streams"])
-        XCTAssertEqual(PhoneHub.lineup.screens, [.sitStart, .matchup, .injuries])
+        XCTAssertEqual(PhoneHub.lineup.screens, [.sitStart, .decide, .matchup, .injuries])
         let router = AppRouter(selection: .screen(.injuries))
         XCTAssertEqual(router.phoneHub, .lineup, "an injuries deep link lands in Lineup")
         XCTAssertEqual(router.segment(in: .lineup), .injuries)

@@ -77,7 +77,7 @@ public enum PhoneHub: String, CaseIterable, Hashable, Sendable, Identifiable {
         switch self {
         case .board: return [.board]
         case .team: return [.dashboard]
-        case .lineup: return [.sitStart, .matchup, .injuries]
+        case .lineup: return [.sitStart, .decide, .matchup, .injuries]
         case .market: return [.discovery, .waivers, .trades, .planning]
         case .streams: return [.qbStream, .rbStream, .wrStream, .kStream, .dstStream, .idpStream]
         }

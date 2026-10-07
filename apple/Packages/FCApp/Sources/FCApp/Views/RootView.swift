@@ -72,6 +72,7 @@ public struct RootView: View {
         case kStream = "K Stream"
         case matchup = "Matchup"
         case sitStart = "Sit/Start"
+        case decide = "Decide"
         case settings = "Settings"
 
         public var id: String { rawValue }
@@ -93,6 +94,7 @@ public struct RootView: View {
             case .kStream: return "figure.australian.football"
             case .matchup: return "person.2"
             case .sitStart: return "arrow.left.arrow.right"
+            case .decide: return "scalemass"
             case .settings: return "gearshape"
             }
         }
@@ -100,7 +102,7 @@ public struct RootView: View {
         /// Which sidebar group this screen sits under on desktop.
         var section: SidebarSection {
             switch self {
-            case .board, .dashboard, .sitStart, .injuries: return .team
+            case .board, .dashboard, .sitStart, .decide, .injuries: return .team
             case .matchup: return .week
             case .planning, .waivers, .trades, .idpStream, .wrStream, .rbStream, .discovery, .qbStream, .dstStream, .kStream:
                 return .market
@@ -259,6 +261,12 @@ public struct RootView: View {
         case .sitStart:
             if settingsModel.settings.isConfigured {
                 SitStartView(model: services.sitStart)
+            } else {
+                needsSetup
+            }
+        case .decide:
+            if settingsModel.settings.isConfigured {
+                DecideView(services: services)
             } else {
                 needsSetup
             }

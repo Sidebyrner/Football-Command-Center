@@ -37,6 +37,8 @@ public struct CompareGutCheck: Hashable, Sendable {
         public static let hotStretch = 1.25
         /// Points the best game has to beat the other's best by.
         public static let ceilingGap = 5.0
+        /// This week's floor or ceiling gap worth mentioning.
+        public static let rangeGap = 3.0
         /// Schedule multiplier gap that reads as softer.
         public static let scheduleGap = 0.08
         /// Adjusted-score margins: below the first is a coin flip, below the
@@ -63,10 +65,7 @@ public struct CompareGutCheck: Hashable, Sendable {
 
     public static func assess(pick: PlayerComparison.Player, alternative: PlayerComparison.Player,
                               margin: Double?, now: Date = Date()) -> CompareGutCheck {
-        let caseFor = Array(caseFor(alternative, against: pick, now: now)
-            .sorted { $0.strength > $1.strength }.prefix(3))
-        let risks = Array(risks(pick).sorted { $0.strength > $1.strength }.prefix(2))
-        let strength = caseFor.map(\.strength).reduce(0, +) + risks.map(\.strength).reduce(0, +)
+        let (caseFor, risks, strength) = points(pick: pick, alternative: alternative, lens: .restOfSeason, posture: .unknown, now: now)
         let confidence: Confidence
         let margin = margin ?? Thresholds.leanMargin
         if margin < Thresholds.coinFlipMargin || (strength >= 3 && margin < Thresholds.leanMargin) {
@@ -76,6 +75,33 @@ public struct CompareGutCheck: Hashable, Sendable {
         } else {
             confidence = .clear
         }
+        return finish(pick: pick, alternative: alternative, confidence: confidence, caseFor: caseFor, risks: risks)
+    }
+
+    /// The this-week start call argued with: the tally sets the confidence,
+    /// and a strong enough case against it takes it down one step.
+    public static func build(comparison: PlayerComparison, start verdict: StartVerdict, posture: MatchupPosture,
+                             now: Date = Date()) -> CompareGutCheck? {
+        guard let pick = comparison.players.first(where: { $0.id == verdict.pickID }),
+              let alternative = comparison.players.first(where: { $0.id == verdict.alternativeID }) else { return nil }
+        let (caseFor, risks, strength) = points(pick: pick, alternative: alternative, lens: .thisWeek, posture: posture, now: now)
+        var confidence = verdict.confidence
+        if strength >= 3 {
+            confidence = confidence == .clear ? .lean : .coinFlip
+        }
+        return finish(pick: pick, alternative: alternative, confidence: confidence, caseFor: caseFor, risks: risks)
+    }
+
+    private static func points(pick: PlayerComparison.Player, alternative: PlayerComparison.Player, lens: CompareLens,
+                               posture: MatchupPosture, now: Date) -> (caseFor: [Point], risks: [Point], strength: Int) {
+        let caseFor = Array(caseFor(alternative, against: pick, lens: lens, posture: posture, now: now)
+            .sorted { $0.strength > $1.strength }.prefix(3))
+        let risks = Array(risks(pick, lens: lens).sorted { $0.strength > $1.strength }.prefix(2))
+        return (caseFor, risks, caseFor.map(\.strength).reduce(0, +) + risks.map(\.strength).reduce(0, +))
+    }
+
+    private static func finish(pick: PlayerComparison.Player, alternative: PlayerComparison.Player, confidence: Confidence,
+                               caseFor: [Point], risks: [Point]) -> CompareGutCheck {
         let hasCase = caseFor.contains { $0.strength > 0 }
         let summary: String
         switch confidence {
@@ -94,7 +120,8 @@ public struct CompareGutCheck: Hashable, Sendable {
 
     // MARK: - Signals
 
-    private static func caseFor(_ player: PlayerComparison.Player, against pick: PlayerComparison.Player, now: Date) -> [Point] {
+    private static func caseFor(_ player: PlayerComparison.Player, against pick: PlayerComparison.Player,
+                                lens: CompareLens, posture: MatchupPosture, now: Date) -> [Point] {
         var out: [Point] = []
         if let luck = luck(player), luck >= Thresholds.unlucky {
             out.append(Point(text: "Scoring \(one(luck)) pts/gm under his expected points — the volume says more is coming.",
@@ -107,13 +134,17 @@ public struct CompareGutCheck: Hashable, Sendable {
         if let (recent, season) = stretch(player), season > 0, recent >= season * Thresholds.hotStretch {
             out.append(Point(text: "Averaging \(one(recent)) over his last 3, up from \(one(season)) on the season.", strength: 1))
         }
-        if let best = player.ceiling, best >= (pick.ceiling ?? 0) + Thresholds.ceilingGap {
+        if lens == .thisWeek {
+            out += range(player, against: pick, posture: posture)
+        } else if let best = player.ceiling, best >= (pick.ceiling ?? 0) + Thresholds.ceilingGap {
             out.append(Point(text: "Best game \(one(best)) vs \(one(pick.ceiling ?? 0)) — the higher ceiling.", strength: 1))
         }
         if player.values[.depthRank] == 1, let theirs = pick.values[.depthRank], theirs > 1 {
             out.append(Point(text: "First on his depth chart; \(pick.name) is No. \(Int(theirs)).", strength: 1))
         }
-        if let mine = player.strengthOfSchedule, let theirs = pick.strengthOfSchedule, mine - theirs >= Thresholds.scheduleGap {
+        if lens == .thisWeek {
+            // Next week's schedule says nothing about who starts this one.
+        } else if let mine = player.strengthOfSchedule, let theirs = pick.strengthOfSchedule, mine - theirs >= Thresholds.scheduleGap {
             out.append(Point(text: "Softer schedule ahead (\(two(mine))× vs \(two(theirs))×).", strength: 1))
         } else if let mine = player.values[.playoffMatchups], let theirs = pick.values[.playoffMatchups],
                   mine - theirs >= Thresholds.scheduleGap {
@@ -126,10 +157,35 @@ public struct CompareGutCheck: Hashable, Sendable {
         return out
     }
 
-    private static func risks(_ pick: PlayerComparison.Player) -> [Point] {
+    /// This week's range against the pick's. A range the tally already
+    /// counted is context; one it left out is a real point.
+    private static func range(_ player: PlayerComparison.Player, against pick: PlayerComparison.Player,
+                              posture: MatchupPosture) -> [Point] {
         var out: [Point] = []
+        let counted = posture.votingRangeSignal
+        if let mine = player.values[.ceilingThisWeek], let theirs = pick.values[.ceilingThisWeek],
+           mine - theirs >= Thresholds.rangeGap {
+            out.append(Point(text: "Bigger ceiling this week (\(one(mine)) vs \(one(theirs))).", strength: counted == nil ? 1 : 0))
+        }
+        if let mine = player.values[.floorThisWeek], let theirs = pick.values[.floorThisWeek],
+           mine - theirs >= Thresholds.rangeGap {
+            out.append(Point(text: "Safer floor this week (\(one(mine)) vs \(one(theirs))).", strength: counted == nil ? 1 : 0))
+        }
+        return out
+    }
+
+    private static func risks(_ pick: PlayerComparison.Player, lens: CompareLens) -> [Point] {
+        var out: [Point] = []
+        // This week a Questionable player is ranked on his full value, as in
+        // Sit/Start; what his practice week says is the real risk.
+        if lens == .thisWeek, let practice = pick.practice, practice != .full {
+            out.append(Point(text: "\(pick.name): \(practice.label.lowercased()) in the latest practice report.",
+                             strength: practice == .didNotParticipate ? 2 : 1))
+        }
         let penalty = CompareVerdict.injuryPenalty(pick.injuryDesignation)
-        if let designation = pick.injuryDesignation, penalty > 0 {
+        if lens == .thisWeek {
+            // Covered above, or by the "can't start" list.
+        } else if let designation = pick.injuryDesignation, penalty > 0 {
             out.append(Point(text: "\(pick.name) is listed \(designation).", strength: penalty >= 0.25 ? 2 : 1))
         } else if let practice = pick.practice, practice != .full {
             out.append(Point(text: "\(pick.name): \(practice.label.lowercased()) in practice.", strength: 1))

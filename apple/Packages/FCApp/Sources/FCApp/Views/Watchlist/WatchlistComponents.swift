@@ -31,6 +31,8 @@ struct AvailabilityBadge: View {
     let availability: Availability?
     var isBaseline = false
     var wasClaimed = false
+    /// Holds the slot being decided.
+    var isIncumbent = false
 
     var body: some View {
         Text(text)
@@ -44,6 +46,7 @@ struct AvailabilityBadge: View {
     }
 
     private var text: String {
+        if isIncumbent { return "STARTING" }
         if isBaseline { return "YOURS" }
         guard let availability else { return "—" }
         switch availability {
@@ -55,7 +58,7 @@ struct AvailabilityBadge: View {
     }
 
     private var tint: Color {
-        if isBaseline { return .accentColor }
+        if isBaseline || isIncumbent { return .accentColor }
         switch availability {
         case .freeAgent: return Palette.start
         case .rivalBench, .rivalStarter: return Palette.caution
@@ -71,7 +74,6 @@ struct VerdictCard: View {
     let verdict: CompareVerdict
     var gutCheck: CompareGutCheck?
     var compact = false
-    @State private var showsGutCheck = true
 
     init(verdict: CompareVerdict, gutCheck: CompareGutCheck? = nil, compact: Bool = false) {
         self.verdict = verdict
@@ -132,7 +134,7 @@ struct VerdictCard: View {
                 .font(.caption2)
             }
             if let gutCheck {
-                gutCheckSection(gutCheck)
+                GutCheckSection(check: gutCheck)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -140,8 +142,32 @@ struct VerdictCard: View {
         .accessibilityIdentifier("compare.verdict")
     }
 
-    /// The case the numbers leave out, so the call can be second-guessed.
-    private func gutCheckSection(_ check: CompareGutCheck) -> some View {
+    private var priorityIcon: String {
+        switch verdict.priority {
+        case .spend: return "arrow.up.circle.fill"
+        case .hold: return "pause.circle.fill"
+        case .keep: return "hand.raised.fill"
+        case .notAClaim: return "arrow.triangle.swap"
+        case .nothing: return "minus.circle"
+        }
+    }
+
+    private var priorityTint: Color {
+        switch verdict.priority {
+        case .spend: return Palette.start
+        case .hold: return Palette.caution
+        case .keep: return .accentColor
+        case .notAClaim, .nothing: return .secondary
+        }
+    }
+}
+
+/// The case the numbers leave out, so the call can be second-guessed.
+struct GutCheckSection: View {
+    let check: CompareGutCheck
+    @State private var showsGutCheck = true
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Button {
                 withAnimation(Motion.snappy) { showsGutCheck.toggle() }
@@ -190,29 +216,16 @@ struct VerdictCard: View {
     }
 
     private func confidenceTint(_ confidence: CompareGutCheck.Confidence) -> Color {
+        ConfidenceTint.color(confidence)
+    }
+}
+
+enum ConfidenceTint {
+    static func color(_ confidence: CompareGutCheck.Confidence) -> Color {
         switch confidence {
         case .clear: return Palette.start
         case .lean: return Palette.caution
         case .coinFlip: return .orange
-        }
-    }
-
-    private var priorityIcon: String {
-        switch verdict.priority {
-        case .spend: return "arrow.up.circle.fill"
-        case .hold: return "pause.circle.fill"
-        case .keep: return "hand.raised.fill"
-        case .notAClaim: return "arrow.triangle.swap"
-        case .nothing: return "minus.circle"
-        }
-    }
-
-    private var priorityTint: Color {
-        switch verdict.priority {
-        case .spend: return Palette.start
-        case .hold: return Palette.caution
-        case .keep: return .accentColor
-        case .notAClaim, .nothing: return .secondary
         }
     }
 }
