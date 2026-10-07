@@ -44,6 +44,8 @@ public final class AppServices {
     public let playerCards: PlayerCardCache
     /// The saved targets, and the four of them being compared.
     public let watchlist: WatchlistModel
+    /// One-slot start decisions, derived from the models above.
+    public let decide: DecideModel
 
     private var hasLoaded = false
 
@@ -110,6 +112,7 @@ public final class AppServices {
         trades.relayBaseURL = relayBaseURL
         discovery = DiscoveryModel(loader: loader, sleeper: sleeper)
         gameDay = GameDayModel(loader: loader, sleeper: sleeper)
+        decide = DecideModel(sitStart: sitStart, waivers: waivers, matchup: matchup, discovery: discovery)
 
         workspaces = WorkspaceStore(persistence: workspacePersistence)
         linkBus = LinkBus()

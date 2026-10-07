@@ -1,7 +1,7 @@
 import SwiftUI
 import FCCore
 
-/// The Lineup tab's header: its three sections — Sit/Start, Matchup,
+/// The Lineup tab's header: its four sections — Sit/Start, Decide, Matchup,
 /// Injuries — as status cards that are also the section switcher, so each
 /// section's state is visible from the others.
 struct LineupHubHeader: View {
@@ -13,7 +13,7 @@ struct LineupHubHeader: View {
         Group {
             if let services {
                 LineupStatusCards(current: current, open: open, sitStart: services.sitStart,
-                                  matchup: services.matchup, injuries: services.injuries)
+                                  matchup: services.matchup, injuries: services.injuries, decide: services.decide)
             }
         }
         .padding(.horizontal)
@@ -40,6 +40,11 @@ enum LineupStatus {
             : Card(text: "\(swaps) swap\(swaps == 1 ? "" : "s")", tone: .caution)
     }
 
+    static func decide(closeCalls: Int) -> Card {
+        closeCalls == 0 ? Card(text: "All clear", tone: .good)
+            : Card(text: "\(closeCalls) close", tone: .caution)
+    }
+
     static func matchup(mine: Double?, theirs: Double?, live: Bool, nextKickoff: Date?) -> Card {
         if let mine, let theirs, mine + theirs > 0 || live {
             let tone: Tone = mine > theirs ? .good : mine < theirs ? .bad : .neutral
@@ -62,13 +67,17 @@ private struct LineupStatusCards: View {
     @ObservedObject var sitStart: SitStartModel
     @ObservedObject var matchup: MatchupModel
     @ObservedObject var injuries: InjuryCenterModel
+    /// Derived from Sit/Start, Matchup and the Waiver Board, which are observed.
+    let decide: DecideModel
     @Environment(\.hubTint) private var hubTint
     private var tint: Color { hubTint ?? HubStyle.lineup }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             card(.sitStart, title: "Sit/Start", icon: "arrow.left.arrow.right",
                  status: LineupStatus.sitStart(swaps: sitStart.starts.count))
+            card(.decide, title: "Decide", icon: "scalemass",
+                 status: LineupStatus.decide(closeCalls: decide.slots().filter(\.isCloseCall).count))
             card(.matchup, title: "Matchup", icon: "person.2", status: matchupStatus)
             card(.injuries, title: "Injuries", icon: "cross.case", status: injuryStatus)
         }
@@ -99,7 +108,7 @@ private struct LineupStatusCards: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 4) {
                     Image(systemName: icon).font(.caption2.weight(.semibold))
-                    Text(title).font(.caption.weight(.semibold)).lineLimit(1)
+                    Text(title).font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.75)
                     Spacer(minLength: 0)
                     if status.isLive { LiveDot(size: 6) }
                 }
@@ -111,7 +120,7 @@ private struct LineupStatusCards: View {
                     .minimumScaleFactor(0.8)
                     .contentTransition(.numericText())
             }
-            .padding(.horizontal, 9)
+            .padding(.horizontal, 8)
             .padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous)

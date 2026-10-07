@@ -29,6 +29,11 @@ final class LineupHubTests: XCTestCase {
         XCTAssertEqual(LineupStatus.injuries(out: 0, questionable: 0), .init(text: "All clear", tone: .good))
     }
 
+    func testDecideCard() {
+        XCTAssertEqual(LineupStatus.decide(closeCalls: 0), .init(text: "All clear", tone: .good))
+        XCTAssertEqual(LineupStatus.decide(closeCalls: 2), .init(text: "2 close", tone: .caution))
+    }
+
     func testRuledOutStartersActNowEveryoneElseIsWatched() async throws {
         let (services, directory) = try await WorkspaceFixture.services()
         defer { try? FileManager.default.removeItem(at: directory) }

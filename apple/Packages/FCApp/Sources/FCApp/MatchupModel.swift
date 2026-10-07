@@ -157,6 +157,12 @@ public struct MatchupSide: Hashable, Sendable {
 
     /// Whether any of this side's starters may be playing right now.
     public var hasLiveGame: Bool { rows.contains(where: \.isLive) }
+
+    /// The starters' projections added up; `nil` when none has one.
+    public var projectedTotal: Double? {
+        let values = rows.filter { !$0.isEmptySlot }.compactMap(\.projected)
+        return values.isEmpty ? nil : values.reduce(0, +)
+    }
 }
 
 /// Matchup — "this week, both sides" (§7.2).

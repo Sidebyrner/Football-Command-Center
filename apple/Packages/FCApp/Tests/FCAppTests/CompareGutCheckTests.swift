@@ -102,4 +102,52 @@ final class CompareGutCheckTests: XCTestCase {
         let alone = CompareVerdict.compute(CompareVerdict.inputs(from: single), league: .init(waivers: .reverseStandings))
         XCTAssertNil(CompareGutCheck.build(comparison: single, verdict: alone, now: now))
     }
+
+    // MARK: - This week
+
+    private func start(pick: String, alternative: String, confidence: CompareGutCheck.Confidence) -> StartVerdict {
+        let inputs = [StartVerdict.Input(id: pick.lowercased(), name: pick, signals: [.projected: 20]),
+                      StartVerdict.Input(id: alternative.lowercased(), name: alternative, signals: [.projected: 5])]
+        let verdict = StartVerdict.compute(inputs, posture: .unknown)
+        return StartVerdict(ranked: verdict.ranked, blocked: [], headline: verdict.headline, pickID: verdict.pickID,
+                            alternativeID: verdict.alternativeID, confidence: confidence, thinData: false, edgeLine: nil,
+                            postureLine: "", votingSignals: [], signalLeaders: [:], contingency: nil, notes: [])
+    }
+
+    func testThisWeekDropsTheScheduleAndKeepsTheTallysConfidence() {
+        var alpha = player("Alpha", values: [.depthRank: 1])
+        alpha.strengthOfSchedule = 0.90
+        var bravo = player("Bravo", values: [.depthRank: 1])
+        bravo.strengthOfSchedule = 1.20
+        let comparison = PlayerComparison(players: [alpha, bravo], lastN: 4, weeks: [])
+        let check = try! XCTUnwrap(CompareGutCheck.build(comparison: comparison, start: start(pick: "Alpha", alternative: "Bravo", confidence: .clear),
+                                                         posture: .unknown, now: now))
+        XCTAssertFalse(texts(check.caseForAlternative).contains("schedule"), "next week's schedule doesn't decide this one")
+        XCTAssertEqual(check.confidence, .clear)
+    }
+
+    func testThisWeekRangeCountsOnlyWhenTheTallyLeftItOut() {
+        let alpha = player("Alpha", values: [.ceilingThisWeek: 12])
+        let bravo = player("Bravo", values: [.ceilingThisWeek: 22])
+        let comparison = PlayerComparison(players: [alpha, bravo], lastN: 4, weeks: [])
+        let verdict = start(pick: "Alpha", alternative: "Bravo", confidence: .clear)
+        let close = try! XCTUnwrap(CompareGutCheck.build(comparison: comparison, start: verdict, posture: .close(0), now: now))
+        XCTAssertEqual(close.caseForAlternative.first?.text, "Bigger ceiling this week (22.0 vs 12.0).")
+        XCTAssertEqual(close.caseForAlternative.first?.strength, 1)
+        let behind = try! XCTUnwrap(CompareGutCheck.build(comparison: comparison, start: verdict, posture: .underdog(-12), now: now))
+        XCTAssertEqual(behind.caseForAlternative.first?.strength, 0, "the ceiling already voted")
+    }
+
+    func testThisWeekPracticeIsTheRiskAndCanCostAStep() {
+        var alpha = player("Alpha", values: [.ceilingThisWeek: 10, .floorThisWeek: 2])
+        alpha.injuryDesignation = "Questionable"
+        alpha.practice = .didNotParticipate
+        let bravo = player("Bravo", values: [.ceilingThisWeek: 20, .floorThisWeek: 8])
+        let comparison = PlayerComparison(players: [alpha, bravo], lastN: 4, weeks: [])
+        let check = try! XCTUnwrap(CompareGutCheck.build(comparison: comparison, start: start(pick: "Alpha", alternative: "Bravo", confidence: .clear),
+                                                         posture: .close(0), now: now))
+        XCTAssertEqual(check.risksForPick.first?.text, "Alpha: did not practice in the latest practice report.")
+        XCTAssertFalse(texts(check.risksForPick).contains("listed Questionable"), "Q itself isn't a penalty this week")
+        XCTAssertEqual(check.confidence, .lean, "practice and range together take a clear call down a step")
+    }
 }

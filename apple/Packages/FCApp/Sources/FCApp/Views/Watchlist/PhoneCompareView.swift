@@ -1,14 +1,19 @@
 import SwiftUI
 import FCCore
 
-/// The watchlist's compared players on a phone: the verdict on top, then a
-/// spreadsheet — metric names pinned on the left, one column per player that
-/// scrolls sideways, about two and a half in view.
-struct PhoneCompareView: View {
+/// Compared players on a phone: the call on top, then a spreadsheet — metric
+/// names pinned on the left, one column per player that scrolls sideways,
+/// about two and a half in view. The same view answers two questions, picked
+/// with the lens: who starts this week, or who to keep and add.
+struct PhoneCompareView<Source: CompareSource>: View {
     let services: AppServices
     @ObservedObject var discovery: DiscoveryModel
-    @ObservedObject var watchlist: WatchlistModel
+    @ObservedObject var source: Source
+    @State private var lens: CompareLens
+    /// Shown under the grid — Decide's free-agent hopper.
+    var footer: (() -> AnyView)?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openScreen) private var openScreen
     /// The Player Card opens over this sheet, not from the shell — which is
     /// already presenting this.
     @State private var card: PlayerCardModel?
@@ -16,7 +21,16 @@ struct PhoneCompareView: View {
     /// with their news and projections.
     @State private var loadedGeneration = 0
 
-    static let labelWidth: CGFloat = 112
+    init(services: AppServices, discovery: DiscoveryModel, source: Source, lens: CompareLens,
+         footer: (() -> AnyView)? = nil) {
+        self.services = services
+        self.discovery = discovery
+        self.source = source
+        self._lens = State(initialValue: lens)
+        self.footer = footer
+    }
+
+    static var labelWidth: CGFloat { 112 }
 
     var body: some View {
         Group {
@@ -26,52 +40,82 @@ struct PhoneCompareView: View {
                 LoadingPlaceholder(label: "Loading…")
             }
         }
-        .navigationTitle("Compare")
+        .navigationTitle(source.slotToken.map { "Decide \($0)" } ?? "Compare")
         .sheet(item: $card) { PlayerCardSheet(model: $0) }
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {
             ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
-            ToolbarItem(placement: .primaryAction) {
-                NavigationLink {
-                    WatchlistListView(services: services, watchlist: watchlist)
-                } label: {
-                    Label("Watchlist", systemImage: "star.square.on.square")
+            if let watchlist = source as? WatchlistModel {
+                ToolbarItem(placement: .primaryAction) {
+                    NavigationLink {
+                        WatchlistListView(services: services, watchlist: watchlist)
+                    } label: {
+                        Label("Watchlist", systemImage: "star.square.on.square")
+                    }
+                    .accessibilityIdentifier("compare.phone.watchlist")
                 }
-                .accessibilityIdentifier("compare.phone.watchlist")
             }
         }
     }
 
     @ViewBuilder
     private func content(_ context: LeagueContext) -> some View {
-        let ids = watchlist.comparingIDs
+        let ids = source.compareIDs
         let cards = ids.map { services.playerCard($0, context: context) }
         let _ = loadedGeneration
+        let thisWeek = lens == .thisWeek
+        let decide = services.decide
+        let signals: ((String) -> [StartSignal: Double])? = thisWeek ? { decide.signals(for: $0) } : nil
+        let baselineID: String? = thisWeek ? nil : source.compareBaselineID
         let comparison = PlayerComparison.build(cards: cards, rows: discovery.row(for:), defense: discovery.defense,
-                                                lastN: 4, baselineID: watchlist.baselineID)
+                                                lastN: 4, baselineID: baselineID, signals: signals)
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                Picker("Question", selection: $lens) {
+                    ForEach(CompareLens.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("compare.lens")
                 if comparison.players.isEmpty {
                     emptyState
                 } else {
-                    VerdictCard(comparison: comparison, context: context)
-                    .card()
-                    .accessibilityIdentifier("compare.phone.verdict")
+                    verdict(comparison, context: context)
+                        .card()
+                        .accessibilityIdentifier("compare.phone.verdict")
                     grid(comparison, context: context)
-                    Text("Best on each row in green; your players are ranked too. Swipe the columns sideways.")
+                    Text(thisWeek
+                         ? "Best on each row in green — the same numbers Sit/Start uses. Swipe the columns sideways."
+                         : "Best on each row in green; your players are ranked too. Swipe the columns sideways.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+                if let footer { footer() }
             }
             .padding()
         }
+        .sensoryFeedback(.selection, trigger: lens)
         .task(id: ids.joined(separator: ",")) {
             await withTaskGroup(of: Void.self) { tasks in
                 for card in cards { tasks.addTask { await card.load() } }
             }
             loadedGeneration += 1
+        }
+    }
+
+    @ViewBuilder
+    private func verdict(_ comparison: PlayerComparison, context: LeagueContext) -> some View {
+        switch lens {
+        case .restOfSeason:
+            VerdictCard(comparison: comparison, context: context)
+        case .thisWeek:
+            let posture = services.decide.posture
+            let verdict = services.decide.verdict(ids: comparison.players.map(\.id), incumbentID: source.incumbentID,
+                                                  slot: source.slotToken)
+            StartVerdictCard(verdict: verdict,
+                             gutCheck: CompareGutCheck.build(comparison: comparison, start: verdict, posture: posture),
+                             openWaivers: verdict.pickIsFreeAgent ? { dismiss(); openScreen(.waivers) } : nil)
         }
     }
 
@@ -86,7 +130,7 @@ struct PhoneCompareView: View {
     // MARK: - Grid
 
     private func rows(_ comparison: PlayerComparison) -> [PhoneCompareRow] {
-        PhoneCompareRow.allCases.filter { row in
+        PhoneCompareRow.rows(for: lens).filter { row in
             switch row {
             case .news: return comparison.players.contains { $0.headline != nil }
             case .playoffs: return comparison.players.contains { !$0.playoffSchedule.isEmpty }
@@ -147,12 +191,12 @@ struct PhoneCompareView: View {
                     .background(stripe(rowIndex))
             }
         }
-        .background(player.isBaseline ? Color.accentColor.opacity(0.06) : Color.clear)
+        .background(isAnchor(player) ? Color.accentColor.opacity(0.06) : Color.clear)
         .overlay(alignment: .leading) {
             Rectangle().fill(Palette.surfaceRaised).frame(width: 1)
         }
         .overlay {
-            if player.isBaseline {
+            if isAnchor(player) {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .strokeBorder(Color.accentColor.opacity(0.6), style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
                     .padding(2)
@@ -170,7 +214,8 @@ struct PhoneCompareView: View {
             header(player, context: context)
         case .availability:
             AvailabilityBadge(availability: player.availability, isBaseline: player.isBaseline,
-                              wasClaimed: watchlist.wasClaimed(player.id))
+                              wasClaimed: source.compareWasClaimed(player.id),
+                              isIncumbent: player.id == source.incumbentID)
         case .injury:
             VStack(spacing: 1) {
                 Text(player.injuryDesignation ?? "Healthy")
@@ -237,19 +282,27 @@ struct PhoneCompareView: View {
             } label: {
                 Label("Open Player Card", systemImage: "person.text.rectangle")
             }
-            if player.availability == .mine {
+            if source.supportsBaseline, player.availability == .mine {
                 if player.isBaseline {
-                    Button { watchlist.clearBaseline() } label: { Label("Stop using as baseline", systemImage: "ruler") }
+                    Button { source.setCompareBaseline(nil) } label: { Label("Stop using as baseline", systemImage: "ruler") }
                 } else {
-                    Button { watchlist.setBaseline(player.id) } label: { Label("Use as baseline", systemImage: "ruler") }
+                    Button { source.setCompareBaseline(player.id) } label: { Label("Use as baseline", systemImage: "ruler") }
                 }
             }
-            Button {
-                watchlist.toggleCompare(player.id)
-            } label: {
-                Label("Remove from compare", systemImage: "person.2.slash")
+            if source.canRemoveFromCompare(player.id) {
+                Button {
+                    source.removeFromCompare(player.id)
+                } label: {
+                    Label("Remove from compare", systemImage: "person.2.slash")
+                }
             }
         }
+    }
+
+    /// The column the others are measured against: the watchlist's baseline,
+    /// or the player holding the slot being decided.
+    private func isAnchor(_ player: PlayerComparison.Player) -> Bool {
+        player.isBaseline || player.id == source.incumbentID
     }
 
     private func playoffCell(_ week: PlayerSchedule.Week) -> some View {
@@ -273,6 +326,21 @@ enum PhoneCompareRow: String, CaseIterable, Hashable {
     case projected, restOfSeason, pointsPerGame, expectedPoints, trendingAdds
     case snapShare, targetShare, redZone, grade
     case opponent, teamTotal, schedule, bye, playoffs, depth
+    case commandCenter, form, floor, ceiling
+
+    /// The rows a lens shows, in order: this week's start signals first, or
+    /// the rest-of-season picture.
+    static func rows(for lens: CompareLens) -> [PhoneCompareRow] {
+        switch lens {
+        case .thisWeek:
+            return [.header, .availability, .injury, .projected, .commandCenter, .pointsPerGame, .form, .expectedPoints,
+                    .teamTotal, .floor, .ceiling, .opponent, .snapShare, .targetShare, .redZone, .depth, .news]
+        case .restOfSeason:
+            return [.header, .availability, .injury, .news, .projected, .restOfSeason, .pointsPerGame, .expectedPoints,
+                    .trendingAdds, .snapShare, .targetShare, .redZone, .grade, .opponent, .teamTotal, .schedule, .bye,
+                    .playoffs, .depth]
+        }
+    }
 
     var metric: PlayerComparison.Metric? {
         switch self {
@@ -290,6 +358,10 @@ enum PhoneCompareRow: String, CaseIterable, Hashable {
         case .schedule: return .strengthOfSchedule
         case .depth: return .depthRank
         case .playoffs: return .playoffMatchups
+        case .commandCenter: return .commandCenterThisWeek
+        case .form: return .formLast4
+        case .floor: return .floorThisWeek
+        case .ceiling: return .ceilingThisWeek
         case .header, .availability, .injury, .news, .bye: return nil
         }
     }
@@ -315,6 +387,10 @@ enum PhoneCompareRow: String, CaseIterable, Hashable {
         case .bye: return "Bye"
         case .playoffs: return "Playoff weeks"
         case .depth: return "Depth chart"
+        case .commandCenter: return "Command Center"
+        case .form: return "Last 4 pts/gm"
+        case .floor: return "Floor"
+        case .ceiling: return "Ceiling"
         }
     }
 
@@ -326,5 +402,12 @@ enum PhoneCompareRow: String, CaseIterable, Hashable {
         case .injury: return 42
         default: return 36
         }
+    }
+}
+
+extension PhoneCompareView where Source == WatchlistModel {
+    /// The watchlist's comparison, opened on the rest-of-season question.
+    init(services: AppServices, discovery: DiscoveryModel, watchlist: WatchlistModel) {
+        self.init(services: services, discovery: discovery, source: watchlist, lens: .restOfSeason)
     }
 }

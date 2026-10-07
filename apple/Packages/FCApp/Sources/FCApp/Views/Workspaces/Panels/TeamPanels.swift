@@ -59,6 +59,8 @@ struct LineupReadinessPanel: View {
 /// The recommended lineup: what changes and what it's worth, then the lineup.
 struct SitStartPanel: View {
     @ObservedObject var model: SitStartModel
+    @Environment(\.appServices) private var services
+    @State private var deciding: DecideSession?
 
     var body: some View {
         PanelGate(hasContext: model.context != nil, isLoading: model.isLoading, error: model.errorMessage) {
@@ -75,6 +77,8 @@ struct SitStartPanel: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .padding(.top, 4)
+                    let decidable = Dictionary(uniqueKeysWithValues: (services?.decide.slots() ?? [])
+                        .filter(\.canDecide).map { ($0.index, $0) })
                     ForEach(model.lineup) { slot in
                         HStack(spacing: 8) {
                             Text(Self.slotLabel(slot.slot))
@@ -89,12 +93,24 @@ struct SitStartPanel: View {
                                     .font(.caption.monospacedDigit().weight(slot.changed ? .bold : .regular))
                                     .foregroundStyle(slot.changed ? Palette.start : .primary)
                             }
+                            if let decide = decidable[slot.index], let services {
+                                Button { deciding = services.decide.session(for: decide) } label: {
+                                    Image(systemName: "scalemass").font(.caption2.weight(.semibold))
+                                        .foregroundStyle(decide.isCloseCall ? Palette.caution : decide.hasBenchOption ? Color.accentColor : Color.secondary)
+                                }
+                                .buttonStyle(.plain)
+                                .help("Decide \(slot.slot) head to head")
+                                .accessibilityLabel("Decide \(slot.slot)")
+                            }
                         }
                         .panelPlayerTap(slot.playerID, context: model.context)
                     }
                 }
                 PanelFootnote(text: "On \(model.basis.label.lowercased()).")
             }
+        }
+        .sheet(item: $deciding) { session in
+            if let services { DecideSheet(services: services, session: session) }
         }
     }
 

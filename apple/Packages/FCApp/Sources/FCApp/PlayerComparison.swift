@@ -8,7 +8,8 @@ public struct PlayerComparison: Sendable {
     public enum Metric: String, CaseIterable, Identifiable, Sendable {
         case pointsPerGame, expectedPointsLast4, snapShare, targetShare, redZoneTouches,
              projectedThisWeek, restOfSeason, gradeScore, opponentRank, impliedTeamTotal, strengthOfSchedule, depthRank,
-             trendingAdds, playoffMatchups
+             trendingAdds, playoffMatchups,
+             commandCenterThisWeek, formLast4, floorThisWeek, ceilingThisWeek
 
         public var id: String { rawValue }
 
@@ -28,6 +29,10 @@ public struct PlayerComparison: Sendable {
             case .depthRank: return "Depth chart"
             case .trendingAdds: return "Sleeper adds (24h)"
             case .playoffMatchups: return "Playoff matchups"
+            case .commandCenterThisWeek: return "Command Center this week"
+            case .formLast4: return "Last 4 pts/gm"
+            case .floorThisWeek: return "Floor (bad week)"
+            case .ceilingThisWeek: return "Ceiling (big week)"
             }
         }
 
@@ -194,7 +199,8 @@ public struct PlayerComparison: Sendable {
         rows: (String) -> WaiverRow?,
         defense: DefenseLookup,
         lastN: Int,
-        baselineID: String? = nil
+        baselineID: String? = nil,
+        signals: ((String) -> [StartSignal: Double])? = nil
     ) -> PlayerComparison {
         var weeks: Set<Int> = []
         let players = cards.prefix(LinkBus.compareLimit).enumerated().map { index, card -> Player in
@@ -242,6 +248,17 @@ public struct PlayerComparison: Sendable {
                                                 weeks: card.context.leagueFacts.playoffWeeks)
             player.playoffSchedule = playoffs.weeks
             values[.playoffMatchups] = playoffs.strengthOfSchedule
+            // This week's numbers exactly as Sit/Start values them, so the
+            // grid and the start call read the same figures.
+            if let signals = signals?(card.id) {
+                values[.projectedThisWeek] = signals[.projected] ?? values[.projectedThisWeek]
+                values[.pointsPerGame] = signals[.thisSeason] ?? values[.pointsPerGame]
+                values[.commandCenterThisWeek] = signals[.commandCenter]
+                values[.formLast4] = signals[.form]
+                values[.floorThisWeek] = signals[.floor]
+                values[.ceilingThisWeek] = signals[.ceiling]
+                values[.impliedTeamTotal] = signals[.environment] ?? values[.impliedTeamTotal]
+            }
             player.injuryDesignation = card.status?.report?.designation?.rawValue ?? card.status?.sleeperTag
             player.practice = card.status?.report?.practice
             player.values = values
