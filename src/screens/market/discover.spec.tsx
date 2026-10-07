@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { demoServices, renderScreen } from '../../../tests/renderScreen'
 import { discoverySortLabel } from '@models/market/DiscoveryModel'
 import { useApp } from '@ui/app/AppContext'
+import { linkBusCompareSource } from './CompareDialog'
 import { CompareDialog, DiscoverScreen } from './DiscoverScreen'
 import { shortName } from './shared'
 import { text } from './specText'
@@ -46,7 +47,7 @@ describe('Discover screen', () => {
     services.linkBus.publish({ kind: 'addCompare', playerID: b!.id }, 1)
     function Harness() {
       const { services } = useApp()
-      return <CompareDialog model={services.discovery} linkBus={services.linkBus} onClose={() => {}} />
+      return <CompareDialog model={services.discovery} source={linkBusCompareSource(services.linkBus, 1)} onClose={() => {}} />
     }
     try {
       const html = text(await renderScreen(Harness, '/discovery'))
@@ -55,6 +56,10 @@ describe('Discover screen', () => {
       expect(html).toContain(b!.name)
       expect(html).toContain('Range this season')
       expect(html).toContain('Clear')
+      // Rest of season by default: the keep/add verdict, with the lens toggle to this week.
+      expect(html).toContain('data-testid="compare-verdict"')
+      expect(html).toContain('This week')
+      expect(html).toContain('Rest of season')
     } finally {
       services.linkBus.publish({ kind: 'clearCompare' }, 1)
     }

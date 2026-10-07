@@ -80,6 +80,7 @@ export const SCREEN_SYSTEM_IMAGE: Readonly<Partial<Record<Screen, string>>> = {
   kStream: 'figure.australian.football',
   matchup: 'person.2',
   sitStart: 'arrow.left.arrow.right',
+  decide: 'scalemass',
   settings: 'gearshape',
 }
 

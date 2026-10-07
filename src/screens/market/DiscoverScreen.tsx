@@ -5,8 +5,8 @@
  * Player Card, which carries the same trends, log and news. The compare
  * sheet is a dialog over the screen.
  */
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { ArrowUpDown, Binoculars, Plus, RefreshCcw, SearchCheck, UserMinus, UserPlus, Users, X } from 'lucide-react'
+import { useMemo, useState, type CSSProperties } from 'react'
+import { ArrowUpDown, Binoculars, RefreshCcw, UserMinus, UserPlus, Users } from 'lucide-react'
 import type { Position } from '@core/Position'
 import { playerPosition } from '@data/playerIndex'
 import { availabilityLabel, startAvailability, startBadge, type LeagueContext } from '@models/league/LeagueContext'
@@ -15,9 +15,6 @@ import {
   type DiscoveryModel,
 } from '@models/market/DiscoveryModel'
 import { waiverRowValue, type WaiverRow } from '@models/market/WaiverBoardModel'
-import {
-  COMPARISON_METRICS, COMPARISON_METRIC_LABEL, formatComparisonMetric, PlayerComparison, type ComparisonMetric,
-} from '@models/player/PlayerComparison'
 import type { LinkBus } from '@models/workspaces/LinkBus'
 import { playerLookupMatches } from '@models/workspaces/PlayerLookup'
 import type { LinkGroup } from '@models/workspaces/Workspace'
@@ -25,7 +22,8 @@ import { useApp, useModel } from '@ui/app/AppContext'
 import { PlayerAvatar, PositionChip, SlidingPicker } from '@ui/components/Player'
 import { FilterChip, ScreenHero } from '@ui/components/Screen'
 import { InlineErrorBanner, LoadingPlaceholder } from '@ui/components/State'
-import { discoverValueText, InjuryBadge, points, SearchField, SelectMenu, shortName, Switch, tagBadge, useModels } from './shared'
+import { CompareDialog, linkBusCompareSource } from './CompareDialog'
+import { discoverValueText, InjuryBadge, points, SearchField, SelectMenu, shortName, Switch, tagBadge } from './shared'
 import './market.css'
 
 type Scope = 'freeAgents' | 'everyone'
@@ -34,10 +32,6 @@ const SCOPE_LABEL: Record<Scope, string> = { freeAgents: 'Free agents', everyone
 
 /** The phone's comparison uses the Blue link colour's list, as the desktop panels do. */
 const COMPARE_GROUP: LinkGroup = 1
-/** `ChartPalette.series` — the link colours, Blue first. */
-const SERIES = ['#3b82f6', '#f97316', '#22c55e', '#a855f7']
-const seriesColor = (i: number) => SERIES[i % SERIES.length]!
-
 const trimWhitespaces = (s: string) => s.replace(/^[\p{Zs}\t]+|[\p{Zs}\t]+$/gu, '')
 
 export function DiscoverScreen() {
@@ -121,7 +115,7 @@ export function DiscoverScreen() {
   return (
     <div className="mk-screen" style={{ '--hue': hue } as CSSProperties}>
       {body}
-      {comparing && <CompareDialog model={model} linkBus={linkBus} onClose={() => setComparing(false)} />}
+      {comparing && <CompareDialog model={model} source={linkBusCompareSource(linkBus, COMPARE_GROUP)} onClose={() => setComparing(false)} />}
     </div>
   )
 }
@@ -281,198 +275,4 @@ function DiscoverRow(props: {
 
 // MARK: - Compare
 
-/**
- * The compare sheet — a port of `ComparePanel`'s header, table and ranges.
- * Its editable trend-chart grid is a desktop workspace panel and isn't ported.
- */
-export function CompareDialog({ model, linkBus, onClose }: { model: DiscoveryModel; linkBus: LinkBus; onClose: () => void }) {
-  const { services, openPlayerCard } = useApp()
-  const context = model.context
-  const ids = linkBus.compareList(COMPARE_GROUP)
-  const [search, setSearch] = useState('')
-  const cards = useMemo(
-    () => (context ? ids.map((id) => services.playerCard(id, context)) : []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ids.join(','), context, services],
-  )
-  useModels(cards)
-  useEffect(() => { for (const card of cards) void card.load() }, [cards])
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  const comparison = PlayerComparison.build(cards, (id) => model.row(id), model.defense, 6)
-  const needle = trimWhitespaces(search)
-  const publish = (change: Parameters<LinkBus['publish']>[0]) => linkBus.publish(change, COMPARE_GROUP)
-
-  return (
-    <div className="mk-scrim" onClick={onClose}>
-      <div className="mk-dialog" role="dialog" aria-modal="true" aria-label="Compare" onClick={(e) => e.stopPropagation()}>
-        <header className="mk-dialog-header">
-          <h2 className="t-section">Compare</h2>
-          <button type="button" className="button mk-small" onClick={onClose}>Done</button>
-        </header>
-        {!context ? <LoadingPlaceholder label="Loading…" cards={2} /> : (
-          <div className="mk-stack">
-            <div className="mk-compare-chips">
-              {comparison.players.map((p) => (
-                <div key={p.id} className="mk-compare-chip" style={{ '--tint': seriesColor(p.seriesIndex) } as CSSProperties}>
-                  <button type="button" className="mk-compare-chip-main" onClick={() => openPlayerCard(p.id, context)}>
-                    <PlayerAvatar sleeperID={p.id} name={p.name} position={p.position} size={24} />
-                    <span>
-                      <span className="t-meta" style={{ fontWeight: 600, display: 'block' }}>{p.name}</span>
-                      <span className="t-meta muted">{[p.position, p.team].filter(Boolean).join(' · ')}</span>
-                    </span>
-                  </button>
-                  <button type="button" className="mk-icon-button" aria-label={`Remove ${p.name} from compare`} onClick={() => publish({ kind: 'removeCompare', playerID: p.id })}>
-                    <X size={14} aria-hidden />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="mk-toolbar-row">
-              {linkBus.canAddToCompare(COMPARE_GROUP) ? (
-                <SearchField value={search} onChange={setSearch} placeholder="Add a player…" />
-              ) : (
-                <span className="t-meta muted">Four is the most — remove one to add another.</span>
-              )}
-              <span style={{ flex: 1 }} />
-              {comparison.players.length > 0 && (
-                <button type="button" className="button mk-small" onClick={() => publish({ kind: 'clearCompare' })}>Clear</button>
-              )}
-            </div>
-            {needle !== '' && (
-              <div className="inset mk-stack-tight">
-                {(() => {
-                  const matches = playerLookupMatches(needle, context, ids)
-                  if (matches.length === 0) return <span className="t-meta muted">{`No player matches “${needle}”.`}</span>
-                  return matches.map((player) => (
-                    <button key={player.id} type="button" className="mk-search-result"
-                      onClick={() => { publish({ kind: 'addCompare', playerID: player.id }); setSearch('') }}>
-                      <PlayerAvatar sleeperID={player.id} name={player.name} position={playerPosition(player)} size={24} />
-                      <span className="mk-row-text">
-                        <span className="mk-name">{player.name}</span>
-                        <span className="t-meta muted">{[playerPosition(player), player.team].filter(Boolean).join(' · ')}</span>
-                      </span>
-                      <Plus size={16} color="var(--accent)" aria-hidden />
-                    </button>
-                  ))
-                })()}
-              </div>
-            )}
-            {comparison.players.length === 0 ? (
-              <div className="mk-empty">
-                <SearchCheck size={24} color={SERIES[0]} aria-hidden />
-                <div className="t-meta" style={{ fontWeight: 600 }}>Compare up to four players</div>
-                <div className="t-meta muted">Use the compare button on any row, or search above.</div>
-              </div>
-            ) : (
-              <>
-                <CompareBars comparison={comparison} />
-                <CompareTable comparison={comparison} />
-                <Ranges comparison={comparison} />
-              </>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-const BAR_MEASURES: readonly ComparisonMetric[] = ['pointsPerGame', 'expectedPointsLast4', 'projectedThisWeek', 'restOfSeason']
-const BAR_LABEL: Partial<Record<ComparisonMetric, string>> = {
-  pointsPerGame: 'Pts/gm', expectedPointsLast4: 'xFP L4', projectedThisWeek: 'Proj', restOfSeason: 'RoS',
-}
-
-/** The per-game numbers that share one scale, as grouped bars. */
-function CompareBars({ comparison }: { comparison: PlayerComparison }) {
-  const groups = BAR_MEASURES.map((m) => ({ m, values: comparison.players.map((p) => p.values[m]) }))
-    .filter((g) => g.values.some((v) => v !== undefined))
-  if (groups.length === 0) return <p className="t-meta muted">No per-game numbers yet.</p>
-  const top = Math.max(...groups.flatMap((g) => g.values.filter((v): v is number => v !== undefined)), 1)
-  return (
-    <div className="inset mk-stack-tight">
-      <span className="t-meta muted" style={{ fontWeight: 600 }}>Per game</span>
-      <div className="mk-bars" role="img" aria-label={`Per-game numbers for ${comparison.players.map((p) => p.name).join(', ')}`}>
-        {groups.map((g) => (
-          <div key={g.m} className="mk-bar-group">
-            <div className="mk-bar-cols">
-              {g.values.map((v, i) => (
-                <span key={i} className="mk-bar" style={{ height: `${v === undefined ? 0 : Math.max(2, (v / top) * 100)}%`, background: seriesColor(i) }} />
-              ))}
-            </div>
-            <span className="t-meta muted">{BAR_LABEL[g.m]}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/** One row per metric, one column per player; the best value on each row picked out. */
-function CompareTable({ comparison }: { comparison: PlayerComparison }) {
-  return (
-    <div className="inset mk-table-scroll">
-      <table className="mk-table">
-        <thead>
-          <tr>
-            <th scope="col"><span className="mk-sr-only">Metric</span></th>
-            {comparison.players.map((p) => (
-              <th key={p.id} scope="col" className="t-micro">
-                <span className="mk-dot" style={{ background: seriesColor(p.seriesIndex) }} aria-hidden /> {shortName(p.name)}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {COMPARISON_METRICS.map((metric) => {
-            const values = comparison.values(metric)
-            if (!values.some((v) => v !== undefined)) return null
-            const best = comparison.bestIndex(metric)
-            return (
-              <tr key={metric}>
-                <th scope="row" className="t-meta muted">{COMPARISON_METRIC_LABEL[metric]}</th>
-                {values.map((v, i) => (
-                  <td key={i} className="t-meta" style={{
-                    fontWeight: i === best ? 700 : 400,
-                    color: i === best ? 'var(--start)' : v === undefined ? 'var(--text-2)' : 'var(--text)',
-                  }}>
-                    {v === undefined ? '—' : formatComparisonMetric(metric, v)}{i === best && <span className="mk-sr-only"> (best)</span>}
-                  </td>
-                ))}
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function Ranges({ comparison }: { comparison: PlayerComparison }) {
-  const top = Math.max(0, ...comparison.players.map((p) => p.ceiling ?? 0)) * 1.05 || 1
-  return (
-    <div className="mk-stack-tight">
-      <span className="t-meta muted" style={{ fontWeight: 600 }}>Range this season</span>
-      {comparison.players.map((p) => {
-        if (p.floor === undefined || p.ceiling === undefined) return null
-        const expected = p.expected ?? (p.floor + p.ceiling) / 2
-        const pct = (x: number) => `${Math.max(0, Math.min(100, (x / top) * 100))}%`
-        return (
-          <div key={p.id} className="mk-range-row">
-            <span className="t-meta mk-ellipsis" style={{ width: 84, fontWeight: 500 }}>{shortName(p.name)}</span>
-            <span className="mk-range" role="img" aria-label={`${p.name}: worst ${points(p.floor)}, best ${points(p.ceiling)}, expected ${points(expected)}`}>
-              <span className="mk-range-fill" style={{ left: pct(p.floor), width: `calc(${pct(p.ceiling)} - ${pct(p.floor)})`, background: seriesColor(p.seriesIndex) }} />
-              <span className="mk-range-dot" style={{ left: pct(expected), borderColor: seriesColor(p.seriesIndex) }} />
-            </span>
-          </div>
-        )
-      })}
-      <span className="t-meta muted">Worst and best game this season; the dot is this week's projection, else his average.</span>
-    </div>
-  )
-}
-
+export { CompareDialog } from './CompareDialog'

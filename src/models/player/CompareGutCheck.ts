@@ -8,8 +8,10 @@
  */
 import { formatNumber } from '@core/numeric'
 import { PRACTICE_LABEL } from '@core/InSeasonFiles'
+import type { CompareLens } from './CompareLens'
 import { injuryPenalty, type CompareVerdict } from './CompareVerdict'
 import type { ComparisonPlayer, PlayerComparison } from './PlayerComparison'
+import { postureVotingRangeSignal, type MatchupPosture, type StartVerdict } from './StartVerdict'
 
 export type GutConfidence = 'clear' | 'lean' | 'coinFlip'
 export const GUT_CONFIDENCE_LABEL: Readonly<Record<GutConfidence, string>> = {
@@ -37,6 +39,8 @@ export const GUT_THRESHOLDS = {
   roleShift: 0.10,
   hotStretch: 1.25,
   ceilingGap: 5.0,
+  /** This week's floor or ceiling gap worth mentioning. */
+  rangeGap: 3.0,
   scheduleGap: 0.08,
   coinFlipMargin: 0.05,
   leanMargin: 0.12,
@@ -61,15 +65,41 @@ export function buildGutCheck(comparison: PlayerComparison, verdict: CompareVerd
 export function assessGutCheck(
   pick: ComparisonPlayer, alternative: ComparisonPlayer, margin: number | undefined, now: Date = new Date(),
 ): CompareGutCheck {
-  // A stable sort keeps the signal order for equal strengths, as Swift's does here.
-  const caseFor = caseForPlayer(alternative, pick, now).sort(byStrength).slice(0, 3)
-  const risks = risksFor(pick).sort(byStrength).slice(0, 2)
-  const strength = [...caseFor, ...risks].reduce((s, p) => s + p.strength, 0)
+  const { caseFor, risks, strength } = points(pick, alternative, 'restOfSeason', { kind: 'unknown' }, now)
   const m = margin ?? GUT_THRESHOLDS.leanMargin
   const confidence: GutConfidence =
     m < GUT_THRESHOLDS.coinFlipMargin || (strength >= 3 && m < GUT_THRESHOLDS.leanMargin) ? 'coinFlip'
     : m < GUT_THRESHOLDS.leanMargin || strength >= 2 ? 'lean'
     : 'clear'
+  return finish(pick, alternative, confidence, caseFor, risks)
+}
+
+/**
+ * The this-week start call argued with: the tally sets the confidence, and a
+ * strong enough case against it takes it down one step.
+ */
+export function buildStartGutCheck(
+  comparison: PlayerComparison, verdict: StartVerdict, posture: MatchupPosture, now: Date = new Date(),
+): CompareGutCheck | undefined {
+  const pick = comparison.players.find((p) => p.id === verdict.pickID)
+  const alternative = comparison.players.find((p) => p.id === verdict.alternativeID)
+  if (!pick || !alternative) return undefined
+  const { caseFor, risks, strength } = points(pick, alternative, 'thisWeek', posture, now)
+  let confidence = verdict.confidence
+  if (strength >= 3) confidence = confidence === 'clear' ? 'lean' : 'coinFlip'
+  return finish(pick, alternative, confidence, caseFor, risks)
+}
+
+function points(pick: ComparisonPlayer, alternative: ComparisonPlayer, lens: CompareLens, posture: MatchupPosture, now: Date) {
+  // A stable sort keeps the signal order for equal strengths, as Swift's does here.
+  const caseFor = caseForPlayer(alternative, pick, lens, posture, now).sort(byStrength).slice(0, 3)
+  const risks = risksFor(pick, lens).sort(byStrength).slice(0, 2)
+  const strength = [...caseFor, ...risks].reduce((s, p) => s + p.strength, 0)
+  return { caseFor, risks, strength }
+}
+
+function finish(pick: ComparisonPlayer, alternative: ComparisonPlayer, confidence: GutConfidence,
+  caseFor: GutPoint[], risks: GutPoint[]): CompareGutCheck {
   const hasCase = caseFor.some((p) => p.strength > 0)
   const summary =
     confidence === 'clear'
@@ -81,7 +111,7 @@ export function assessGutCheck(
   return { confidence, pickName: pick.name, alternativeName: alternative.name, caseForAlternative: caseFor, risksForPick: risks, summary }
 }
 
-function caseForPlayer(player: ComparisonPlayer, pick: ComparisonPlayer, now: Date): GutPoint[] {
+function caseForPlayer(player: ComparisonPlayer, pick: ComparisonPlayer, lens: CompareLens, posture: MatchupPosture, now: Date): GutPoint[] {
   const out: GutPoint[] = []
   const l = luck(player)
   if (l !== undefined && l >= GUT_THRESHOLDS.unlucky) {
@@ -97,7 +127,9 @@ function caseForPlayer(player: ComparisonPlayer, pick: ComparisonPlayer, now: Da
   if (s && s.season > 0 && s.recent >= s.season * GUT_THRESHOLDS.hotStretch) {
     out.push({ text: `Averaging ${one(s.recent)} over his last 3, up from ${one(s.season)} on the season.`, strength: 1 })
   }
-  if (player.ceiling !== undefined && player.ceiling >= (pick.ceiling ?? 0) + GUT_THRESHOLDS.ceilingGap) {
+  if (lens === 'thisWeek') {
+    out.push(...range(player, pick, posture))
+  } else if (player.ceiling !== undefined && player.ceiling >= (pick.ceiling ?? 0) + GUT_THRESHOLDS.ceilingGap) {
     out.push({ text: `Best game ${one(player.ceiling)} vs ${one(pick.ceiling ?? 0)} — the higher ceiling.`, strength: 1 })
   }
   if (player.depthRank === 1 && pick.depthRank !== undefined && pick.depthRank > 1) {
@@ -105,7 +137,9 @@ function caseForPlayer(player: ComparisonPlayer, pick: ComparisonPlayer, now: Da
   }
   const [mine, theirs] = [player.strengthOfSchedule, pick.strengthOfSchedule]
   const [mineP, theirsP] = [player.playoffMatchups, pick.playoffMatchups]
-  if (mine !== undefined && theirs !== undefined && mine - theirs >= GUT_THRESHOLDS.scheduleGap) {
+  if (lens === 'thisWeek') {
+    // Next week's schedule says nothing about who starts this one.
+  } else if (mine !== undefined && theirs !== undefined && mine - theirs >= GUT_THRESHOLDS.scheduleGap) {
     out.push({ text: `Softer schedule ahead (${two(mine)}× vs ${two(theirs)}×).`, strength: 1 })
   } else if (mineP !== undefined && theirsP !== undefined && mineP - theirsP >= GUT_THRESHOLDS.scheduleGap) {
     out.push({ text: `Softer playoff matchups (${two(mineP)}× vs ${two(theirsP)}×).`, strength: 1 })
@@ -117,10 +151,37 @@ function caseForPlayer(player: ComparisonPlayer, pick: ComparisonPlayer, now: Da
   return out
 }
 
-function risksFor(pick: ComparisonPlayer): GutPoint[] {
+/**
+ * This week's range against the pick's. A range the tally already counted is
+ * context; one it left out is a real point.
+ */
+function range(player: ComparisonPlayer, pick: ComparisonPlayer, posture: MatchupPosture): GutPoint[] {
   const out: GutPoint[] = []
+  const counted = postureVotingRangeSignal(posture)
+  const strength = counted === undefined ? 1 : 0
+  const [mineC, theirsC] = [player.values.ceilingThisWeek, pick.values.ceilingThisWeek]
+  if (mineC !== undefined && theirsC !== undefined && mineC - theirsC >= GUT_THRESHOLDS.rangeGap) {
+    out.push({ text: `Bigger ceiling this week (${one(mineC)} vs ${one(theirsC)}).`, strength })
+  }
+  const [mineF, theirsF] = [player.values.floorThisWeek, pick.values.floorThisWeek]
+  if (mineF !== undefined && theirsF !== undefined && mineF - theirsF >= GUT_THRESHOLDS.rangeGap) {
+    out.push({ text: `Safer floor this week (${one(mineF)} vs ${one(theirsF)}).`, strength })
+  }
+  return out
+}
+
+function risksFor(pick: ComparisonPlayer, lens: CompareLens): GutPoint[] {
+  const out: GutPoint[] = []
+  // This week a Questionable player is ranked on his full value, as in
+  // Sit/Start; what his practice week says is the real risk.
+  if (lens === 'thisWeek' && pick.practice !== undefined && pick.practice !== 'FULL') {
+    out.push({ text: `${pick.name}: ${PRACTICE_LABEL[pick.practice].toLowerCase()} in the latest practice report.`,
+               strength: pick.practice === 'DNP' ? 2 : 1 })
+  }
   const penalty = injuryPenalty(pick.injuryDesignation)
-  if (pick.injuryDesignation !== undefined && penalty > 0) {
+  if (lens === 'thisWeek') {
+    // Covered above, or by the "can't start" list.
+  } else if (pick.injuryDesignation !== undefined && penalty > 0) {
     out.push({ text: `${pick.name} is listed ${pick.injuryDesignation}.`, strength: penalty >= 0.25 ? 2 : 1 })
   } else if (pick.practice !== undefined && pick.practice !== 'FULL') {
     out.push({ text: `${pick.name}: ${PRACTICE_LABEL[pick.practice].toLowerCase()} in practice.`, strength: 1 })

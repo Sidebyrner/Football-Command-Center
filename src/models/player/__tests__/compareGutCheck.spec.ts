@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { assessGutCheck, buildGutCheck, luck, type GutPoint } from '@models/player/CompareGutCheck'
+import { assessGutCheck, buildGutCheck, buildStartGutCheck, luck, type GutConfidence, type GutPoint } from '@models/player/CompareGutCheck'
 import { computeVerdict, verdictInputs, type VerdictLeague } from '@models/player/CompareVerdict'
 import type { PlayerLogWeek } from '@models/player/PlayerCardModel'
 import { PlayerComparison, type ComparisonPlayer } from '@models/player/PlayerComparison'
+import { computeStartVerdict, posture, type StartVerdict } from '@models/player/StartVerdict'
 
 /** Port of CompareGutCheckTests.swift — same inputs, same strings. */
 describe('CompareGutCheck', () => {
@@ -77,5 +78,48 @@ describe('CompareGutCheck', () => {
     expect([check?.pickName, check?.alternativeName]).toEqual(['Alpha', 'Bravo'])
     const single = new PlayerComparison([alpha], 4, [])
     expect(buildGutCheck(single, computeVerdict(verdictInputs(single), league), now)).toBeUndefined()
+  })
+
+  // MARK: - This week
+
+  const start = (pick: string, alternative: string, confidence: GutConfidence): StartVerdict => {
+    const inputs = [{ id: pick.toLowerCase(), name: pick, signals: { projected: 20 } },
+                    { id: alternative.toLowerCase(), name: alternative, signals: { projected: 5 } }]
+    const verdict = computeStartVerdict(inputs, posture.unknown)
+    return { ranked: verdict.ranked, blocked: [], headline: verdict.headline, pickID: verdict.pickID,
+             alternativeID: verdict.alternativeID, confidence, thinData: false, edgeLine: undefined,
+             postureLine: '', votingSignals: [], signalLeaders: {}, contingency: undefined, notes: [] }
+  }
+
+  it("this week drops the schedule and keeps the tally's confidence", () => {
+    const alpha = player('Alpha', { depthRank: 1, strengthOfSchedule: 0.90 })
+    const bravo = player('Bravo', { depthRank: 1, strengthOfSchedule: 1.20 })
+    const comparison = new PlayerComparison([alpha, bravo], 4, [])
+    const check = buildStartGutCheck(comparison, start('Alpha', 'Bravo', 'clear'), posture.unknown, now)!
+    expect(check).toBeDefined()
+    expect(texts(check.caseForAlternative), "next week's schedule doesn't decide this one").not.toContain('schedule')
+    expect(check.confidence).toBe('clear')
+  })
+
+  it('this week the range counts only when the tally left it out', () => {
+    const alpha = player('Alpha', { values: { ceilingThisWeek: 12 } })
+    const bravo = player('Bravo', { values: { ceilingThisWeek: 22 } })
+    const comparison = new PlayerComparison([alpha, bravo], 4, [])
+    const verdict = start('Alpha', 'Bravo', 'clear')
+    const close = buildStartGutCheck(comparison, verdict, posture.close(0), now)!
+    expect(close.caseForAlternative[0]?.text).toBe('Bigger ceiling this week (22.0 vs 12.0).')
+    expect(close.caseForAlternative[0]?.strength).toBe(1)
+    const behind = buildStartGutCheck(comparison, verdict, posture.underdog(-12), now)!
+    expect(behind.caseForAlternative[0]?.strength, 'the ceiling already voted').toBe(0)
+  })
+
+  it('this week practice is the risk and can cost a step', () => {
+    const alpha = player('Alpha', { values: { ceilingThisWeek: 10, floorThisWeek: 2 }, injuryDesignation: 'Questionable', practice: 'DNP' })
+    const bravo = player('Bravo', { values: { ceilingThisWeek: 20, floorThisWeek: 8 } })
+    const comparison = new PlayerComparison([alpha, bravo], 4, [])
+    const check = buildStartGutCheck(comparison, start('Alpha', 'Bravo', 'clear'), posture.close(0), now)!
+    expect(check.risksForPick[0]?.text).toBe('Alpha: did not practice in the latest practice report.')
+    expect(texts(check.risksForPick), "Q itself isn't a penalty this week").not.toContain('listed Questionable')
+    expect(check.confidence, 'practice and range together take a clear call down a step').toBe('lean')
   })
 })

@@ -1,15 +1,16 @@
 /**
- * The Lineup tab's header — the port of `LineupHubHeader.swift`: its three
- * sections (Sit/Start, Matchup, Injuries) as status cards that are also the
+ * The Lineup tab's header — the port of `LineupHubHeader.swift`: its four
+ * sections (Sit/Start, Decide, Matchup, Injuries) as status cards that are also the
  * section switcher, so each section's state is visible from the others.
  * `lineupBadgeCount` is `LineupTabBadge.count`, for whoever draws the tab badge.
  */
 import type { LucideIcon } from 'lucide-react'
-import { ArrowLeftRight, BriefcaseMedical, Users } from 'lucide-react'
+import { ArrowLeftRight, BriefcaseMedical, Scale, Users } from 'lucide-react'
 import { formatNumber } from '@core/numeric'
 import { kickoffLabel } from '@models/league/GameDayWindow'
 import { blocksStart, startAvailability } from '@models/league/LeagueContext'
 import type { InjuryCenterModel } from '@models/market/InjuryCenterModel'
+import { slotIsCloseCall } from '@models/lineup/DecideModel'
 import { hasLiveGame, type MatchupModel } from '@models/lineup/MatchupModel'
 import type { SitStartModel } from '@models/lineup/SitStartModel'
 import type { Screen } from '@models/navigation/screens'
@@ -29,6 +30,10 @@ export interface LineupStatusCard {
 
 export function sitStartStatus(swaps: number): LineupStatusCard {
   return swaps === 0 ? { text: 'Lineup set', tone: 'good' } : { text: `${swaps} swap${swaps === 1 ? '' : 's'}`, tone: 'caution' }
+}
+
+export function decideStatus(closeCalls: number): LineupStatusCard {
+  return closeCalls === 0 ? { text: 'All clear', tone: 'good' } : { text: `${closeCalls} close`, tone: 'caution' }
 }
 
 export function matchupStatus(mine: number | undefined, theirs: number | undefined, live: boolean, nextKickoff: number | undefined): LineupStatusCard {
@@ -84,11 +89,16 @@ export function LineupHubHeader({ current }: { current: Screen }) {
   const sitStart = useModel(services.sitStart)
   const matchup = useModel(services.matchup)
   const injuries = useModel(services.injuries)
+  // Decide is derived from Sit/Start, Matchup and the Waiver Board; Sit/Start and Matchup are observed above.
+  useModel(services.waivers)
+  const closeCalls = services.decide.slots().filter(slotIsCloseCall).length
 
   return (
     <nav className="lineup-hub" aria-label="Lineup sections">
       <HubCard screen="sitStart" current={current} title="Sit/Start" icon={ArrowLeftRight}
         status={sitStartStatus(sitStart.starts.length)} open={openScreen} />
+      <HubCard screen="decide" current={current} title="Decide" icon={Scale}
+        status={decideStatus(closeCalls)} open={openScreen} />
       <HubCard screen="matchup" current={current} title="Matchup" icon={Users}
         status={matchupCard(matchup)} open={openScreen} />
       <HubCard screen="injuries" current={current} title="Injuries" icon={BriefcaseMedical}

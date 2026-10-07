@@ -21,6 +21,7 @@ import { MyTeamScreen } from './team/MyTeamScreen'
 import { InjuriesScreen } from './lineup/InjuriesScreen'
 import { MatchupScreen } from './lineup/MatchupScreen'
 import { SitStartScreen } from './lineup/SitStartScreen'
+import { DecideScreen } from './lineup/DecideScreen'
 
 /** Screens built so far; the rest render their placeholder. */
 export const screens: Partial<Record<Screen, ComponentType>> = {
@@ -43,6 +44,7 @@ export const screens: Partial<Record<Screen, ComponentType>> = {
   board: BoardScreen,
   dashboard: MyTeamScreen,
   sitStart: SitStartScreen,
+  decide: DecideScreen,
   matchup: MatchupScreen,
   injuries: InjuriesScreen,
 }

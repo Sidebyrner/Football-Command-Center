@@ -48,6 +48,7 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 | Workspaces (model, geometry, presets, store, link bus, tray) | ✅ |
 | Board (dashboard), this week, My Team, board layout | ✅ |
 | Discovery, Player Card, compare, player card cache | ✅ |
+| Decide: start verdict, signal tally, free-agent hopper, compare lens | ✅ |
 | Settings, app settings, Game Day, live poller | ✅ |
 | App services (every model on one shared load) | ✅ plus a web-only check that the demo league loads on every screen |
 
@@ -58,6 +59,7 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 | Shell: five hubs, segments, back trail, light and dark | ✅ |
 | Board (ten tiles, live, editable layout), My Team | ✅ Release 1 |
 | Lineup: Sit/Start, Matchup (live), Injuries, lineup status header | ✅ Release 1 |
+| Lineup: Decide (row action, hub segment) | ✅ |
 | Market: Discover with compare, Waivers with add/drop, trade desk, Planning | ✅ Release 1 |
 | Streams: all six, with compare, snapshots, game context and editors | ✅ Release 1 |
 | Player Card sheet (status, news, schedule, log, projections, grade) | ✅ Release 1 |
@@ -76,6 +78,7 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 - **Stream snapshots** are stored in a web-specific JSON shape; they don't move between devices yet.
 - **Number formatting** rounds exact halves to even, as Foundation does (`formatNumber`).
 - **Web adaptations:** pull to refresh is a Refresh button; swipe actions and context menus are menu buttons; haptics are dropped; the Discover row opens the Player Card rather than the desktop player page (that arrives with workspaces).
+- **Decide:** the phone's compare sheet is generic over a watchlist or a Decide session; the web has no watchlist, so the shared compare dialog takes Discover's compare list (link group Blue) or a Decide session. The phone's Sit/Start row context menu is just the row's Decide button, and the "Replace" menu on a full Decide set is an inline list of Replace buttons.
 - **`-0`:** a pick'em spread of exactly -0.0 prints "+-0.0" in one Swift explain line and "+0.0" on the web.
 
 ## Found while porting

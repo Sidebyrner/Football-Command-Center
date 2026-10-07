@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { demoServices } from '../../../tests/renderScreen'
-import { injuriesStatus, lineupBadgeCount, matchupStatus, sitStartStatus } from './LineupHubHeader'
+import { decideStatus, injuriesStatus, lineupBadgeCount, matchupStatus, sitStartStatus } from './LineupHubHeader'
 
 describe('Lineup hub header', () => {
   it('words each card as the phone does', () => {
@@ -12,6 +12,8 @@ describe('Lineup hub header', () => {
     expect(injuriesStatus(2, 1)).toEqual({ text: '2 out', tone: 'bad' })
     expect(injuriesStatus(0, 1)).toEqual({ text: '1 Q', tone: 'caution' })
     expect(injuriesStatus(0, 0)).toEqual({ text: 'All clear', tone: 'good' })
+    expect(decideStatus(0)).toEqual({ text: 'All clear', tone: 'good' })
+    expect(decideStatus(2)).toEqual({ text: '2 close', tone: 'caution' })
   })
 
   it('counts the tab badge', async () => {

@@ -9,6 +9,7 @@ import type { LeagueContext } from '@models/league/LeagueContext'
 import { buildGutCheck, GUT_CONFIDENCE_LABEL, type CompareGutCheck, type GutConfidence, type GutPoint } from '@models/player/CompareGutCheck'
 import { computeVerdict, verdictInputs, verdictLeague, type CompareVerdict, type VerdictPriority } from '@models/player/CompareVerdict'
 import type { PlayerComparison } from '@models/player/PlayerComparison'
+import './chartPanels.css'
 
 const PRIORITY_ICON: Record<VerdictPriority['kind'], typeof ArrowUpCircle> = {
   spend: ArrowUpCircle, hold: PauseCircle, keep: Hand, notAClaim: Repeat, nothing: MinusCircle,
@@ -16,7 +17,7 @@ const PRIORITY_ICON: Record<VerdictPriority['kind'], typeof ArrowUpCircle> = {
 const PRIORITY_TINT: Record<VerdictPriority['kind'], string> = {
   spend: 'var(--start)', hold: 'var(--caution)', keep: 'var(--accent)', notAClaim: 'var(--text-2)', nothing: 'var(--text-2)',
 }
-const CONFIDENCE_TINT: Record<GutConfidence, string> = { clear: 'var(--start)', lean: 'var(--caution)', coinFlip: '#ea580c' }
+export const CONFIDENCE_TINT: Record<GutConfidence, string> = { clear: 'var(--start)', lean: 'var(--caution)', coinFlip: '#ea580c' }
 
 export function CompareVerdictCard({ comparison, context }: { comparison: PlayerComparison; context: LeagueContext }) {
   const verdict = computeVerdict(verdictInputs(comparison), verdictLeague(context.leagueFacts, context.currentWeek))
@@ -60,7 +61,8 @@ export function VerdictView({ verdict, gutCheck }: { verdict: CompareVerdict; gu
   )
 }
 
-function GutCheckView({ check }: { check: CompareGutCheck }) {
+/** The case the numbers leave out, so the call can be second-guessed — Swift `GutCheckSection`. */
+export function GutCheckView({ check }: { check: CompareGutCheck }) {
   const [open, setOpen] = useState(true)
   const tint = CONFIDENCE_TINT[check.confidence]
   return (

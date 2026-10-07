@@ -11,6 +11,7 @@ import type { StaticDataStore } from '@data/StaticDataStore'
 import { GameDayModel } from '../gameday/GameDayModel'
 import type { LeagueContext } from '../league/LeagueContext'
 import { LeagueContextLoader } from '../league/LeagueContextLoader'
+import { DecideModel } from '../lineup/DecideModel'
 import { MatchupModel } from '../lineup/MatchupModel'
 import { SitStartModel } from '../lineup/SitStartModel'
 import { DiscoveryModel } from '../market/DiscoveryModel'
@@ -77,6 +78,8 @@ export class AppServices {
   readonly kStream: KStreamScreenModel
   readonly trades: TradeDeskScreenModel
   readonly discovery: DiscoveryModel
+  /** Decide — derived from Sit/Start, the Waiver Board, Matchup and Discover; never loads anything itself. */
+  readonly decide: DecideModel
   /** This week's NFL games with their live state. */
   readonly gameDay: GameDayModel
   readonly workspaces: WorkspaceStore
@@ -126,6 +129,7 @@ export class AppServices {
     this.trades = new TradeDeskScreenModel(loader)
     this.trades.relayBaseURL = relayBaseURL
     this.discovery = new DiscoveryModel(loader, sleeper)
+    this.decide = new DecideModel(this.sitStart, this.waivers, this.matchup, this.discovery)
     this.gameDay = new GameDayModel(loader, sleeper)
     this.workspaces = new WorkspaceStore(workspacePersistence ?? new StorageWorkspacePersistence())
   }

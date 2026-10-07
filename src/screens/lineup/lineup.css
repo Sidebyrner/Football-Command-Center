@@ -1,10 +1,10 @@
 /* Lineup hub: Sit/Start, Matchup, Injuries — tokens from tokens.css. */
 
-/* Hub header — three status cards that switch sections */
-.lineup-hub { display: flex; gap: var(--space-s); }
+/* Hub header — four status cards that switch sections */
+.lineup-hub { display: flex; gap: 6px; }
 .lineup-hub-card {
   flex: 1; min-width: 0; appearance: none; font: inherit; text-align: left; cursor: pointer;
-  display: flex; flex-direction: column; gap: 3px; padding: 7px 9px;
+  display: flex; flex-direction: column; gap: 3px; padding: 7px 8px;
   border-radius: 12px; background: var(--card); color: var(--text-2);
   border: 0.5px solid var(--stroke);
   transition: background 0.2s, border-color 0.2s;
@@ -13,7 +13,7 @@
   background: color-mix(in srgb, var(--hue-lineup) 14%, var(--card));
   border: 1.5px solid color-mix(in srgb, var(--hue-lineup) 70%, transparent);
   color: var(--hue-lineup);
-  padding: 6px 8px;
+  padding: 6px 7px;
 }
 .lineup-hub-card:hover { border-color: color-mix(in srgb, var(--hue-lineup) 50%, transparent); }
 .lineup-hub-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -154,3 +154,35 @@
 @media (min-width: 640px) {
   .finder-top .button { order: 2; }
 }
+
+/* Decide — slot calls, the Sit/Start row action, the free-agent hopper */
+.decide-slot {
+  appearance: none; border: 0; background: none; font: inherit; color: var(--text); text-align: left; cursor: pointer;
+  display: flex; align-items: center; gap: var(--space-s); min-width: 0; width: 100%;
+  padding: 6px 8px; border-radius: var(--radius-small); transition: background 0.2s;
+}
+.decide-slot:hover:not(:disabled) { background: var(--inset); }
+.decide-slot:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.decide-slot:disabled { cursor: default; }
+.decide-slot.close { background: color-mix(in srgb, var(--caution) 10%, transparent); }
+.decide-slot .slot-token { align-self: flex-start; padding-top: 2px; }
+.decide-slot-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.decide-slot-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.decide-shared { padding: 4px 8px 0; }
+.decide-button {
+  appearance: none; border: 0; background: none; padding: 0; cursor: pointer; flex: none;
+  display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 8px;
+}
+.decide-button:hover { background: var(--inset); }
+.decide-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.decide-button-spacer { width: 28px; height: 28px; flex: none; }
+.decide-hopper-title { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.decide-hopper-row { display: flex; flex-direction: column; gap: 6px; }
+.decide-hopper-row-main { display: flex; align-items: center; gap: var(--space-s); }
+.decide-hopper-text { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.decide-add {
+  appearance: none; border: 0; background: none; padding: 0; cursor: pointer; color: var(--accent); flex: none;
+  display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 999px;
+}
+.decide-add:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.decide-replace { display: flex; flex-wrap: wrap; gap: 6px; }

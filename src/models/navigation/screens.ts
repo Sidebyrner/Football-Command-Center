@@ -6,7 +6,7 @@
 export type Screen =
   | 'board' | 'dashboard' | 'injuries' | 'discovery' | 'planning' | 'waivers' | 'trades'
   | 'idpStream' | 'wrStream' | 'rbStream' | 'qbStream' | 'dstStream' | 'kStream'
-  | 'matchup' | 'sitStart' | 'settings'
+  | 'matchup' | 'sitStart' | 'decide' | 'settings'
   /** Web-only tools from the original web app: draft day, research, rankings, odds. */
   | 'draft' | 'draftPlan' | 'research' | 'powerRankings' | 'odds'
 
@@ -14,7 +14,7 @@ export const screenTitle: Record<Screen, string> = {
   board: 'Board', dashboard: 'My Team', injuries: 'Injuries', discovery: 'Discover',
   planning: 'Planning', waivers: 'Waivers', trades: 'Trades', idpStream: 'IDP Stream',
   wrStream: 'WR Stream', rbStream: 'RB Stream', qbStream: 'QB Stream', dstStream: 'D/ST Stream',
-  kStream: 'K Stream', matchup: 'Matchup', sitStart: 'Sit/Start', settings: 'Settings',
+  kStream: 'K Stream', matchup: 'Matchup', sitStart: 'Sit/Start', decide: 'Decide', settings: 'Settings',
   draft: 'Draft', draftPlan: 'Draft Plan', research: 'Research', powerRankings: 'Power Rankings', odds: 'Odds',
 }
 
@@ -37,7 +37,7 @@ export const hubTitle: Record<Hub, string> = {
 export const hubScreens: Record<Hub, readonly Screen[]> = {
   board: ['board'],
   team: ['dashboard'],
-  lineup: ['sitStart', 'matchup', 'injuries'],
+  lineup: ['sitStart', 'decide', 'matchup', 'injuries'],
   market: ['discovery', 'waivers', 'trades', 'planning'],
   streams: ['qbStream', 'rbStream', 'wrStream', 'kStream', 'dstStream', 'idpStream'],
 }
@@ -73,6 +73,7 @@ const paths: Record<Screen, string> = {
   dashboard: '/team',
   settings: '/settings',
   sitStart: '/lineup/sit-start',
+  decide: '/lineup/decide',
   matchup: '/lineup/matchup',
   injuries: '/lineup/injuries',
   discovery: '/market/discover',

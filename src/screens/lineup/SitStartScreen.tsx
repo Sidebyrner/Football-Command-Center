@@ -8,8 +8,9 @@
  */
 import {
   ArrowLeftRight, BadgeCheck, BriefcaseMedical, CircleArrowDown, CircleArrowUp, CircleHelp, ListChecks,
-  Lock, LockOpen, SlidersHorizontal, Split, SquareArrowOutUpRight, type LucideIcon,
+  Lock, LockOpen, Scale, SlidersHorizontal, Split, SquareArrowOutUpRight, type LucideIcon,
 } from 'lucide-react'
+import { useState } from 'react'
 import { formatFixed } from '@core/numeric'
 import { formatCountdown, teamLink } from '@models/league/GameDayWindow'
 import { providerLabel } from '@data/LeagueDataSource'
@@ -17,10 +18,14 @@ import { startBadge, type LeagueContext } from '@models/league/LeagueContext'
 import {
   LINEUP_BASES, LINEUP_BASIS_HINT, LINEUP_BASIS_LABEL, SitStartModel, unrankedTotal, type LineupChange,
 } from '@models/lineup/SitStartModel'
+import {
+  slotCanDecide, slotHasBenchOption, slotIsCloseCall, type DecideModel, type DecideSession, type DecideSlot,
+} from '@models/lineup/DecideModel'
 import { useApp, useModel } from '@ui/app/AppContext'
 import { AboutThisData, Callout, FilterChip, ScreenHero, ScreenSection } from '@ui/components/Screen'
 import { PlayerName, PositionChip } from '@ui/components/Player'
 import { CoverageNote, FreshnessBanner, InlineErrorBanner, LoadingPlaceholder } from '@ui/components/State'
+import { DecideDialog } from './DecideDialog'
 import { LineupHubHeader } from './LineupHubHeader'
 import { InjuryBadge, LoadFailure, RefreshButton, useLeagueNow } from './shared'
 import './lineup.css'
@@ -33,6 +38,11 @@ export function SitStartScreen() {
   const model = useModel(services.sitStart)
   const context = model.context
   const refresh = () => { void model.refresh() }
+  // Decide reads Matchup and the Waiver Board too.
+  useModel(services.matchup)
+  useModel(services.waivers)
+  /** The slot being decided head to head. */
+  const [deciding, setDeciding] = useState<DecideSession>()
 
   return (
     <>
@@ -57,7 +67,7 @@ export function SitStartScreen() {
             <Disagreement model={model} />
           ) : null}
 
-          <LineupSection model={model} context={context} />
+          <LineupSection model={model} context={context} decide={services.decide} onDecide={(slot) => setDeciding(services.decide.session(slot))} />
           <UnrankedSection model={model} context={context} />
 
           <AboutThisData>
@@ -80,6 +90,7 @@ export function SitStartScreen() {
       ) : (
         <LoadFailure title="Could not load your roster" message={model.errorMessage} onRetry={refresh} />
       )}
+      {deciding && <DecideDialog session={deciding} onClose={() => setDeciding(undefined)} />}
     </>
   )
 }
@@ -208,8 +219,26 @@ function Disagreement({ model }: { model: SitStartModel }) {
 
 // MARK: - Lineup
 
-function LineupSection({ model, context }: { model: SitStartModel; context: LeagueContext }) {
+/**
+ * Opens the slot head to head; a spacer where there's nothing to decide, so
+ * the values stay in a column.
+ */
+function DecideButton({ slot, onDecide }: { slot: DecideSlot | undefined; onDecide: (slot: DecideSlot) => void }) {
+  if (!slot) return <span className="decide-button-spacer" aria-hidden />
+  const tint = slotIsCloseCall(slot) ? 'var(--caution)' : slotHasBenchOption(slot) ? 'var(--accent)' : 'var(--text-2)'
+  return (
+    <button type="button" className="decide-button" onClick={() => onDecide(slot)}
+      aria-label={`Decide ${slot.token}`} title={`Decide ${slot.token}`} data-testid={`sitstart.decide.${slot.index}`}>
+      <Scale size={14} strokeWidth={2.5} color={tint} aria-hidden />
+    </button>
+  )
+}
+
+function LineupSection({ model, context, decide, onDecide }: {
+  model: SitStartModel; context: LeagueContext; decide: DecideModel; onDecide: (slot: DecideSlot) => void
+}) {
   const locked = model.lockedStarters
+  const decidable = new Map(decide.slots().filter(slotCanDecide).map((s) => [s.index, s]))
   return (
     <ScreenSection
       title="Proposed lineup"
@@ -235,6 +264,7 @@ function LineupSection({ model, context }: { model: SitStartModel; context: Leag
               <span className="t-micro tertiary" style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>kept</span>
             ) : null}
             <span className="slot-value">{one(slot.value)}</span>
+            <DecideButton slot={decidable.get(slot.index)} onDecide={onDecide} />
           </div>
         ))}
         {model.lockedBench.length > 0 && (

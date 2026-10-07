@@ -13,11 +13,13 @@ import type { WaiverRow } from '../market/WaiverBoardModel'
 import { LinkBus } from '../workspaces/LinkBus'
 import type { DefenseLookup } from './DefenseLookup'
 import type { PlayerCardModel, PlayerLogWeek } from './PlayerCardModel'
+import type { StartSignals } from './StartVerdict'
 
 /** Swift `PlayerComparison.Metric`, in `allCases` order. */
 export const COMPARISON_METRICS = [
   'pointsPerGame', 'expectedPointsLast4', 'snapShare', 'targetShare', 'redZoneTouches',
-  'projectedThisWeek', 'restOfSeason', 'gradeScore', 'opponentRank',
+  'projectedThisWeek', 'restOfSeason', 'gradeScore', 'opponentRank', 'impliedTeamTotal',
+  'commandCenterThisWeek', 'formLast4', 'floorThisWeek', 'ceilingThisWeek',
 ] as const
 export type ComparisonMetric = (typeof COMPARISON_METRICS)[number]
 
@@ -31,7 +33,17 @@ export const COMPARISON_METRIC_LABEL: Readonly<Record<ComparisonMetric, string>>
   restOfSeason: 'Rest of season /gm',
   gradeScore: 'Grade',
   opponentRank: 'Opponent vs position',
+  impliedTeamTotal: 'Team implied total',
+  commandCenterThisWeek: 'Command Center this week',
+  formLast4: 'Last 4 pts/gm',
+  floorThisWeek: 'Floor (bad week)',
+  ceilingThisWeek: 'Ceiling (big week)',
 }
+
+/** This week's start numbers — shown only on the this-week lens. */
+export const THIS_WEEK_METRICS: ReadonlySet<ComparisonMetric> = new Set<ComparisonMetric>([
+  'commandCenterThisWeek', 'formLast4', 'floorThisWeek', 'ceilingThisWeek',
+])
 
 export const comparisonMetricIsPercent = (m: ComparisonMetric) => m === 'snapShare' || m === 'targetShare'
 
@@ -114,6 +126,8 @@ export class PlayerComparison {
     defense: DefenseLookup,
     lastN: number,
     baselineID?: string,
+    /** This week's numbers exactly as Sit/Start values them; they override projected, pts/gm and the implied total. */
+    signals?: (id: string) => StartSignals,
   ): PlayerComparison {
     const weeks = new Set<number>()
     const players = cards.slice(0, LinkBus.compareLimit).map((card, index): ComparisonPlayer => {
@@ -132,13 +146,27 @@ export class PlayerComparison {
       set('restOfSeason', card.commandCenter?.restOfSeasonPerGame)
       set('gradeScore', card.grade?.score)
       set('opponentRank', defense.cell(card.status?.opponent, card.position)?.rank)
+      set('impliedTeamTotal', card.status?.impliedTotal)
+      const seasonPPG = values.pointsPerGame
+      // This week's numbers exactly as Sit/Start values them, so the grid
+      // and the start call read the same figures.
+      const s = signals?.(card.id)
+      if (s) {
+        set('projectedThisWeek', s.projected)
+        set('pointsPerGame', s.thisSeason)
+        set('commandCenterThisWeek', s.commandCenter)
+        set('formLast4', s.form)
+        set('floorThisWeek', s.floor)
+        set('ceilingThisWeek', s.ceiling)
+        set('impliedTeamTotal', s.environment)
+      }
       // Hook: prefer projection bounds once CommandCenterProjection carries them.
       const points = playedWeeks.map((w) => w.points).filter((p): p is number => p !== undefined)
       return {
         id: card.id, name: card.name, position: card.position, team: card.team,
         opponent: card.status?.opponent, seriesIndex: index, log: window, values,
         floor: points.length === 0 ? undefined : Math.min(...points),
-        expected: card.rotowireThisWeek ?? values.pointsPerGame,
+        expected: card.rotowireThisWeek ?? seasonPPG,
         ceiling: points.length === 0 ? undefined : Math.max(...points),
         availability: card.status?.availability ?? card.context.availabilityOf(card.id),
         isBaseline: card.id === baselineID,

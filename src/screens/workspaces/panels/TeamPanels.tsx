@@ -3,16 +3,18 @@
  * lineup readiness, sit/start, the matchup score, injuries, bye weeks, news
  * and standings, each drawn from the model its full screen uses.
  */
-import { useEffect, useReducer } from 'react'
-import { ArrowUpRight, BadgeCheck, BriefcaseMedical, CalendarMinus, LockOpen, RadioTower, SquareDashed } from 'lucide-react'
+import { useEffect, useReducer, useState } from 'react'
+import { ArrowUpRight, BadgeCheck, BriefcaseMedical, CalendarMinus, LockOpen, RadioTower, Scale, SquareDashed } from 'lucide-react'
 import { startAvailability, startBadge } from '@models/league/LeagueContext'
 import { formatCountdown, kickoffLabel } from '@models/league/GameDayWindow'
 import { leftToPlay, rowIsLive, type MatchupSide } from '@models/lineup/MatchupModel'
+import { slotCanDecide, slotHasBenchOption, slotIsCloseCall, type DecideSession } from '@models/lineup/DecideModel'
 import { LINEUP_BASIS_LABEL, type LineupChange } from '@models/lineup/SitStartModel'
 import { injuredPlayerHeadline } from '@models/market/InjuryCenterModel'
 import { LineupAlertKind, lineupAlertID, standingsRecord, type LineupAlert } from '@models/team/DashboardModel'
 import type { LeagueContext } from '@models/league/LeagueContext'
 import { useApp, useModel } from '@ui/app/AppContext'
+import { DecideDialog } from '../../lineup/DecideDialog'
 import { ReadinessCard } from '../../team/ReadinessCard'
 import type { PanelProps } from './PanelEnv'
 import { usePanelEnv } from './PanelEnv'
@@ -87,9 +89,13 @@ function AlertLine({ alert, context }: { alert: LineupAlert; context?: LeagueCon
 export function SitStartPanel(_: PanelProps) {
   const { services } = useApp()
   const model = useModel(services.sitStart)
+  useModel(services.matchup)
+  useModel(services.waivers)
+  const [deciding, setDeciding] = useState<DecideSession>()
   const context = model.context
   const gain = model.gain
   const count = model.starts.length
+  const decidable = new Map(services.decide.slots().filter(slotCanDecide).map((s) => [s.index, s]))
   return (
     <PanelGate hasContext={context !== undefined} isLoading={model.isLoading} error={model.errorMessage}>
       <PanelScroll>
@@ -124,6 +130,17 @@ export function SitStartPanel(_: PanelProps) {
                       </span>
                     }
                   />
+                  {(() => {
+                    const decide = decidable.get(slot.index)
+                    if (!decide) return null
+                    const tint = slotIsCloseCall(decide) ? 'var(--caution)' : slotHasBenchOption(decide) ? 'var(--accent)' : 'var(--text-2)'
+                    return (
+                      <button type="button" className="decide-button" onClick={() => setDeciding(services.decide.session(decide))}
+                        aria-label={`Decide ${slot.slot}`} title={`Decide ${slot.slot} head to head`}>
+                        <Scale size={12} strokeWidth={2.5} color={tint} aria-hidden />
+                      </button>
+                    )
+                  })()}
                 </div>
               ))}
             </div>
@@ -131,6 +148,7 @@ export function SitStartPanel(_: PanelProps) {
         )}
         <PanelFootnote text={`On ${LINEUP_BASIS_LABEL[model.basis].toLowerCase()}.`} />
       </PanelScroll>
+      {deciding && <DecideDialog session={deciding} onClose={() => setDeciding(undefined)} />}
     </PanelGate>
   )
 }

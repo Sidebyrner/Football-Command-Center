@@ -153,6 +153,11 @@ export const startersOnBye = (s: MatchupSide) => s.rows.filter((r) => r.onBye).l
 export const leftToPlay = (s: MatchupSide) => s.rows.filter((r) => !rowIsEmptySlot(r) && !r.onBye && !rowIsLocked(r)).length
 /** Whether any of this side's starters may be playing right now. */
 export const hasLiveGame = (s: MatchupSide) => s.rows.some(rowIsLive)
+/** The starters' projections added up; `undefined` when none has one. */
+export function projectedTotal(s: MatchupSide): number | undefined {
+  const values = s.rows.filter((r) => !rowIsEmptySlot(r)).map((r) => r.projected).filter((v): v is number => v !== undefined)
+  return values.length === 0 ? undefined : values.reduce((a, b) => a + b, 0)
+}
 
 // MARK: - Mode
 

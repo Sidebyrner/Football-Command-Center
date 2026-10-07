@@ -291,6 +291,14 @@ export class WaiverBoardModel extends Observable {
     if (usable !== undefined) this.sort = usable
   }
 
+  /**
+   * Every free agent at these positions, whatever the board's filters say —
+   * the Decide hopper must not change when the user sorts the board.
+   */
+  freeAgents(eligible: ReadonlySet<Position>): WaiverRow[] {
+    return this.allRows.filter((r) => r.availability.kind === 'freeAgent' && eligible.has(r.position))
+  }
+
   applyFilters(): void {
     const needle = trimWhitespaces(this.query).toLowerCase()
     const positionFilter = this.positionFilter
