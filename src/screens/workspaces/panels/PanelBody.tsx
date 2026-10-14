@@ -7,7 +7,7 @@ import type { PanelKind, PanelSettings } from '@models/workspaces/Workspace'
 import type { PanelProps } from './PanelEnv'
 import { DiscoveryListPanel, GameLogPanel, PlayerNewsPanel, PlayerProfilePanel, PlayerSearchPanel, SchedulePanel } from './DiscoveryPanels'
 import { ComparePanel, MetricPanel, TrendComparePanel } from './ChartPanels'
-import { DSTStreamPanel, IDPStreamPanel, KStreamPanel, PlayerCardPanel, QBStreamPanel, RBStreamPanel, TradePartnersPanel, WaiverTargetsPanel, WRStreamPanel } from './MarketPanels'
+import { DSTStreamPanel, IDPStreamPanel, KStreamPanel, PlayerCardPanel, QBStreamPanel, RBStreamPanel, TEStreamPanel, TradePartnersPanel, WaiverTargetsPanel, WRStreamPanel } from './MarketPanels'
 import { ByeWeeksPanel, InjuriesPanel, LineupReadinessPanel, MatchupScorePanel, NewsPanel, SitStartPanel, StandingsPanel } from './TeamPanels'
 
 export function defaultRows(kind: PanelKind): number {
@@ -32,6 +32,7 @@ const REGISTRY: Record<PanelKind, ComponentType<PanelProps>> = {
   byeWeeks: ByeWeeksPanel,
   idpStream: IDPStreamPanel,
   wrStream: WRStreamPanel,
+  teStream: TEStreamPanel,
   rbStream: RBStreamPanel,
   qbStream: QBStreamPanel,
   dstStream: DSTStreamPanel,

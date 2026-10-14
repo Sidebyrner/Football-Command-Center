@@ -127,13 +127,14 @@ describe('Router', () => {
 describe('screens and hubs', () => {
   it('every screen belongs to exactly one hub', () => {
     const all: Screen[] = ['board', 'dashboard', 'injuries', 'discovery', 'planning', 'waivers', 'trades', 'idpStream',
-      'wrStream', 'rbStream', 'qbStream', 'dstStream', 'kStream', 'matchup', 'sitStart', 'decide']
+      'wrStream', 'teStream', 'rbStream', 'qbStream', 'dstStream', 'kStream', 'matchup', 'sitStart', 'decide']
     for (const s of all) {
       expect(hubs.filter((h) => hubScreens[h].includes(s))).toHaveLength(1)
     }
     expect(hubFor('settings')).toBe('team')
     expect(hubs).toEqual(['board', 'team', 'lineup', 'market', 'streams'])
     expect(hubScreens.lineup).toEqual(['sitStart', 'decide', 'matchup', 'injuries'])
+    expect(hubScreens.streams).toEqual(['qbStream', 'rbStream', 'wrStream', 'teStream', 'kStream', 'dstStream', 'idpStream'])
   })
 
   it('the phone opens on the Board', () => {

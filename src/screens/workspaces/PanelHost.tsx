@@ -228,7 +228,7 @@ export function LinkSwatch({ group, onChange }: { group: LinkGroup | undefined; 
 
 export function panelRowChoices(kind: PanelKind): number[] | undefined {
   switch (kind) {
-    case 'injuries': case 'waiverTargets': case 'idpStream': case 'wrStream': case 'rbStream': case 'qbStream':
+    case 'injuries': case 'waiverTargets': case 'idpStream': case 'wrStream': case 'teStream': case 'rbStream': case 'qbStream':
     case 'dstStream': case 'kStream': case 'news': case 'standings': case 'tradePartners':
       return [3, 5, 8, 12]
     case 'discovery': return [8, 12, 20, 40]

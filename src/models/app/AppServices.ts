@@ -28,6 +28,7 @@ import { KStreamScreenModel } from '../streams/KStreamKind'
 import { QBStreamScreenModel } from '../streams/QBStreamKind'
 import { RBStreamScreenModel } from '../streams/RBStreamKind'
 import { WRStreamScreenModel } from '../streams/WRStreamKind'
+import { TEStreamScreenModel } from '../streams/TEStreamKind'
 import { DashboardModel } from '../team/DashboardModel'
 import { LinkBus } from '../workspaces/LinkBus'
 import { PlayerCardCache } from '../workspaces/PlayerCardCache'
@@ -72,6 +73,7 @@ export class AppServices {
   readonly waivers: WaiverBoardModel
   readonly idpStream: IDPStreamScreenModel
   readonly wrStream: WRStreamScreenModel
+  readonly teStream: TEStreamScreenModel
   readonly rbStream: RBStreamScreenModel
   readonly qbStream: QBStreamScreenModel
   readonly dstStream: DSTStreamScreenModel
@@ -122,6 +124,7 @@ export class AppServices {
     this.waivers = new WaiverBoardModel(loader, sleeper)
     this.idpStream = new IDPStreamScreenModel(loader)
     this.wrStream = new WRStreamScreenModel(loader)
+    this.teStream = new TEStreamScreenModel(loader)
     this.rbStream = new RBStreamScreenModel(loader)
     this.qbStream = new QBStreamScreenModel(loader)
     this.dstStream = new DSTStreamScreenModel(loader)
@@ -156,6 +159,7 @@ export class AppServices {
       this.waivers.load(request),
       this.idpStream.load(leagueID, rosterID, undefined, force),
       this.wrStream.load(leagueID, rosterID, undefined, force),
+      this.teStream.load(leagueID, rosterID, undefined, force),
       this.rbStream.load(leagueID, rosterID, undefined, force),
       this.trades.load(leagueID, rosterID, undefined, force),
       this.discovery.load(request),

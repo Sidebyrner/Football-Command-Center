@@ -54,7 +54,7 @@ describe('demo league through AppServices', () => {
       now: () => DEMO_NOW,
     })
     await s.loadIfConfigured()
-    const models = { dashboard: s.dashboard, matchup: s.matchup, sitStart: s.sitStart, planning: s.planning, injuries: s.injuries, waivers: s.waivers, trades: s.trades, discovery: s.discovery, gameDay: s.gameDay, qb: s.qbStream, rb: s.rbStream, wr: s.wrStream, k: s.kStream, dst: s.dstStream, idp: s.idpStream }
+    const models = { dashboard: s.dashboard, matchup: s.matchup, sitStart: s.sitStart, planning: s.planning, injuries: s.injuries, waivers: s.waivers, trades: s.trades, discovery: s.discovery, gameDay: s.gameDay, qb: s.qbStream, rb: s.rbStream, wr: s.wrStream, te: s.teStream, k: s.kStream, dst: s.dstStream, idp: s.idpStream }
     const errors = Object.entries(models)
       .map(([name, m]) => [name, (m as unknown as { errorMessage?: string }).errorMessage] as const)
       .filter(([, e]) => e !== undefined)

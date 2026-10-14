@@ -85,6 +85,7 @@ export const waiverTuesday: WorkspacePreset = {
     panel('qbStream', 0, 9, 4, 4, { link: 1, topN: 5 }),
     panel('kStream', 4, 9, 4, 4, { link: 1, topN: 5 }),
     panel('dstStream', 8, 9, 4, 4, { link: 1, topN: 5 }),
+    panel('teStream', 0, 13, 4, 4, { link: 1, topN: 5 }),
   ],
 }
 

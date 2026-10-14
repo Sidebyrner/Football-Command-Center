@@ -13,6 +13,7 @@ const streamHue: Partial<Record<Screen, string>> = {
   qbStream: 'var(--pos-qb)',
   rbStream: 'var(--pos-rb)',
   wrStream: 'var(--pos-wr)',
+  teStream: 'var(--pos-te)',
   kStream: 'var(--pos-k)',
   dstStream: 'var(--pos-def)',
   idpStream: 'var(--pos-lb)',

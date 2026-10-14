@@ -18,6 +18,7 @@ const promise: Partial<Record<Screen, string>> = {
   qbStream: 'The best quarterback to stream against your starter, in your scoring.',
   rbStream: 'The best running back to stream against your starter, in your scoring.',
   wrStream: 'The best receiver to stream against your starter, in your scoring.',
+  teStream: 'The best tight end to stream against your starter, in your scoring.',
   kStream: 'The best kicker to stream, with wind and game environment.',
   dstStream: 'The best defense to stream against your starter.',
   idpStream: 'The best individual defensive player to stream.',

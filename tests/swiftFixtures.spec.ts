@@ -6,6 +6,7 @@ describe('Swift fixtures', () => {
   it('are reachable from the web tests', () => {
     expect(hasFixture('FCCore', 'qb-dst-k-stream')).toBe(true)
     expect(hasFixture('FCCore', 'rb-stream')).toBe(true)
+    expect(hasFixture('FCCore', 'te-stream')).toBe(true)
   })
 
   it('parse as JSON', () => {

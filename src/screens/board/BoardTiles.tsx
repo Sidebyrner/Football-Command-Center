@@ -433,6 +433,7 @@ function StreamsTile() {
         {started.has('QB') && <StreamLine label="QB" model={services.qbStream} screen="qbStream" />}
         {started.has('RB') && <StreamLine label="RB" model={services.rbStream} screen="rbStream" />}
         {started.has('WR') && <StreamLine label="WR" model={services.wrStream} screen="wrStream" />}
+        {started.has('TE') && <StreamLine label="TE" model={services.teStream} screen="teStream" />}
         {started.has('K') && <StreamLine label="K" model={services.kStream} screen="kStream" />}
         {started.has('DEF') && <StreamLine label="D/ST" model={services.dstStream} screen="dstStream" />}
         {startsIDP && <StreamLine label="IDP" model={services.idpStream} screen="idpStream" />}

@@ -5,7 +5,7 @@ import type { AppServices } from '@models/app/AppServices'
 import type { StreamKindTypes } from '@models/streams/StreamKind'
 import type { StreamScreenModel } from '@models/streams/StreamScreenModel'
 import { demoServices, renderScreen } from '../../../tests/renderScreen'
-import { DSTStreamScreen, IDPStreamScreen, KStreamScreen, QBStreamScreen, RBStreamScreen, WRStreamScreen } from './index'
+import { DSTStreamScreen, IDPStreamScreen, KStreamScreen, QBStreamScreen, RBStreamScreen, TEStreamScreen, WRStreamScreen } from './index'
 import { qbSpec } from './QBStream'
 import { rbSpec } from './RBStream'
 import { StreamCompareView } from './StreamCompareView'
@@ -36,6 +36,7 @@ const cases: Case[] = [
   { name: 'QB', Screen: QBStreamScreen, path: '/streams/qb', model: (s) => s.qbStream as never, overline: 'Streams · QB · Week 7', noun: 'quarterback', horizon: true, incumbent: 'Josh Allen' },
   { name: 'RB', Screen: RBStreamScreen, path: '/streams/rb', model: (s) => s.rbStream as never, overline: 'Streams · RB · Week 7', noun: 'running back', horizon: false, incumbent: 'Saquon Barkley' },
   { name: 'WR', Screen: WRStreamScreen, path: '/streams/wr', model: (s) => s.wrStream as never, overline: 'Streams · WR · Week 7', noun: 'receiver', horizon: false, incumbent: 'Puka Nacua' },
+  { name: 'TE', Screen: TEStreamScreen, path: '/streams/te', model: (s) => s.teStream as never, overline: 'Streams · TE · Week 7', noun: 'tight end', horizon: false, incumbent: 'Trey McBride' },
   { name: 'K', Screen: KStreamScreen, path: '/streams/k', model: (s) => s.kStream as never, overline: 'Streams · K · Week 7', noun: 'kicker', horizon: true, incumbent: 'Chris Boswell' },
   { name: 'D/ST', Screen: DSTStreamScreen, path: '/streams/dst', model: (s) => s.dstStream as never, overline: 'Streams · D/ST · Week 7', noun: 'defense', horizon: true, incumbent: 'PHI D/ST' },
   { name: 'IDP', Screen: IDPStreamScreen, path: '/streams/idp', model: (s) => s.idpStream as never, overline: 'Streams · IDP · Week 7', noun: 'defender', horizon: false, incumbent: "D'Anthony Smith" },

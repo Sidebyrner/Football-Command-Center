@@ -5,7 +5,7 @@
  */
 export type Screen =
   | 'board' | 'dashboard' | 'injuries' | 'discovery' | 'planning' | 'waivers' | 'trades'
-  | 'idpStream' | 'wrStream' | 'rbStream' | 'qbStream' | 'dstStream' | 'kStream'
+  | 'idpStream' | 'wrStream' | 'teStream' | 'rbStream' | 'qbStream' | 'dstStream' | 'kStream'
   | 'matchup' | 'sitStart' | 'decide' | 'settings'
   /** Web-only tools from the original web app: draft day, research, rankings, odds. */
   | 'draft' | 'draftPlan' | 'research' | 'powerRankings' | 'odds'
@@ -13,7 +13,7 @@ export type Screen =
 export const screenTitle: Record<Screen, string> = {
   board: 'Board', dashboard: 'My Team', injuries: 'Injuries', discovery: 'Discover',
   planning: 'Planning', waivers: 'Waivers', trades: 'Trades', idpStream: 'IDP Stream',
-  wrStream: 'WR Stream', rbStream: 'RB Stream', qbStream: 'QB Stream', dstStream: 'D/ST Stream',
+  wrStream: 'WR Stream', teStream: 'TE Stream', rbStream: 'RB Stream', qbStream: 'QB Stream', dstStream: 'D/ST Stream',
   kStream: 'K Stream', matchup: 'Matchup', sitStart: 'Sit/Start', decide: 'Decide', settings: 'Settings',
   draft: 'Draft', draftPlan: 'Draft Plan', research: 'Research', powerRankings: 'Power Rankings', odds: 'Odds',
 }
@@ -39,7 +39,7 @@ export const hubScreens: Record<Hub, readonly Screen[]> = {
   team: ['dashboard'],
   lineup: ['sitStart', 'decide', 'matchup', 'injuries'],
   market: ['discovery', 'waivers', 'trades', 'planning'],
-  streams: ['qbStream', 'rbStream', 'wrStream', 'kStream', 'dstStream', 'idpStream'],
+  streams: ['qbStream', 'rbStream', 'wrStream', 'teStream', 'kStream', 'dstStream', 'idpStream'],
 }
 
 /** Which hub a screen lives in. Settings sits behind Team's gear. */
@@ -53,6 +53,7 @@ export function segmentLabel(screen: Screen): string {
   switch (screen) {
     case 'idpStream': return 'IDP'
     case 'wrStream': return 'WR'
+    case 'teStream': return 'TE'
     case 'rbStream': return 'RB'
     case 'qbStream': return 'QB'
     case 'dstStream': return 'D/ST'
@@ -83,6 +84,7 @@ const paths: Record<Screen, string> = {
   qbStream: '/streams/qb',
   rbStream: '/streams/rb',
   wrStream: '/streams/wr',
+  teStream: '/streams/te',
   kStream: '/streams/k',
   dstStream: '/streams/dst',
   idpStream: '/streams/idp',

@@ -11,7 +11,7 @@ import { NeedsSetup } from '@ui/components/State'
 import { Placeholder } from './Placeholder'
 import { SettingsScreen } from './settings/SettingsScreen'
 import { DraftPlanScreen, DraftScreen, OddsScreen, PowerRankingsScreen, ResearchScreen } from './tools'
-import { DSTStreamScreen, IDPStreamScreen, KStreamScreen, QBStreamScreen, RBStreamScreen, WRStreamScreen } from './streams'
+import { DSTStreamScreen, IDPStreamScreen, KStreamScreen, QBStreamScreen, RBStreamScreen, TEStreamScreen, WRStreamScreen } from './streams'
 import { DiscoverScreen } from './market/DiscoverScreen'
 import { PlanningScreen } from './market/PlanningScreen'
 import { TradesScreen } from './market/TradesScreen'
@@ -34,6 +34,7 @@ export const screens: Partial<Record<Screen, ComponentType>> = {
   qbStream: QBStreamScreen,
   rbStream: RBStreamScreen,
   wrStream: WRStreamScreen,
+  teStream: TEStreamScreen,
   kStream: KStreamScreen,
   dstStream: DSTStreamScreen,
   idpStream: IDPStreamScreen,

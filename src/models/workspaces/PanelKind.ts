@@ -16,6 +16,7 @@ export function panelTitle(kind: PanelKind): string {
     case 'byeWeeks': return 'Byes & short weeks'
     case 'idpStream': return 'IDP Stream'
     case 'wrStream': return 'WR Stream'
+    case 'teStream': return 'TE Stream'
     case 'rbStream': return 'RB Stream'
     case 'qbStream': return 'QB Stream'
     case 'dstStream': return 'D/ST Stream'
@@ -51,6 +52,7 @@ export function panelFullScreen(kind: PanelKind): Screen | undefined {
       return undefined
     case 'idpStream': return 'idpStream'
     case 'wrStream': return 'wrStream'
+    case 'teStream': return 'teStream'
     case 'rbStream': return 'rbStream'
     case 'qbStream': return 'qbStream'
     case 'dstStream': return 'dstStream'
@@ -74,6 +76,7 @@ export const SCREEN_SYSTEM_IMAGE: Readonly<Partial<Record<Screen, string>>> = {
   trades: 'arrow.triangle.swap',
   idpStream: 'shield.lefthalf.filled',
   wrStream: 'figure.american.football',
+  teStream: 'figure.strengthtraining.functional',
   rbStream: 'figure.run',
   qbStream: 'football',
   dstStream: 'shield',
@@ -120,6 +123,7 @@ export function panelSummary(kind: PanelKind): string {
     case 'byeWeeks': return "Upcoming byes and the weeks you'll be short at a slot."
     case 'idpStream': return "This week's best defenders to stream."
     case 'wrStream': return "This week's best receivers to stream."
+    case 'teStream': return "This week's best tight ends to stream."
     case 'rbStream': return "This week's best running backs to stream."
     case 'qbStream': return 'Quarterbacks to stream, on this week and the rest of the season.'
     case 'dstStream': return 'Team defenses to stream, on this week and the rest of the season.'
@@ -146,7 +150,7 @@ export function panelDefaultSize(kind: PanelKind): GridSize {
     case 'byeWeeks': return { w: 6, h: 2 }
     case 'sitStart': return { w: 6, h: 4 }
     case 'injuries': case 'standings': return { w: 4, h: 4 }
-    case 'waiverTargets': case 'idpStream': case 'wrStream': case 'rbStream': case 'qbStream': case 'dstStream':
+    case 'waiverTargets': case 'idpStream': case 'wrStream': case 'teStream': case 'rbStream': case 'qbStream': case 'dstStream':
     case 'kStream': case 'playerCard':
       return { w: 4, h: 5 }
     case 'tradePartners': return { w: 5, h: 6 }
@@ -168,7 +172,7 @@ export function panelMinSize(kind: PanelKind): GridSize {
   switch (kind) {
     case 'sitStart': case 'tradePartners': return { w: 4, h: 3 }
     case 'matchupScore': return { w: 4, h: 2 }
-    case 'waiverTargets': case 'idpStream': case 'wrStream': case 'rbStream': case 'qbStream': case 'dstStream':
+    case 'waiverTargets': case 'idpStream': case 'wrStream': case 'teStream': case 'rbStream': case 'qbStream': case 'dstStream':
     case 'kStream': case 'playerCard':
       return { w: 3, h: 3 }
     case 'lineupReadiness': case 'injuries': case 'byeWeeks': case 'news': case 'standings': return { w: 3, h: 2 }
@@ -196,7 +200,7 @@ export function panelConsumesLink(kind: PanelKind): boolean {
 /** Panels whose rows publish a player (or team) to their link group. */
 export function panelPublishesLink(kind: PanelKind): boolean {
   switch (kind) {
-    case 'sitStart': case 'injuries': case 'waiverTargets': case 'tradePartners': case 'idpStream': case 'wrStream':
+    case 'sitStart': case 'injuries': case 'waiverTargets': case 'tradePartners': case 'idpStream': case 'wrStream': case 'teStream':
     case 'rbStream': case 'qbStream': case 'dstStream': case 'kStream': case 'standings': case 'matchupScore':
     case 'discovery': case 'compare': case 'metric': case 'playerSearch':
       return true

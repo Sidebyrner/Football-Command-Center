@@ -33,6 +33,7 @@ import { kSpec } from '../../streams/KStream'
 import { qbSpec } from '../../streams/QBStream'
 import { rbSpec } from '../../streams/RBStream'
 import { wrSpec } from '../../streams/WRStream'
+import { teSpec } from '../../streams/TEStream'
 import '../../streams/streams.css'
 import type { PanelProps } from './PanelEnv'
 import { usePanelEnv } from './PanelEnv'
@@ -183,6 +184,9 @@ export function RBStreamPanel({ rows }: PanelProps) {
 }
 export function WRStreamPanel({ rows }: PanelProps) {
   return <StreamPanel model={useApp().services.wrStream} title={wrSpec.title} rows={rows} />
+}
+export function TEStreamPanel({ rows }: PanelProps) {
+  return <StreamPanel model={useApp().services.teStream} title={teSpec.title} rows={rows} />
 }
 export function KStreamPanel({ rows }: PanelProps) {
   return <StreamPanel model={useApp().services.kStream} title={kSpec.title} rows={rows} />

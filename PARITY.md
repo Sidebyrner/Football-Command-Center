@@ -22,6 +22,7 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 | Stream decision layer and rest of season | ✅ | `erf` matches libm to 2e-16 |
 | QB, D/ST, K streams | ✅ | fixtures to 1e-6, week / balanced / ROS |
 | RB, WR, IDP streams | ✅ | fixtures to 1e-6 |
+| TE stream | ✅ | `te-stream` fixture to 1e-9 under league and TE-premium scoring |
 
 ## Data (FCData)
 
@@ -44,7 +45,7 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 | Injury Center, Waiver Board | ✅ |
 | Trade wizard, trade desk, player schedule | ✅ |
 | Planning, planning jobs, season history | ✅ |
-| Stream screens (six kinds, store, candidate builders, week contexts) | ✅ |
+| Stream screens (seven kinds, store, candidate builders, week contexts) | ✅ |
 | Workspaces (model, geometry, presets, store, link bus, tray) | ✅ |
 | Board (dashboard), this week, My Team, board layout | ✅ |
 | Discovery, Player Card, compare, player card cache | ✅ |
@@ -61,12 +62,12 @@ Legend: ✅ ported with its Swift tests · 🟡 ported, tests partial · ⬜ not
 | Lineup: Sit/Start, Matchup (live), Injuries, lineup status header | ✅ Release 1 |
 | Lineup: Decide (row action, hub segment) | ✅ |
 | Market: Discover with compare, Waivers with add/drop, trade desk, Planning | ✅ Release 1 |
-| Streams: all six, with compare, snapshots, game context and editors | ✅ Release 1 |
+| Streams: all seven, with compare, snapshots, game context and editors | ✅ Release 1 |
 | Player Card sheet (status, news, schedule, log, projections, grade) | ✅ Release 1 |
 | Settings: connect a league, demo league, accent, light/dark, relay, export/import | ✅ Release 1 |
 | Installable app with offline support | ✅ Release 1 |
 | Desktop workspaces: 12-column grid, drag and resize with push-and-float, panel tray and library, five presets, link colours, compare lists of four, sidebar list, ⌘[ ⌘] | ✅ Release 2 |
-| All 25 workspace panels (team, market, streams, discovery, player detail, compare, metric, trend) | ✅ Release 2 |
+| All 26 workspace panels (team, market, streams, discovery, player detail, compare, metric, trend) | ✅ Release 2 |
 | Web-only tools on the new design: Draft, Draft Plan, Research, Power Rankings, Odds (Tools sidebar; Team › Season on phones) | — web only |
 | Legacy dark-only app retired; old URLs redirect to their new screens | ✅ Phase 4 |
 

@@ -65,6 +65,7 @@ export const PANEL_KINDS = [
   'byeWeeks',
   'idpStream',
   'wrStream',
+  'teStream',
   'rbStream',
   'qbStream',
   'dstStream',

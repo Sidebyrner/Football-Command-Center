@@ -3,7 +3,7 @@ import type { AppServices } from '@models/app/AppServices'
 import { demoServices } from '../../../../tests/renderScreen'
 import {
   DSTStreamPanel, IDPStreamPanel, KStreamPanel, PlayerCardPanel, QBStreamPanel, RBStreamPanel,
-  TradePartnersPanel, WaiverTargetsPanel, WRStreamPanel,
+  TEStreamPanel, TradePartnersPanel, WaiverTargetsPanel, WRStreamPanel,
 } from './MarketPanels'
 import { renderPanel } from './teamPanelsSpecKit'
 
@@ -46,7 +46,8 @@ describe('Market panels on the demo league', () => {
     const services = await demoServices()
     const cases = [
       [QBStreamPanel, services.qbStream, 'quarterback'], [RBStreamPanel, services.rbStream, 'running back'],
-      [WRStreamPanel, services.wrStream, 'receiver'], [KStreamPanel, services.kStream, 'kicker'],
+      [WRStreamPanel, services.wrStream, 'receiver'], [TEStreamPanel, services.teStream, 'tight end'],
+      [KStreamPanel, services.kStream, 'kicker'],
       [IDPStreamPanel, services.idpStream, 'defender'],
     ] as const
     for (const [Panel, model, noun] of cases) {
