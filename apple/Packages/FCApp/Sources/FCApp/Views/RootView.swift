@@ -66,6 +66,7 @@ public struct RootView: View {
         case trades = "Trades"
         case idpStream = "IDP Stream"
         case wrStream = "WR Stream"
+        case teStream = "TE Stream"
         case rbStream = "RB Stream"
         case qbStream = "QB Stream"
         case dstStream = "D/ST Stream"
@@ -88,6 +89,7 @@ public struct RootView: View {
             case .trades: return "arrow.triangle.swap"
             case .idpStream: return "shield.lefthalf.filled"
             case .wrStream: return "figure.american.football"
+            case .teStream: return "figure.strengthtraining.functional"
             case .rbStream: return "figure.run"
             case .qbStream: return "football"
             case .dstStream: return "shield"
@@ -104,7 +106,7 @@ public struct RootView: View {
             switch self {
             case .board, .dashboard, .sitStart, .decide, .injuries: return .team
             case .matchup: return .week
-            case .planning, .waivers, .trades, .idpStream, .wrStream, .rbStream, .discovery, .qbStream, .dstStream, .kStream:
+            case .planning, .waivers, .trades, .idpStream, .wrStream, .teStream, .rbStream, .discovery, .qbStream, .dstStream, .kStream:
                 return .market
             case .settings: return .settings
             }
@@ -300,6 +302,8 @@ public struct RootView: View {
             } else {
                 needsSetup
             }
+        case .teStream:
+            if settingsModel.settings.isConfigured { TEStreamView(model: services.teStream) } else { needsSetup }
         case .rbStream:
             if settingsModel.settings.isConfigured {
                 RBStreamView(model: services.rbStream)

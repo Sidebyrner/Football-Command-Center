@@ -13,6 +13,7 @@ public extension PanelKind {
         case .byeWeeks: return "Byes & short weeks"
         case .idpStream: return "IDP Stream"
         case .wrStream: return "WR Stream"
+        case .teStream: return "TE Stream"
         case .rbStream: return "RB Stream"
         case .qbStream: return "QB Stream"
         case .dstStream: return "D/ST Stream"
@@ -52,6 +53,7 @@ public extension PanelKind {
         case .playerProfile, .playerNews, .gameLog, .trendChart, .schedule, .compare, .metric, .playerSearch: return nil
         case .idpStream: return .idpStream
         case .wrStream: return .wrStream
+        case .teStream: return .teStream
         case .rbStream: return .rbStream
         case .qbStream: return .qbStream
         case .dstStream: return .dstStream
@@ -92,6 +94,7 @@ public extension PanelKind {
         case .byeWeeks: return "Upcoming byes and the weeks you'll be short at a slot."
         case .idpStream: return "This week's best defenders to stream."
         case .wrStream: return "This week's best receivers to stream."
+        case .teStream: return "This week's best tight ends to stream."
         case .rbStream: return "This week's best running backs to stream."
         case .qbStream: return "Quarterbacks to stream, on this week and the rest of the season."
         case .dstStream: return "Team defenses to stream, on this week and the rest of the season."
@@ -118,7 +121,7 @@ public extension PanelKind {
         case .byeWeeks: return GridSize(w: 6, h: 2)
         case .sitStart: return GridSize(w: 6, h: 4)
         case .injuries, .standings: return GridSize(w: 4, h: 4)
-        case .waiverTargets, .idpStream, .wrStream, .rbStream, .qbStream, .dstStream, .kStream, .playerCard: return GridSize(w: 4, h: 5)
+        case .waiverTargets, .idpStream, .wrStream, .teStream, .rbStream, .qbStream, .dstStream, .kStream, .playerCard: return GridSize(w: 4, h: 5)
         case .tradePartners: return GridSize(w: 5, h: 6)
         case .news: return GridSize(w: 3, h: 4)
         case .discovery: return GridSize(w: 4, h: 6)
@@ -138,7 +141,7 @@ public extension PanelKind {
         switch self {
         case .sitStart, .tradePartners: return GridSize(w: 4, h: 3)
         case .matchupScore: return GridSize(w: 4, h: 2)
-        case .waiverTargets, .idpStream, .wrStream, .rbStream, .qbStream, .dstStream, .kStream, .playerCard: return GridSize(w: 3, h: 3)
+        case .waiverTargets, .idpStream, .wrStream, .teStream, .rbStream, .qbStream, .dstStream, .kStream, .playerCard: return GridSize(w: 3, h: 3)
         case .lineupReadiness, .injuries, .byeWeeks, .news, .standings: return GridSize(w: 3, h: 2)
         case .discovery: return GridSize(w: 3, h: 4)
         case .playerProfile: return GridSize(w: 3, h: 3)
@@ -164,7 +167,7 @@ public extension PanelKind {
     /// Panels whose rows publish a player (or team) to their link group.
     var publishesLink: Bool {
         switch self {
-        case .sitStart, .injuries, .waiverTargets, .tradePartners, .idpStream, .wrStream, .rbStream, .qbStream, .dstStream, .kStream, .standings, .matchupScore,
+        case .sitStart, .injuries, .waiverTargets, .tradePartners, .idpStream, .wrStream, .teStream, .rbStream, .qbStream, .dstStream, .kStream, .standings, .matchupScore,
              .discovery, .compare, .metric, .playerSearch:
             return true
         case .lineupReadiness, .byeWeeks, .news, .playerCard, .playerProfile, .playerNews, .gameLog, .trendChart, .schedule:

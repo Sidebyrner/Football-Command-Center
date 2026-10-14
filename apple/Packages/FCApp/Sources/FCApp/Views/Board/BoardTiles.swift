@@ -396,6 +396,7 @@ private struct StreamsTile: View {
                 if started.contains(.qb) { StreamLine(label: "QB", model: services.qbStream, screen: .qbStream) }
                 if started.contains(.rb) { StreamLine(label: "RB", model: services.rbStream, screen: .rbStream) }
                 if started.contains(.wr) { StreamLine(label: "WR", model: services.wrStream, screen: .wrStream) }
+                if started.contains(.te) { StreamLine(label: "TE", model: services.teStream, screen: .teStream) }
                 if started.contains(.k) { StreamLine(label: "K", model: services.kStream, screen: .kStream) }
                 if started.contains(.def) { StreamLine(label: "D/ST", model: services.dstStream, screen: .dstStream) }
                 if !started.isDisjoint(with: Position.idp) {

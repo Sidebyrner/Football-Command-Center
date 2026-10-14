@@ -195,6 +195,7 @@ enum HubStyle {
         case .qbStream: return .qb
         case .rbStream: return .rb
         case .wrStream: return .wr
+        case .teStream: return .te
         case .kStream: return .k
         case .dstStream: return .def
         case .idpStream: return .lb

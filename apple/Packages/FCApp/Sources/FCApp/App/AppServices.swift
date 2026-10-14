@@ -30,6 +30,7 @@ public final class AppServices {
     public let waivers: WaiverBoardModel
     public let idpStream: IDPStreamScreenModel
     public let wrStream: WRStreamScreenModel
+    public let teStream: TEStreamScreenModel
     public let rbStream: RBStreamScreenModel
     public let qbStream: QBStreamScreenModel
     public let dstStream: DSTStreamScreenModel
@@ -104,6 +105,7 @@ public final class AppServices {
         waivers = WaiverBoardModel(loader: loader, sleeper: sleeper)
         idpStream = IDPStreamScreenModel(loader: loader)
         wrStream = WRStreamScreenModel(loader: loader)
+        teStream = TEStreamScreenModel(loader: loader)
         rbStream = RBStreamScreenModel(loader: loader)
         qbStream = QBStreamScreenModel(loader: loader)
         dstStream = DSTStreamScreenModel(loader: loader)
@@ -148,6 +150,7 @@ public final class AppServices {
         async let waivers: Void = waivers.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let idpStream: Void = idpStream.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let wrStream: Void = wrStream.load(leagueID: leagueID, userRosterID: rosterID, force: force)
+        async let teStream: Void = teStream.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let rbStream: Void = rbStream.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let trades: Void = trades.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let discovery: Void = discovery.load(leagueID: leagueID, userRosterID: rosterID, force: force)
@@ -155,7 +158,7 @@ public final class AppServices {
         async let dstStream: Void = dstStream.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let kStream: Void = kStream.load(leagueID: leagueID, userRosterID: rosterID, force: force)
         async let gameDay: Void = gameDay.load(leagueID: leagueID, userRosterID: rosterID, force: force)
-        _ = await (dashboard, matchup, sitStart, planning, injuries, waivers, idpStream, wrStream, rbStream, trades, discovery,
+        _ = await (dashboard, matchup, sitStart, planning, injuries, waivers, idpStream, wrStream, teStream, rbStream, trades, discovery,
                    qbStream, dstStream, kStream, gameDay)
     }
 
