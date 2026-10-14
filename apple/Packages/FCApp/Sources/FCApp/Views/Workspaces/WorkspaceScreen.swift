@@ -239,7 +239,7 @@ struct PanelLibrarySheet: View {
 
     static let groups: [(String, [PanelKind])] = [
         ("This week", [.lineupReadiness, .sitStart, .matchupScore, .injuries]),
-        ("Market", [.waiverTargets, .tradePartners, .qbStream, .rbStream, .wrStream, .kStream, .dstStream, .idpStream]),
+        ("Market", [.waiverTargets, .tradePartners, .qbStream, .rbStream, .wrStream, .teStream, .kStream, .dstStream, .idpStream]),
         ("Season", [.byeWeeks, .standings, .news]),
         ("Discovery", [.discovery, .playerProfile, .playerNews, .gameLog, .trendChart, .schedule, .compare]),
         ("Metrics", [.metric, .playerSearch]),

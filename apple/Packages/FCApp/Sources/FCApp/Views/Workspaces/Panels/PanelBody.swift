@@ -42,6 +42,8 @@ struct PanelBody: View {
             StreamPanel(model: services.idpStream, spec: IDPStreamView.spec, rows: rows)
         case .wrStream:
             StreamPanel(model: services.wrStream, spec: WRStreamView.spec, rows: rows)
+        case .teStream:
+            StreamPanel(model: services.teStream, spec: TEStreamView.spec, rows: rows)
         case .rbStream:
             StreamPanel(model: services.rbStream, spec: RBStreamView.spec, rows: rows)
         case .qbStream:
