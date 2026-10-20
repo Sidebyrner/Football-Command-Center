@@ -11,15 +11,7 @@ import { usePanelEnv } from './PanelEnv'
 import './teamPanels.css'
 
 /** The short slot names the lineup rows use. */
-export function slotLabel(token: string): string {
-  switch (token) {
-    case 'SUPER_FLEX': return 'SF'
-    case 'REC_FLEX': return 'RWT'
-    case 'WRRB_FLEX': return 'W/R'
-    case 'IDP_FLEX': return 'IDP'
-    default: return token
-  }
-}
+export { slotLabel } from '@models/lineup/SitStartModel'
 
 /**
  * Swift `.panelPlayerTap(id, context:)`: what a click on any player content

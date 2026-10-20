@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { LeagueContextLoader } from '../../league/LeagueContextLoader'
-import { LINEUP_BASES, SitStartModel, type ProposedSlot } from '../SitStartModel'
+import { LINEUP_BASES, SitStartModel, slotLabel, type ProposedSlot } from '../SitStartModel'
 import { makeHarness, standardTransport, TestClock, TestLeague } from '../../../../tests/appHarness'
 import { StubTransport } from '../../../../tests/stubTransport'
 import { SitStartFixture } from './lineupFixtures'
@@ -13,10 +13,13 @@ import { SitStartFixture } from './lineupFixtures'
  * Week 7 is the bye case: BUF and BAL are off, so Josh Allen must be benched
  * for Jared Goff on every basis.
  */
-/** @param injuries Sleeper injury tags to put on players, by id. */
-async function loaded(options: { week?: number; injuries?: Record<string, string>; rosters?: string } = {}): Promise<SitStartModel> {
-  const { week = 1, injuries = {}, rosters = SitStartFixture.rosters } = options
-  let players: string = SitStartFixture.players
+/**
+ * @param injuries Sleeper injury tags to put on players, by id.
+ * @param extraPlayers Extra player entries spliced into the players map.
+ */
+async function loaded(options: { week?: number; injuries?: Record<string, string>; rosters?: string; extraPlayers?: string } = {}): Promise<SitStartModel> {
+  const { week = 1, injuries = {}, rosters = SitStartFixture.rosters, extraPlayers = '' } = options
+  let players: string = SitStartFixture.players.replace('{"4984":', `{${extraPlayers}"4984":`)
   for (const [id, tag] of Object.entries(injuries)) {
     players = players.split(`"${id}":{`).join(`"${id}":{"injury_status":"${tag}",`)
   }
@@ -220,7 +223,69 @@ describe('SitStartModel', () => {
     expect(qb).toBeDefined()
     expect(qb!.keptBecauseUnvalued).toBe(true)
     expect(qb!.availability).toEqual({ kind: 'unavailable', label: 'Out' })
-    expect(model.injuredWithoutCover).toEqual(['Josh Allen (Out) at QB'])
+    expect(model.unplayableWithoutCover).toEqual(['Josh Allen (Out) at QB'])
+  })
+
+  // MARK: - Cover for a starter who can't play
+
+  /** Rosters with a BUF defense starting (BUF is on bye in week 7) and, optionally, PHI's on the bench. */
+  function byeDefenseRosters(benchDefense: boolean): string {
+    const bench = benchDefense ? `"k1","BUF","PHI","lb1","dl1"],` : `"k1","BUF","lb1","dl1"],`
+    return SitStartFixture.rosters
+      .replace(`"k1","PHI","lb1","dl1"]}`, `"k1","BUF","lb1","dl1"]}`)
+      .replace(`"k1","PHI","lb1","dl1"],`, bench)
+  }
+  const bufDefense = `"BUF":{"position":"DEF","team":"BUF","active":true},`
+
+  /**
+   * Week 7, season pts/gm: no production basis can value a DEF, so the
+   * optimizer proposes nobody. A starter on bye scores a certain zero, so the
+   * bench DEF who plays comes in rather than the bye DEF being kept.
+   */
+  it('a defense on bye is covered by the bench defense', async () => {
+    const model = await loaded({ week: 7, rosters: byeDefenseRosters(true), extraPlayers: bufDefense })
+    expect(model.basis).toBe('seasonAverage')
+    const defense = slot(model, 'DEF')!
+    expect(defense.playerID).toBe('PHI')
+    expect(defense.changed).toBe(true)
+    expect(defense.keptBecauseUnvalued).toBe(false)
+    expect(model.starts.some((c) => c.playerID === 'PHI' && c.slot === 'DEF')).toBe(true)
+    expect(model.sits.some((c) => c.playerID === 'BUF' && c.slot === 'DEF')).toBe(true)
+    expect(model.swaps.some((s) => s.slot === 'DEF' && s.inName === model.context?.playerName('PHI'))).toBe(true)
+    expect(model.unplayableWithoutCover.some((w) => w.endsWith('at DEF'))).toBe(false)
+  })
+
+  /** No bench DEF: the bye DEF stays, and the screen says nobody can cover. BAL's kicker is on bye too. */
+  it('a bye starter with no cover is called out', async () => {
+    const model = await loaded({ week: 7, rosters: byeDefenseRosters(false), extraPlayers: bufDefense })
+    const defense = slot(model, 'DEF')!
+    expect(defense.playerID).toBe('BUF')
+    expect(defense.keptBecauseUnvalued).toBe(true)
+    expect(model.unplayableWithoutCover).toContain(`${defense.name} (Bye) at DEF`)
+    expect(model.unplayableWithoutCover).toContain('Kicker One (Bye) at K')
+  })
+
+  /** An Out linebacker in an IDP slot is replaced by the healthy one on the bench, though no production basis can value either. */
+  it('an out linebacker is covered by the bench linebacker', async () => {
+    const rosters = SitStartFixture.rosters.replace(`"PHI","lb1","dl1"],`, `"PHI","lb1","dl1","lb2"],`)
+    expect(rosters).not.toBe(SitStartFixture.rosters)
+    const model = await loaded({
+      injuries: { lb1: 'Out' }, rosters,
+      extraPlayers: `"lb2":{"full_name":"Linebacker Two","position":"LB","team":"MIN","active":true},`,
+    })
+    // lb1 starts in the first IDP_FLEX slot (index 9).
+    const lb = model.lineup.find((s) => s.index === 9)!
+    expect(lb.name).toBe('Linebacker Two')
+    expect(lb.changed).toBe(true)
+    expect(lb.keptBecauseUnvalued).toBe(false)
+    expect(model.sits.some((c) => c.name === 'Linebacker One' && c.injury === 'Out')).toBe(true)
+    expect(model.swaps.some((s) => s.slot === 'IDP_FLEX' && s.outName === 'Linebacker One' && s.inName === 'Linebacker Two')).toBe(true)
+    expect(model.unplayableWithoutCover).toEqual([])
+  })
+
+  it('slot tokens get short labels', () => {
+    expect(['SUPER_FLEX', 'REC_FLEX', 'WRTE_FLEX', 'WRRB_FLEX', 'IDP_FLEX', 'FLEX', 'QB'].map(slotLabel))
+      .toEqual(['SF', 'W/T', 'W/T', 'W/R', 'IDP', 'FLEX', 'QB'])
   })
 
   it("a player on the user's reserve is not started", async () => {
