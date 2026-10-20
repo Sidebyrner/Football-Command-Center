@@ -80,15 +80,14 @@ export default function WeeklyMatchupOdds({ teams, playersById }) {
         <p className="t-meta flex items-start gap-1.5" style={{ margin: 0, color: 'var(--caution)' }}>
           <AlertTriangle size={13} className="flex-shrink-0" style={{ marginTop: 1 }} aria-hidden />
           <span>
-            No lines available — add an Odds API key on the{' '}
-            <Link to="/tools/odds" className="rt-link">Odds tool</Link>, or run{' '}
-            <code>npm run preprocess-nflverse</code> for the free recorded lines.
+            No lines for this week yet — add an Odds API key on the{' '}
+            <Link to="/tools/odds" className="rt-link">Odds tool</Link> for live spreads and totals.
           </span>
         </p>
       )}
       {source === 'schedule' && (
         <p className="t-meta faint" style={{ margin: 0 }}>
-          Implied totals from the preprocessed schedule's recorded lines, not live odds.
+          Implied totals from the schedule's recorded lines, not live odds.
         </p>
       )}
       {oddsLoading && (

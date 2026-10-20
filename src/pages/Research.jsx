@@ -160,22 +160,21 @@ export default function Research() {
           </button>
 
           <div className="rt-row ml-auto">
-            {/* Import news — relayed through the server proxy (B1/B2). Always
-                shown, even unconfigured, so the feature is discoverable rather
-                than silently absent; the error message says what's missing. */}
-            <button
-              type="button"
-              onClick={handleImportNews}
-              disabled={importing}
-              aria-busy={importing}
-              title={hasApiProxy
-                ? 'Import latest NFL news from ESPN and Pro Football Talk'
-                : 'No news relay in this build — it needs VITE_API_BASE_URL pointing at the server proxy'}
-              className="button rt-button"
-            >
-              {importing ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Rss size={14} aria-hidden />}
-              Import News
-            </button>
+            {/* Import news — relayed through the server proxy (B1/B2). Hidden
+                when this build has no proxy: it could only fail. */}
+            {hasApiProxy && (
+              <button
+                type="button"
+                onClick={handleImportNews}
+                disabled={importing}
+                aria-busy={importing}
+                title="Import latest NFL news from ESPN and Pro Football Talk"
+                className="button rt-button"
+              >
+                {importing ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Rss size={14} aria-hidden />}
+                Import News
+              </button>
+            )}
 
             <button
               type="button"

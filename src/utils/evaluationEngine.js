@@ -150,7 +150,7 @@ export function evaluateWeekly(player, profile, metrics, cohorts) {
   }
   const base = WEEKLY_WEIGHTS[position]
   if (!base) return unavailable('weekly', position, `No weekly model for position ${position}.`)
-  if (!cohorts) return unavailable('weekly', position, 'Cohort data not loaded. Run: npm run preprocess-nflverse')
+  if (!cohorts) return unavailable('weekly', position, 'Position comparison data isn’t available right now.')
   if (!metrics) {
     return unavailable('weekly', position, 'No historical stats for this player — rookies and players with no recorded season cannot be scored.')
   }
@@ -221,7 +221,7 @@ export function evaluateDraft(player, profile, metrics, cohorts) {
   }
   const base = DRAFT_WEIGHTS[position]
   if (!base) return unavailable('draft', position, `No draft model for position ${position}.`)
-  if (!cohorts) return unavailable('draft', position, 'Cohort data not loaded. Run: npm run preprocess-nflverse')
+  if (!cohorts) return unavailable('draft', position, 'Position comparison data isn’t available right now.')
   if (!metrics) {
     return unavailable('draft', position, 'No historical stats for this player — rookies and players with no recorded season cannot be scored.')
   }

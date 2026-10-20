@@ -268,20 +268,6 @@ function StatsTab({ player }) {
     )
   }
 
-  if (error && error.includes('preprocess')) {
-    return (
-      <div className="dd-empty">
-        <Database size={22} aria-hidden />
-        <p className="t-body muted" style={{ margin: 0, fontWeight: 600 }}>Historical data not loaded</p>
-        <p className="t-meta" style={{ margin: 0 }}>Run the preprocessing script to populate nflverse stats:</p>
-        <code className="dd-code">npm run preprocess-nflverse</code>
-        <p className="t-meta" style={{ margin: 0 }}>
-          This downloads and preprocesses nflverse player_stats for 2023–2024.
-        </p>
-      </div>
-    )
-  }
-
   if (error) {
     return (
       <p className="dd-callout-row t-meta" style={{ margin: 0, color: 'var(--sit)' }} role="alert">
@@ -296,8 +282,7 @@ function StatsTab({ player }) {
         <Database size={22} aria-hidden />
         <p className="t-body muted" style={{ margin: 0 }}>No historical data for this player.</p>
         <p className="t-meta" style={{ margin: 0 }}>
-          Could be a rookie or player not found in nflverse. Run{' '}
-          <code className="dd-code">npm run preprocess-nflverse</code> to refresh.
+          Usually a rookie, or a player nflverse doesn’t track yet.
         </p>
       </div>
     )
@@ -375,8 +360,9 @@ function WeeklyTab({ player }) {
   if (!hasData) {
     return (
       <p className="t-meta faint" style={{ margin: 0 }}>
-        No {active ?? ''} game log for this player yet.
-        {manifestSeasons.length === 0 && ' Run: npm run preprocess-nflverse'}
+        {manifestSeasons.length === 0
+          ? 'Game logs aren’t available right now — check your connection and try again.'
+          : `No ${active ?? ''} game log for this player yet.`}
       </p>
     )
   }

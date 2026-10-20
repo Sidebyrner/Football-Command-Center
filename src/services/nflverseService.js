@@ -1,12 +1,12 @@
 // nflverse service — supplemental football stats layer.
 // Provides historical season stats NOT available from Sleeper's open API.
 // Data is preprocessed by scripts/preprocess-nflverse.mjs into a compact JSON
-// file served from public/data/nflverse-seasons.json.
+// file (nflverse-seasons.json), read through staticSource.js.
 //
 // Join key: gsis_id (present on Sleeper player objects as player.gsis_id)
 // File shape:   { _meta: {...}, players: { [gsis_id]: { "2025": {...} } } }
 
-const DATA_URL = '/data/nflverse-seasons.json'
+import { loadStatic } from './staticSource.js'
 
 // Module-level in-memory cache — avoids re-fetching the full index per session.
 let _index = null
@@ -17,11 +17,7 @@ async function loadIndex() {
   if (_index !== null) return _index
   if (_loadPromise) return _loadPromise
 
-  _loadPromise = fetch(DATA_URL)
-    .then((r) => {
-      if (!r.ok) throw new Error(`nflverse data not found (${r.status}). Run: npm run preprocess-nflverse`)
-      return r.json()
-    })
+  _loadPromise = loadStatic('nflverseSeasons', 'Season stats')
     .then((file) => {
       // `players` is the index; `_meta` is a sibling, never a player entry.
       _index = file.players ?? {}

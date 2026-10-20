@@ -288,9 +288,7 @@ export default function EvalPanel({ player }) {
         <Zap size={12} color="var(--accent)" className="flex-shrink-0" style={{ marginTop: 2 }} aria-hidden />
         {cohortsError ? (
           <p className="t-meta faint" style={{ margin: 0 }}>
-            Cohort data missing. Run{' '}
-            <code>npm run preprocess-nflverse</code>{' '}
-            to enable scoring.
+            Position comparison data isn’t available right now, so there’s no score yet. Check your connection and try again.
           </p>
         ) : mostRecentSeason ? (
           <p className="t-meta faint" style={{ margin: 0 }}>

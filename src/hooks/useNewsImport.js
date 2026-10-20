@@ -28,7 +28,7 @@ export function useNewsImport() {
     setNotice(null)
     try {
       if (!hasApiProxy) {
-        setError('No API proxy configured. Set VITE_API_BASE_URL in your .env file, then restart npm run dev.')
+        setError('News import isn’t available on this site.')
         return 0
       }
 

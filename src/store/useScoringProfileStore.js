@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { DEFAULT_PROFILE, parseScoringFile, buildProfile } from '../utils/scoringProfile'
+import { DEFAULT_PROFILE, LEGACY_DEFAULT_PROFILE_IDS, parseScoringFile, buildProfile } from '../utils/scoringProfile'
 
 const useScoringProfileStore = create(
   persist(
@@ -76,7 +76,18 @@ const useScoringProfileStore = create(
 
       clearUploadError: () => set({ uploadError: null }),
     }),
-    { name: 'fcc-scoring-profile' }
+    {
+      name: 'fcc-scoring-profile',
+      // v1: the stand-in default changed from one specific league's rules to
+      // Sleeper's half-PPR. A saved copy of the old stand-in was never a choice.
+      version: 1,
+      migrate: (state) => {
+        if (state && LEGACY_DEFAULT_PROFILE_IDS.includes(state.activeProfile?.id)) {
+          return { ...state, activeProfile: DEFAULT_PROFILE, pprFormat: null }
+        }
+        return state
+      },
+    }
   )
 )
 

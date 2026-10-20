@@ -1,8 +1,8 @@
 // Weekly game logs — the per-week detail nflverse publishes and this app used
 // to discard at preprocess time.
 //
-// File shape (public/data/weekly/{season}.json, written by
-// scripts/preprocess-nflverse.mjs):
+// File shape (weekly/{season}.json, written by scripts/preprocess-nflverse.mjs
+// and read through staticSource.js):
 //   { _meta, fields: string[], meta: { [gsis_id]: {n, p} },
 //     players: { [gsis_id]: number[][] } }
 //
@@ -13,10 +13,11 @@
 //
 // Deliberately NOT cached in localStorage: 642 KB against a ~5 MB origin budget
 // that already holds fcc-draft-players-v2 is how you get QuotaExceededError on
-// an unrelated write. Module-level memoisation (same pattern as
-// nflverseService.js) is enough — the file is HTTP-cached by the browser.
+// an unrelated write. StaticDataStore keeps its copy in IndexedDB, shared with
+// the new screens; module-level memoisation covers the rest of the session.
 
-const MANIFEST_URL = '/data/weekly/index.json'
+import { loadStatic } from './staticSource.js'
+
 const seasonCache = new Map() // season -> loaded file
 const seasonPromises = new Map()
 let _manifest = null
@@ -25,11 +26,7 @@ let _manifestPromise = null
 export async function getWeeklyManifest() {
   if (_manifest) return _manifest
   if (_manifestPromise) return _manifestPromise
-  _manifestPromise = fetch(MANIFEST_URL)
-    .then((r) => {
-      if (!r.ok) throw new Error(`Weekly data manifest not found (${r.status}). Run: npm run preprocess-nflverse`)
-      return r.json()
-    })
+  _manifestPromise = loadStatic('weeklyIndex', 'The weekly stats list')
     .then((file) => {
       _manifest = file
       _manifestPromise = null
@@ -47,11 +44,7 @@ export async function loadWeeklySeason(season) {
   if (seasonCache.has(key)) return seasonCache.get(key)
   if (seasonPromises.has(key)) return seasonPromises.get(key)
 
-  const p = fetch(`/data/weekly/${key}.json`)
-    .then((r) => {
-      if (!r.ok) throw new Error(`No weekly data for ${key} (${r.status})`)
-      return r.json()
-    })
+  const p = loadStatic('weekly', `Weekly stats for ${key}`, key)
     .then((file) => {
       seasonCache.set(key, file)
       seasonPromises.delete(key)

@@ -31,7 +31,7 @@ export default function DefenseVsPositionPanel({ myTeamAbbrs }) {
     return (
       <ScreenSection title="Defense vs position" icon={Shield} hue="var(--hue-team)">
         <p className="card t-meta muted" style={{ margin: 0 }}>
-          No weekly data on disk. Run <code>npm run preprocess-nflverse</code> to build it.
+          Weekly stats aren’t available right now — check your connection and try again.
         </p>
       </ScreenSection>
     )
