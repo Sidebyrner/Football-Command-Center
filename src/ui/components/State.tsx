@@ -6,7 +6,9 @@
 import { AlertTriangle, Clock, Info, Link2, RefreshCcw } from 'lucide-react'
 import type { Provenance } from '@data/fetched'
 import { freshnessLabel, isDegraded } from '@models/league/Freshness'
+import type { LeagueProvider } from '@data/LeagueDataSource'
 import { useApp } from '@ui/app/AppContext'
+import { enterDemo } from '@ui/app/createServices'
 
 /** Placeholder cards shaped like content, shimmering rather than spinning. */
 export function LoadingPlaceholder({ label = 'Loading…', cards = 4 }: { label?: string; cards?: number }) {
@@ -70,15 +72,26 @@ export function CoverageNote({ text }: { text: string }) {
   )
 }
 
-/** Shown on every screen until a league is connected. */
+/**
+ * Shown on every screen until a league is connected — the first thing a new
+ * visitor sees, so it says what the app is for and offers all three ways in.
+ */
 export function NeedsSetup() {
-  const { openScreen } = useApp()
+  const { services, openScreen } = useApp()
+  const connect = (provider: LeagueProvider) => {
+    services.settingsModel.setProvider(provider)
+    openScreen('settings')
+  }
   return (
-    <div className="card empty-state">
+    <div className="card empty-state welcome">
       <Link2 size={28} color="var(--accent)" aria-hidden />
-      <div className="t-title">Connect your league</div>
-      <div className="t-body muted">Add your Sleeper username in Settings to load your league.</div>
-      <button type="button" className="button primary" onClick={() => openScreen('settings')}>Open Settings</button>
+      <div className="t-title">Welcome to Football Command Center</div>
+      <div className="t-body muted">Your fantasy league in one place — who to start, who to pick up, and which trades help, from public stats and projections.</div>
+      <div className="row welcome-actions">
+        <button type="button" className="button primary" onClick={() => connect('sleeper')}>Connect Sleeper</button>
+        <button type="button" className="button" onClick={() => connect('espn')}>Connect ESPN</button>
+        <button type="button" className="button" onClick={() => { enterDemo(); location.assign(`${import.meta.env.BASE_URL}board?demo`) }}>Try the demo</button>
+      </div>
     </div>
   )
 }

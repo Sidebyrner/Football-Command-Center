@@ -1,0 +1,6 @@
+.privacy-body { max-width: 680px; margin: 0 auto; padding: 24px 16px 48px; display: flex; flex-direction: column; gap: 10px; }
+.privacy-body h1 { margin: 4px 0 0; }
+.privacy-body h2 { margin: 18px 0 0; }
+.privacy-body ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.privacy-body p { margin: 0; }
+.privacy-body a { color: var(--accent); }
