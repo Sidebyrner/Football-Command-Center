@@ -145,13 +145,7 @@ struct SitStartPanel: View {
     }
 
     static func slotLabel(_ token: String) -> String {
-        switch token {
-        case "SUPER_FLEX": return "SF"
-        case "REC_FLEX": return "RWT"
-        case "WRRB_FLEX": return "W/R"
-        case "IDP_FLEX": return "IDP"
-        default: return token
-        }
+        SlotLabel.short(token)
     }
 }
 
