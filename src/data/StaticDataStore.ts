@@ -44,6 +44,8 @@ export const StaticResources = {
   playerIDs: resource('player-ids', 'player-ids.json'),
   adp: resource('adp', 'adp.json'),
   cohorts: resource('cohorts', 'cohorts.json'),
+  /** Season aggregates the original tools score from; the current season grows weekly. */
+  nflverseSeasons: resource('nflverse-seasons', 'nflverse-seasons.json', IN_SEASON_TTL),
   injuries: (season: number) => resource(`injuries-${season}`, `injuries-${season}.json`, IN_SEASON_TTL),
   depthCharts: (season: number) => resource(`depth-${season}`, `depth-${season}.json`, IN_SEASON_TTL),
   usage: (season: number) => resource(`usage-${season}`, `usage-${season}.json`, IN_SEASON_TTL),
@@ -149,6 +151,17 @@ export class StaticDataStore {
     const bundled = await this.bundled(r)
     if (bundled === undefined) throw new DataLayerError({ kind: 'noFallbackAvailable', resource: r.identifier })
     return { value: decode(bundled), provenance: { kind: 'bundled' } }
+  }
+
+  /**
+   * A file by its `StaticResources` name, as parsed JSON — how the original
+   * tools' services (plain JS, their own decoding) share this store.
+   */
+  async loadNamed(name: string, season?: number | string): Promise<unknown> {
+    const make = (StaticResources as Record<string, StaticResource | ((season: number) => StaticResource)>)[name]
+    if (make === undefined) throw new DataLayerError({ kind: 'noFallbackAvailable', resource: name })
+    const r = typeof make === 'function' ? make(Number(season)) : make
+    return (await this.load(r)).value
   }
 
   // MARK: - Typed conveniences

@@ -36,3 +36,12 @@ test('with only a thin season available, it is still better than nothing', () =>
 test('an empty manifest yields no stats season', () => {
   assert.deepEqual(pickStatsSeason([], 2026), { statsSeason: null, currentSeasonWeeks: 0 })
 })
+
+test('a stale manifest in mid-season says the data is behind, not that the season is thin', () => {
+  const r = pickStatsSeason(manifest(2), 2026)
+  const note = statsSeasonNote({ ...r, scheduleSeason: 2026, currentWeek: 7 })
+  assert.match(note, /stop at week 2 and haven’t caught up to week 7/)
+  assert.doesNotMatch(note, /too thin/)
+  // Early season, the file is current: the thin-season note still applies.
+  assert.match(statsSeasonNote({ ...r, scheduleSeason: 2026, currentWeek: 3 }), /too thin/)
+})

@@ -33,4 +33,28 @@ describe('export and import', () => {
     applyImport(JSON.stringify({ format: 'football-command-center-export', version: 1, exportedAt: '', items: { 'fcc.relay-token': 'x', other: 'y', 'fcc.ok': 'z' } }), b)
     expect([b.getItem('fcc.relay-token'), b.getItem('other'), b.getItem('fcc.ok')]).toEqual([null, null, 'z'])
   })
+
+  it('carries the original tools’ saves but never the Odds API key', () => {
+    const a = new MemoryStorage()
+    a.setItem('fcc-watchlist-v2', '{"state":{"ids":["1"]},"version":0}')
+    a.setItem('fcc-research-store', '{"state":{"items":[]},"version":0}')
+    a.setItem('fcc-mock-draft', '{"state":{},"version":1}')
+    a.setItem('fcc-scoring-profile', '{"state":{"activeProfile":{"id":"x"}},"version":1}')
+    a.setItem('fcc-app-store', '{"state":{"leagueId":"L1","oddsApiKey":"secret-a"},"version":0}')
+    a.setItem('fcc-draft-players-v3', '{"big":"cache"}')
+    const file = buildExport(a)
+    expect(Object.keys(file.items).sort()).toEqual(['fcc-app-store', 'fcc-mock-draft', 'fcc-research-store', 'fcc-scoring-profile', 'fcc-watchlist-v2'])
+    expect(file.items['fcc-app-store']).not.toContain('secret-a')
+    expect(JSON.parse(file.items['fcc-app-store']!).state.leagueId).toBe('L1')
+
+    // The destination keeps its own key; a key smuggled into a file is dropped.
+    const b = new MemoryStorage()
+    b.setItem('fcc-app-store', '{"state":{"leagueId":"OLD","oddsApiKey":"secret-b"},"version":0}')
+    const smuggled = { ...file, items: { ...file.items, 'fcc-app-store': '{"state":{"leagueId":"L1","oddsApiKey":"evil"},"version":0}' } }
+    expect(applyImport(JSON.stringify(smuggled), b)).toBe(5)
+    expect(JSON.parse(b.getItem('fcc-app-store')!).state).toEqual({ leagueId: 'L1', oddsApiKey: 'secret-b' })
+    const c = new MemoryStorage()
+    applyImport(JSON.stringify(smuggled), c)
+    expect(JSON.parse(c.getItem('fcc-app-store')!).state).toEqual({ leagueId: 'L1' })
+  })
 })

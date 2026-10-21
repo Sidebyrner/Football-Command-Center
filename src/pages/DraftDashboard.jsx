@@ -19,6 +19,7 @@ import { useLeagueRosterSettings } from '../hooks/useLeagueRosterSettings'
 import useAppStore from '../store/useAppStore'
 import useWatchlistStore from '../store/useWatchlistStore'
 import useScoringProfileStore from '../store/useScoringProfileStore'
+import { DEFAULT_PROFILE_ID } from '../utils/scoringProfile'
 import useResearchStore, { buildResearchIndex } from '../store/useResearchStore'
 import '../components/draft/draft.css'
 
@@ -70,7 +71,7 @@ export default function DraftDashboard() {
   const [sort, setSort] = useState(DEFAULT_SORT)
   const watchlistIds = useWatchlistStore((s) => s.ids)
   const toggleWatchlistId = useWatchlistStore((s) => s.toggle)
-  const isDefaultScoring = useScoringProfileStore((s) => s.activeProfile.id === 'default-2026')
+  const isDefaultScoring = useScoringProfileStore((s) => s.activeProfile.id === DEFAULT_PROFILE_ID)
   // PlayerTable/PlayerDrawer expect a Set (fast .has() lookups on every row);
   // the store keeps a plain array so it serializes cleanly to localStorage.
   const watchlist = useMemo(() => new Set(watchlistIds), [watchlistIds])

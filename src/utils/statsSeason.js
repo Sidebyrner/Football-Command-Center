@@ -28,9 +28,17 @@ export function pickStatsSeason(manifestSeasons, scheduleSeason) {
   return { statsSeason: choice ? Number(choice.season) : null, currentSeasonWeeks }
 }
 
-/** What the page says when production isn't from the current season, or null. */
-export function statsSeasonNote({ statsSeason, scheduleSeason, currentSeasonWeeks }) {
+/**
+ * What the page says when production isn't from the current season, or null.
+ * `currentWeek` (Sleeper's) tells a thin season from a stale file: in week 7
+ * a manifest that says "2 weeks" hasn't been refreshed — the season isn't thin.
+ */
+export function statsSeasonNote({ statsSeason, scheduleSeason, currentSeasonWeeks, currentWeek = null }) {
   if (statsSeason == null || scheduleSeason == null || Number(statsSeason) === Number(scheduleSeason)) return null
+  const weeksPlayedSoFar = currentWeek == null ? null : Number(currentWeek) - 1
+  if (weeksPlayedSoFar != null && weeksPlayedSoFar >= MIN_WEEKS_FOR_STATS_SEASON && weeksPlayedSoFar > Number(currentSeasonWeeks || 0)) {
+    return `Production is from ${statsSeason} — the ${scheduleSeason} stats on hand ${currentSeasonWeeks ? `stop at week ${currentSeasonWeeks}` : 'haven’t loaded'} and haven’t caught up to week ${currentWeek} yet.`
+  }
   if (!currentSeasonWeeks) {
     return `Production is from ${statsSeason}, not ${scheduleSeason} — there's no ${scheduleSeason} weekly data yet. It's the best available evidence, but it's last year's.`
   }

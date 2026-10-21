@@ -1,35 +1,42 @@
 // Scoring profile management — parse, validate, persist, and expose league scoring rules.
-// The DEFAULT_PROFILE reflects the non-standard league settings described in the prompt.
-// Uploaded files replace it; the profile drives all evaluation formula weights.
+// DEFAULT_PROFILE is the stand-in until a league's own rules load: Sleeper's
+// default half-PPR league, the most common format, so a guess is a neutral one.
+// The league's rules (or an uploaded file) replace it; the profile drives all
+// evaluation formula weights.
+
+/** The id of the stand-in profile — "scores are using assumed scoring". */
+export const DEFAULT_PROFILE_ID = 'default-half-ppr'
+/** Ids the stand-in has had; a persisted copy under one of these is replaced. */
+export const LEGACY_DEFAULT_PROFILE_IDS = ['default-2026']
 
 export const DEFAULT_PROFILE = {
-  id: 'default-2026',
-  name: 'League Default (2026)',
+  id: DEFAULT_PROFILE_ID,
+  name: 'Half-PPR (Sleeper default)',
   uploadedAt: null,
   // ── Passing ──────────────────────────────────────────────────────────────
-  passingYardsPerPoint: 20,          // 1 pt per 20 yds  → 0.05 pts/yd
-  passingTD: 6,
-  passingFirstDown: 1,
-  incompletion: -1,
-  sackTaken: -1,
-  interception: -5,
-  pickSix: -10,
-  passing300Bonus: 3,
-  passing400Bonus: 6,
-  completions25Bonus: 3,
+  passingYardsPerPoint: 25,          // 1 pt per 25 yds  → 0.04 pts/yd
+  passingTD: 4,
+  passingFirstDown: 0,
+  incompletion: 0,
+  sackTaken: 0,
+  interception: -1,
+  pickSix: 0,
+  passing300Bonus: 0,
+  passing400Bonus: 0,
+  completions25Bonus: 0,
   // ── Rushing ──────────────────────────────────────────────────────────────
   rushingYardsPerPoint: 10,          // 1 pt per 10 yds
   rushingTD: 6,
-  rushingFirstDown: 1,
-  rushing100Bonus: 3,
-  rushing200Bonus: 6,
+  rushingFirstDown: 0,
+  rushing100Bonus: 0,
+  rushing200Bonus: 0,
   // ── Receiving ────────────────────────────────────────────────────────────
-  receptionPoints: 0,                // NOT PPR
+  receptionPoints: 0.5,              // half PPR
   receivingYardsPerPoint: 10,
   receivingTD: 6,
-  receivingFirstDown: 1,
-  receiving100Bonus: 3,
-  receiving200Bonus: 6,
+  receivingFirstDown: 0,
+  receiving100Bonus: 0,
+  receiving200Bonus: 0,
   // ── Turnovers & conversions (all positions) ──────────────────────────────
   // Fumbles lost are the most common cause of "the projection said 14, I
   // scored 12" — they were missing here, so profileFromSleeperScoring dumped
@@ -45,22 +52,22 @@ export const DEFAULT_PROFILE = {
   fg0to39: 3,
   fg40to49: 4,
   fg50to59: 5,
-  fg60plus: 6,
+  fg60plus: 5,
   xp: 1,
-  missedFG: -2,
+  missedFG: -1,
   // ── Defense / Team DEF ────────────────────────────────────────────────────
   defSack: 1,
-  defInterception: 3,
+  defInterception: 2,
   defFumbleRecovery: 2,
   defTD: 6,
   defSafety: 2,
-  defPointsAllowed0: 12,
-  defPointsAllowed1to6: 9,
-  defPointsAllowed7to13: 6,
-  defPointsAllowed14to20: 3,
-  defPointsAllowed21to27: 1,
-  defPointsAllowed28to34: 0,
-  defPointsAllowedOver35: -3,
+  defPointsAllowed0: 10,
+  defPointsAllowed1to6: 7,
+  defPointsAllowed7to13: 4,
+  defPointsAllowed14to20: 1,
+  defPointsAllowed21to27: 0,
+  defPointsAllowed28to34: -1,
+  defPointsAllowedOver35: -4,
   // ── IDP ──────────────────────────────────────────────────────────────────
   idpTackle: 1,
   idpSack: 3,

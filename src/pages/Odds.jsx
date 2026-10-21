@@ -145,7 +145,7 @@ export default function Odds() {
 
   const mineCount = games.filter((g) => g.mine).length
   const sourceLine = usingFallback
-    ? `Week ${currentWeek} lines from the preprocessed schedule (nfldata) — no API credits used.`
+    ? `Week ${currentWeek} lines from the schedule file (nfldata) — no API credits used.`
     : quota.remaining != null
       ? `${quota.remaining} Odds API requests remaining this month`
       : 'Live lines from The Odds API'
@@ -189,8 +189,7 @@ export default function Odds() {
 
       {!loading && games.length === 0 && !error && (
         <p className="card t-body muted" style={{ margin: 0 }}>
-          No games found for week {currentWeek}. Try refreshing, or run{' '}
-          <code>npm run preprocess-nflverse</code> to build the {season} schedule.
+          No games found for week {currentWeek}. Try refreshing in a moment — the {season} schedule may still be loading.
         </p>
       )}
 

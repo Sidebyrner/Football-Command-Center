@@ -3,10 +3,11 @@
  * Power Rankings, Odds) inside the new shell. Those tools read the league from
  * their own store; this bridges it from the league connected in Settings, so
  * there's one setup for the whole app. They talk to the real Sleeper API, so
- * the demo league explains that instead.
+ * the demo league explains that instead, and so does an ESPN league for the
+ * tools that read the league (an ESPN id handed to Sleeper only 404s).
  */
 import { useEffect, type ComponentType } from 'react'
-import { FlaskConical } from 'lucide-react'
+import { FlaskConical, Link2Off } from 'lucide-react'
 import useAppStore from '../../store/useAppStore'
 import useScoringProfileStore from '../../store/useScoringProfileStore'
 import { profileFromSleeperScoring } from '../../utils/sleeperScoring'
@@ -21,7 +22,7 @@ export function useLegacyStoreBridge(): boolean {
   const settings = useModel(services.settingsModel).settings
   const dashboard = useModel(services.dashboard)
   const context = dashboard.context
-  const ready = !demo && isConfigured(settings)
+  const ready = !demo && settings.provider !== 'espn' && isConfigured(settings)
   useEffect(() => {
     if (!ready) return
     const state = useAppStore.getState()
@@ -53,9 +54,14 @@ export function useLegacyStoreBridge(): boolean {
   return ready
 }
 
+/** Research is notes and news; the rest read the league from Sleeper. */
+const LEAGUE_FREE_TOOLS: ReadonlySet<Screen> = new Set<Screen>(['research'])
+
 export function ToolScreen({ screen, Tool }: { screen: Screen; Tool: ComponentType }) {
-  const { demo, openScreen } = useApp()
+  const { demo, openScreen, services } = useApp()
+  const settings = useModel(services.settingsModel).settings
   const ready = useLegacyStoreBridge()
+  const espn = !demo && settings.provider === 'espn'
   if (demo) {
     return (
       <div className="card empty-state">
@@ -68,7 +74,19 @@ export function ToolScreen({ screen, Tool }: { screen: Screen; Tool: ComponentTy
       </div>
     )
   }
-  if (!ready) return null
+  if (espn && !LEAGUE_FREE_TOOLS.has(screen)) {
+    return (
+      <div className="card empty-state">
+        <Link2Off size={28} color="var(--hue-team)" aria-hidden />
+        <div className="t-title">{screenTitle[screen]} works with Sleeper leagues only for now</div>
+        <div className="t-body muted">
+          This tool reads your league straight from Sleeper, so it can’t open an ESPN league yet. Everything else in the app works with your ESPN league.
+        </div>
+        <button type="button" className="button" onClick={() => openScreen('settings')}>Open Settings</button>
+      </div>
+    )
+  }
+  if (!ready && !(espn && LEAGUE_FREE_TOOLS.has(screen))) return null
   return (
     <div className="fcc-tool">
       <ErrorBoundaryCard key={screen}><Tool /></ErrorBoundaryCard>

@@ -5,13 +5,20 @@ import { injuryTone } from './injuryTone'
 import { PositionChip } from '@ui/components/Player'
 import { POSITION_ORDER } from '../../hooks/useDraftPlayers'
 import TableSkeleton from './TableSkeleton'
+import { getCohortMeta } from '../../services/cohortService'
+
+/** Names the season the cohorts were built from, whichever that is. */
+function scoreColumnTitle() {
+  const season = getCohortMeta()?.season
+  return `This league's scoring rules vs. real ${season ? `${season} ` : ''}production — ranked only within position`
+}
 
 const COLUMNS = [
   { key: 'name', label: 'Player', align: 'left', sortable: true },
   { key: 'position', label: 'Pos', align: 'left', sortable: true },
   { key: 'team', label: 'Team', align: 'left', sortable: true },
   { key: 'adp', label: 'ADP', align: 'right', sortable: true, title: 'FantasyPros expert consensus rank — lower is better' },
-  { key: 'score', label: 'Score', align: 'right', sortable: true, title: 'This league\'s scoring rules vs. real 2025 production — ranked only within position' },
+  { key: 'score', label: 'Score', align: 'right', sortable: true, title: scoreColumnTitle },
   { key: 'value', label: 'Value', align: 'right', sortable: true, title: 'Positional rank gained vs. ADP under this league\'s scoring — positive means this model rates the player above where the market has them' },
   { key: 'bye', label: 'Bye', align: 'right', sortable: true },
   { key: 'injuryStatus', label: 'Injury', align: 'left', sortable: true },
@@ -217,7 +224,7 @@ export default function PlayerTable({
                   <th
                     key={col.key}
                     scope="col"
-                    title={col.title}
+                    title={typeof col.title === 'function' ? col.title() : col.title}
                     className={`t-micro ${alignClass}`}
                     aria-sort={col.sortable && active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
                   >

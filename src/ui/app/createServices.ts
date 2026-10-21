@@ -10,6 +10,7 @@ import { ESPN_SECRET_KEY } from '@data/espnCredentials'
 import { SleeperClient } from '@data/SleeperClient'
 import { SleeperService } from '@data/SleeperService'
 import { StaticDataStore } from '@data/StaticDataStore'
+import { setStaticLoader } from '../../services/staticSource'
 import { AppServices } from '@models/app/AppServices'
 import { InMemorySettingsStore, KeyValueSettingsStore, makeAppSettings } from '@models/settings/AppSettings'
 import { InMemoryWorkspacePersistence, StorageWorkspacePersistence } from '@models/workspaces/WorkspaceStore'
@@ -54,9 +55,13 @@ export async function createServices(): Promise<CreatedServices> {
     return { services, demo: true }
   }
   const cache = new Cache(defaultCacheStore())
+  const staticData = new StaticDataStore({ cache })
+  // The original tools' services read through the same store, so they get the
+  // refreshed in-season files rather than the copy bundled at build time.
+  setStaticLoader((name: string, season?: number | string) => staticData.loadNamed(name, season))
   const services = new AppServices({
     sleeper: new SleeperService(new SleeperClient(), cache),
-    staticData: new StaticDataStore({ cache }),
+    staticData,
     settingsStore: new KeyValueSettingsStore(),
     workspacePersistence: new StorageWorkspacePersistence(),
     secrets: new LocalStorageSecretStore(),

@@ -3,11 +3,13 @@
 // Emitted by scripts/preprocess-nflverse.mjs from nfldata's games.csv. Without
 // it, the only source of "who does BUF play in week 1" is the paid Odds API,
 // which would mean the matchup planner couldn't name your opponent without a
-// key. This file is ~27 KB and costs nothing.
+// key. This file is ~27 KB and costs nothing. Read through staticSource.js.
 //
 // It also carries nfldata's own market lines (spreadLine, totalLine) as a free
 // fallback when no Odds API key is configured. Those are NOT live odds — they
 // are the lines nfldata last recorded — so anything built on them must say so.
+
+import { loadStatic } from './staticSource.js'
 
 const cache = new Map()
 const promises = new Map()
@@ -17,11 +19,7 @@ export async function loadSchedule(season) {
   if (cache.has(key)) return cache.get(key)
   if (promises.has(key)) return promises.get(key)
 
-  const p = fetch(`/data/schedule-${key}.json`)
-    .then((r) => {
-      if (!r.ok) throw new Error(`No schedule for ${key} (${r.status})`)
-      return r.json()
-    })
+  const p = loadStatic('schedule', `The ${key} schedule`, key)
     .then((file) => { cache.set(key, file); promises.delete(key); return file })
     .catch((err) => { promises.delete(key); throw err })
 

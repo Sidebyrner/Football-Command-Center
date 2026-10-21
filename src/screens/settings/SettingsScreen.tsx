@@ -385,7 +385,7 @@ function ExportSection() {
   }
   return (
     <ScreenSection title="Move to another device" icon={Download} hue="var(--hue-team)"
-      subtitle="Everything saves in this browser. Export a file to carry your league, Board layout, workspaces and stream edits to another browser. The relay token stays behind.">
+      subtitle="Everything saves in this browser. Export a file to carry your league, Board layout, workspaces and stream edits to another browser. The relay token and Odds API key stay behind.">
       <div className="card settings-card">
         <div className="row">
           <button type="button" className="button" onClick={() => downloadExport(buildExport())}><Download size={15} aria-hidden /> Export</button>
