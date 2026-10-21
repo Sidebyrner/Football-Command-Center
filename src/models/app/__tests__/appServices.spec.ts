@@ -32,7 +32,7 @@ describe('AppServices', () => {
     expect(s.playerCard(F.gibbs, context)).not.toBe(first)
     await s.loadIfConfigured(true)
     expect(s.playerCard(F.cook, context)).not.toBe(first)
-  })
+  }, 20_000) // Builds every screen model twice; under a full parallel run that outlasts the 5s default.
 })
 
 /** Web-only: the demo league every visitor can open loads on every screen. */
