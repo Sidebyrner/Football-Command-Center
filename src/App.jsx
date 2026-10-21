@@ -6,6 +6,8 @@ import { ACCENT_THEME_HEX } from '@models/settings/AppSettings'
 import { PlayerCardSheet } from './screens/players/PlayerCardSheet'
 import { LoadingPlaceholder } from '@ui/components/State'
 import { launchScreen, pathFor } from '@models/navigation/screens'
+import { REDIRECTS } from '@models/navigation/redirects'
+import { PrivacyPage } from './screens/privacy/PrivacyPage'
 import '@ui/tokens.css'
 import '@ui/components/components.css'
 import { usePlanSync } from './hooks/usePlanSync'
@@ -35,25 +37,6 @@ function Launch() {
   return <Navigate to={pathFor(launchScreen(isPhone))} replace />
 }
 
-/**
- * Addresses from the original web app, so bookmarks still land somewhere
- * sensible: its screens now live in the new app, and its tools under /tools.
- */
-const REDIRECTS = {
-  '/classic': '/team',
-  '/dashboard': '/team',
-  '/matchup': '/lineup/matchup',
-  '/sit-start': '/lineup/sit-start',
-  '/trade': '/market/trades',
-  '/planning': '/market/planning',
-  '/classic/settings': '/settings',
-  '/draft': '/tools/draft',
-  '/plan': '/tools/draft-plan',
-  '/research': '/tools/research',
-  '/power-rankings': '/tools/power-rankings',
-  '/odds': '/tools/odds',
-}
-
 export default function App() {
   // The draft drawer's "add to plan" action is reachable from the draft board,
   // not just the plan, so the sync runs for the whole app.
@@ -63,6 +46,7 @@ export default function App() {
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         <Route path="/" element={<Launch />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
         {['/board', '/team', '/settings', '/lineup/*', '/market/*', '/streams/*', '/tools/*', '/workspaces/:id'].map((path) => (
           <Route key={path} path={path} element={<NewApp />} />
         ))}

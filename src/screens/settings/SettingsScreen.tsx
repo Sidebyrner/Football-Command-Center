@@ -5,8 +5,8 @@
  * signup and feedback forms.
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { useLocation } from 'react-router-dom'
-import { Check, Download, FlaskConical, KeyRound, MessageSquareHeart, Palette, Server, Upload, UserRound } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
+import { Check, ChevronRight, Download, FlaskConical, KeyRound, MessageSquareHeart, Palette, Server, Shield, Upload, UserRound } from 'lucide-react'
 import { ACCENT_THEMES, ACCENT_THEME_HEX, accentThemeLabel, accentThemeSharedStatus, isConfigured } from '@models/settings/AppSettings'
 import { LEAGUE_PROVIDERS, providerLabel } from '@data/LeagueDataSource'
 import { parseCredentials } from '@data/espnCredentials'
@@ -59,16 +59,22 @@ export function SettingsScreen() {
 
       <BetaSection />
       <AppearanceSection />
-      {!demo && <RelaySection />}
       {!demo && <ExportSection />}
+      {!demo && <AdvancedSection />}
 
-      {!demo && configured && (
-        <div className="settings-footer">
-          <button type="button" className="button danger" onClick={() => model.changeLeague()}>Switch league</button>
-        </div>
-      )}
+      <div className="settings-footer">
+        <Link to="/privacy" className="t-meta privacy-link"><Shield size={13} aria-hidden /> Privacy — what this app keeps and sends</Link>
+        {!demo && configured && (
+          <button type="button" className="button danger" onClick={() => { if (confirmSwitchLeague()) model.changeLeague() }}>Switch league</button>
+        )}
+      </div>
     </>
   )
+}
+
+/** Switching forgets the league and team (the username stays), so ask first. */
+export function confirmSwitchLeague(ask: (message: string) => boolean = (m) => window.confirm(m)): boolean {
+  return ask('Switch league? Your current league and team will be disconnected here. Your username stays, so picking another league takes a moment.')
 }
 
 function ProviderSection() {
@@ -315,6 +321,16 @@ function AppearanceSection() {
   )
 }
 
+/** Settings almost nobody needs, closed until asked for. */
+function AdvancedSection() {
+  return (
+    <details className="settings-advanced">
+      <summary className="t-section"><ChevronRight size={16} className="disclosure-chevron" aria-hidden /> Advanced</summary>
+      <RelaySection />
+    </details>
+  )
+}
+
 function RelaySection() {
   const { services } = useApp()
   const model = useModel(services.settingsModel)
@@ -453,6 +469,7 @@ function BetaSignup() {
         <button type="submit" className="button primary" disabled={sending || email.trim() === ''}>{sending ? 'Sending…' : 'Join the beta'}</button>
       </div>
       {sent && <div className="t-meta" role="status" style={{ color: sent.ok ? 'var(--start)' : 'var(--sit)' }}>{sent.text}</div>}
+      <p className="t-meta muted">Used only to send the invite. <Link to="/privacy">Privacy</Link></p>
     </form>
   )
 }
@@ -500,6 +517,7 @@ function BetaFeedback({ demo }: { demo: boolean }) {
         <button type="submit" className="button primary" disabled={sending || message.trim() === ''}>{sending ? 'Sending…' : 'Send feedback'}</button>
       </div>
       {sent && <div className="t-meta" role="status" style={{ color: sent.ok ? 'var(--start)' : 'var(--sit)' }}>{sent.text}</div>}
+      <p className="t-meta muted">Your browser type and screen size are sent with it, to help reproduce problems. <Link to="/privacy">Privacy</Link></p>
     </form>
   )
 }

@@ -48,7 +48,17 @@ export class SleeperClient {
 
   /** The authoritative current week and season. */
   nflState() { return this.get('/state/nfl', decodeNFLState) }
-  user(username: string) { return this.get(`/user/${esc(username)}`, decodeUser) }
+  /**
+   * Sleeper answers an unknown username with 200 and a `null` body, not a 404;
+   * that is reported as the 404 it means so callers can say so plainly.
+   */
+  user(username: string) {
+    const path = `/user/${esc(username)}`
+    return this.get(path, (json) => {
+      if (json === null) throw new DataLayerError({ kind: 'httpStatus', status: 404, path })
+      return decodeUser(json)
+    })
+  }
   leagues(userID: string, season: number) { return this.get(`/user/${esc(userID)}/leagues/nfl/${season}`, listOf(decodeLeague)) }
   league(id: string) { return this.get(`/league/${esc(id)}`, decodeLeague) }
   rosters(leagueID: string) { return this.get(`/league/${esc(leagueID)}/rosters`, listOf(decodeRoster)) }

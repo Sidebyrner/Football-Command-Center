@@ -15,10 +15,11 @@ function make(transport: StubTransport, settings: AppSettings = makeAppSettings(
   return { model: new SettingsModel(sleeper, store, new InMemorySecretStore()), store }
 }
 
+/** Two leagues, so the user has a choice to make. */
 function userTransport(): StubTransport {
   return standardTransport()
     .json('/user/connor', '{"user_id":"u1","username":"connor"}')
-    .json('/user/u1/leagues/nfl/2025', `[${TestLeague.leagueJSON()}]`)
+    .json('/user/u1/leagues/nfl/2025', `[${TestLeague.leagueJSON()},${TestLeague.leagueJSON('L2')}]`)
 }
 
 const host = (url: string | undefined) => (url === undefined ? undefined : parseSwiftURL(url)?.host)
@@ -59,7 +60,7 @@ describe('SettingsModel', () => {
     await model.lookUpUser()
 
     expect(model.stage).toBe('pickingLeague')
-    expect(model.leagues.length).toBe(1)
+    expect(model.leagues.length).toBe(2)
     expect(model.leagues[0]?.name).toBe('Byrne Notice')
     // The username and id are persisted before the league is chosen, so a user
     // who quits mid-setup does not retype it.
@@ -91,13 +92,13 @@ describe('SettingsModel', () => {
   it('an unknown username is explained plainly', async () => {
     const transport = new StubTransport()
       .json('/state/nfl', TestLeague.nflState)
-      .json('/user/nobody', 'null', 404)
+      .json('/user/nobody', 'null')
     const { model } = make(transport)
     model.username = 'nobody'
 
     await model.lookUpUser()
 
-    expect(model.errorMessage).toBe('Sleeper has no user called "nobody".')
+    expect(model.errorMessage).toBe('Sleeper has no user called "nobody". Use your username, not your display name.')
     expect(model.stage).toBe('needsUsername')
   })
 
@@ -127,6 +128,21 @@ describe('SettingsModel', () => {
     expect(store.load().leagueID).toBe('L1')
   })
 
+  /** One league is not a choice: it is picked, and Sleeper's owner id finds the team. */
+  it('a user with exactly one league skips the league step', async () => {
+    const transport = standardTransport()
+      .json('/user/connor', '{"user_id":"u1","username":"connor"}')
+      .json('/user/u1/leagues/nfl/2025', `[${TestLeague.leagueJSON()}]`)
+    const { model, store } = make(transport)
+    model.username = 'connor'
+
+    await model.lookUpUser()
+
+    expect(model.stage).toBe('ready')
+    expect(store.load().leagueID).toBe('L1')
+    expect(store.load().rosterID).toBe(1)
+  })
+
   /** When it cannot be inferred, ask — with the managers' real names. */
   it('an unmatched user is asked which team is theirs', async () => {
     const transport = standardTransport()
@@ -134,9 +150,8 @@ describe('SettingsModel', () => {
       .json('/user/u99/leagues/nfl/2025', `[${TestLeague.leagueJSON()}]`)
     const { model } = make(transport)
     model.username = 'stranger'
-    await model.lookUpUser()
 
-    await model.selectLeague(model.leagues[0]!)
+    await model.lookUpUser()
 
     expect(model.stage).toBe('pickingTeam')
     expect(model.teams.map((t) => t.rosterID)).toEqual([1, 2])
@@ -150,7 +165,6 @@ describe('SettingsModel', () => {
     const { model, store } = make(transport)
     model.username = 'stranger'
     await model.lookUpUser()
-    await model.selectLeague(model.leagues[0]!)
 
     model.selectTeam(2)
 

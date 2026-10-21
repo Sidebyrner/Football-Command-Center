@@ -251,6 +251,10 @@ export class SettingsModel extends Observable {
       this.isWorking = false
       this.changed()
     }
+
+    // One league is not a choice — take it rather than asking.
+    const only = this.leagues.length === 1 ? this.leagues[0] : undefined
+    if (this.stage === 'pickingLeague' && only) await this.selectLeague(only)
   }
 
   /**
@@ -471,13 +475,14 @@ export function relayHostProblem(host: string, scheme: string): string | undefin
 }
 
 /**
- * A 404 here means the username does not exist, which is worth saying plainly
+ * A 404 here (or Sleeper's 200 `null`, which the client reports as one) means
+ * the username does not exist, which is worth saying plainly
  * — it is by far the most common thing to go wrong in setup.
  * (`SettingsModel.message(for:username:)`.)
  */
 export function settingsErrorMessage(error: unknown, username: string): string {
   if (error instanceof DataLayerError && error.detail.kind === 'httpStatus' && error.detail.status === 404) {
-    return `Sleeper has no user called "${username}".`
+    return `Sleeper has no user called "${username}". Use your username, not your display name.`
   }
   return describeError(error)
 }

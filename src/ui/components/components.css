@@ -68,6 +68,8 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 @media (prefers-reduced-motion: reduce) { .skeleton::after { animation: none; } }
 .inline-error { display: flex; gap: 8px; align-items: flex-start; background: color-mix(in srgb, var(--caution) 12%, var(--card)); }
 .error-state, .empty-state { display: grid; justify-items: center; text-align: center; gap: 8px; padding: 28px 20px; }
+.welcome { max-width: 520px; margin: 0 auto; }
+.welcome-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 4px; }
 .freshness, .coverage-note { display: flex; gap: 6px; align-items: flex-start; }
 .clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .button {

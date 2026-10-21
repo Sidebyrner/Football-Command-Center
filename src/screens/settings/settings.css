@@ -25,7 +25,13 @@
 .segmented button { appearance: none; border: 0; background: none; font: inherit; color: var(--text); padding: 6px 12px; border-radius: 7px; cursor: pointer; }
 .segmented button.on { background: var(--card); box-shadow: var(--shadow); font-weight: 600; }
 .button.danger { color: var(--sit); }
-.settings-footer { display: flex; justify-content: center; padding: var(--space-xl) 0; }
+.settings-footer { display: flex; flex-direction: column; align-items: center; gap: var(--space-m); padding: var(--space-xl) 0; }
+.privacy-link { display: inline-flex; align-items: center; gap: 4px; color: var(--text-2); }
+.settings-card a { color: var(--accent); }
+.settings-advanced > summary { list-style: none; display: flex; align-items: center; gap: 6px; cursor: pointer; padding: var(--space-m) 0 var(--space-s); color: var(--text-2); }
+.settings-advanced > summary::-webkit-details-marker { display: none; }
+.settings-advanced .disclosure-chevron { transition: transform 0.15s; }
+.settings-advanced[open] .disclosure-chevron { transform: rotate(90deg); }
 .button { display: inline-flex; align-items: center; gap: 6px; }
 .field textarea {
   font: inherit; font-size: 1rem; padding: 10px 12px; border-radius: 10px; resize: vertical;

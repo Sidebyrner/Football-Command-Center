@@ -30,6 +30,16 @@ describe('SleeperClient', () => {
     expect(t.requestCount).toBe(1)
   })
 
+  /** Sleeper's real answer for an unknown username: 200 with a `null` body. */
+  it('reports a null user body as a 404', async () => {
+    const t = new StubTransport().json('/user/', 'null')
+    const error = await client(t).user('nobody').catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(DataLayerError)
+    expect((error as DataLayerError).status).toBe(404)
+    expect((error as DataLayerError).message).toBe('HTTP 404 from /user/nobody')
+    expect(t.requestCount).toBe(1)
+  })
+
   it('gives up after the retry budget', async () => {
     const t = new StubTransport().on('/state/nfl', status(503), status(503), status(503))
     await expect(client(t).nflState()).rejects.toThrow()
