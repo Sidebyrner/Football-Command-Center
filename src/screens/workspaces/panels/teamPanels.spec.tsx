@@ -80,6 +80,6 @@ describe('Team panels on the demo league', () => {
   })
 
   it('abbreviates the flex slots', () => {
-    expect(['SUPER_FLEX', 'REC_FLEX', 'WRRB_FLEX', 'IDP_FLEX', 'FLEX'].map(slotLabel)).toEqual(['SF', 'RWT', 'W/R', 'IDP', 'FLEX'])
+    expect(['SUPER_FLEX', 'REC_FLEX', 'WRRB_FLEX', 'IDP_FLEX', 'FLEX'].map(slotLabel)).toEqual(['SF', 'W/T', 'W/R', 'IDP', 'FLEX'])
   })
 })

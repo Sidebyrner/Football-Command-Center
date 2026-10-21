@@ -16,7 +16,7 @@ import { formatCountdown, teamLink } from '@models/league/GameDayWindow'
 import { providerLabel } from '@data/LeagueDataSource'
 import { startBadge, type LeagueContext } from '@models/league/LeagueContext'
 import {
-  LINEUP_BASES, LINEUP_BASIS_HINT, LINEUP_BASIS_LABEL, SitStartModel, unrankedTotal, type LineupChange,
+  LINEUP_BASES, LINEUP_BASIS_HINT, LINEUP_BASIS_LABEL, SitStartModel, slotLabel, unrankedTotal, type LineupChange,
 } from '@models/lineup/SitStartModel'
 import {
   slotCanDecide, slotHasBenchOption, slotIsCloseCall, type DecideModel, type DecideSession, type DecideSlot,
@@ -190,7 +190,7 @@ function ChangeList({ title, icon: Icon, tint, changes, context }: {
       </div>
       {changes.map((change) => (
         <div key={change.playerID} className="slot-row">
-          <span className="slot-token">{change.slot}</span>
+          <span className="slot-token">{slotLabel(change.slot)}</span>
           <span className="slot-name t-body">
             <PlayerName id={change.playerID} name={change.name} context={context} />
           </span>
@@ -249,7 +249,7 @@ function LineupSection({ model, context, decide, onDecide }: {
       <div className="card lineup-card">
         {model.lineup.map((slot) => (
           <div key={slot.index} className={`slot-row proposed-row${slot.changed ? ' changed' : ''}`}>
-            <span className="slot-token">{slot.slot}</span>
+            <span className="slot-token">{slotLabel(slot.slot)}</span>
             <PositionChip position={slot.playerID === undefined ? undefined : context.position(slot.playerID)} />
             <span className="slot-name t-body" style={slot.playerID === undefined ? { color: 'var(--caution)' } : undefined}>
               {slot.playerID !== undefined
@@ -270,10 +270,10 @@ function LineupSection({ model, context, decide, onDecide }: {
         {model.lockedBench.length > 0 && (
           <p className="lineup-note">{`Already played from your bench, so they can't start: ${model.lockedBench.join(', ')}`}</p>
         )}
-        {model.injuredWithoutCover.length > 0 && (
+        {model.unplayableWithoutCover.length > 0 && (
           <div className="lineup-warning">
             <BriefcaseMedical size={14} color="var(--sit)" aria-hidden />
-            <span>{`Nobody on your bench can replace ${model.injuredWithoutCover.join(', ')}. Check the waiver wire before kickoff.`}</span>
+            <span>{`Nobody on your bench can replace ${model.unplayableWithoutCover.join(', ')}. Check the waiver wire before kickoff.`}</span>
           </div>
         )}
         {model.lineup.some((s) => s.availability.kind === 'questionable') && (

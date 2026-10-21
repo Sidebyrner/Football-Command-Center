@@ -20,6 +20,9 @@ final class SitStartModelTests: XCTestCase {
     }
 
     enum Fixture {
+        /// Extra player entries spliced into `players` for one test.
+        nonisolated(unsafe) static var extraPlayers = ""
+
         static let rosters = """
         [{"roster_id":1,"owner_id":"u1",
           "players":["4984","3163","4866","9221","9509","rb_sea","7564","9493","wr2","te1",
@@ -49,7 +52,7 @@ final class SitStartModelTests: XCTestCase {
 
     /// - Parameter injuries: Sleeper injury tags to put on players, by id.
     private func loaded(week: Int = 1, injuries: [String: String] = [:], rosters: String = Fixture.rosters) async throws -> SitStartModel {
-        var players = Fixture.players
+        var players = Fixture.players.replacingOccurrences(of: #"{"4984":"#, with: "{" + Fixture.extraPlayers + #""4984":"#)
         for (id, tag) in injuries {
             players = players.replacingOccurrences(
                 of: #""\#(id)":{"#, with: #""\#(id)":{"injury_status":"\#(tag)","#
@@ -273,7 +276,75 @@ final class SitStartModelTests: XCTestCase {
         let qb = try XCTUnwrap(slot(model, "QB"))
         XCTAssertTrue(qb.keptBecauseUnvalued)
         XCTAssertEqual(qb.availability, .unavailable("Out"))
-        XCTAssertEqual(model.injuredWithoutCover, ["Josh Allen (Out) at QB"])
+        XCTAssertEqual(model.unplayableWithoutCover, ["Josh Allen (Out) at QB"])
+    }
+
+    // MARK: - Cover for a starter who can't play
+
+    /// Rosters with a BUF defense starting (BUF is on bye in week 7) and,
+    /// optionally, PHI's on the bench.
+    private func byeDefenseRosters(benchDefense: Bool) -> String {
+        let bench = benchDefense ? #""k1","BUF","PHI","lb1","dl1"],"# : #""k1","BUF","lb1","dl1"],"#
+        return Fixture.rosters
+            .replacingOccurrences(of: #""k1","PHI","lb1","dl1"]}"#, with: #""k1","BUF","lb1","dl1"]}"#)
+            .replacingOccurrences(of: #""k1","PHI","lb1","dl1"],"#, with: bench)
+    }
+
+    private func loadedWithBUFDefense(benchDefense: Bool) async throws -> SitStartModel {
+        Fixture.extraPlayers = #""BUF":{"position":"DEF","team":"BUF","active":true},"#
+        defer { Fixture.extraPlayers = "" }
+        return try await loaded(week: 7, rosters: byeDefenseRosters(benchDefense: benchDefense))
+    }
+
+    /// Week 7, season pts/gm: no basis that reads production can value a DEF,
+    /// so the optimizer proposes nobody. A starter on bye scores a certain zero,
+    /// so the bench DEF who plays comes in rather than the bye DEF being kept.
+    func testADefenseOnByeIsCoveredByTheBenchDefense() async throws {
+        let model = try await loadedWithBUFDefense(benchDefense: true)
+        XCTAssertEqual(model.basis, .seasonAverage)
+        let defense = try XCTUnwrap(slot(model, "DEF"))
+        XCTAssertEqual(defense.playerID, "PHI")
+        XCTAssertTrue(defense.changed)
+        XCTAssertFalse(defense.keptBecauseUnvalued)
+        XCTAssertTrue(model.starts.contains { $0.playerID == "PHI" && $0.slot == "DEF" })
+        XCTAssertTrue(model.sits.contains { $0.playerID == "BUF" && $0.slot == "DEF" })
+        XCTAssertTrue(model.swaps.contains { $0.slot == "DEF" && $0.inName == model.context?.playerName("PHI") })
+        XCTAssertFalse(model.unplayableWithoutCover.contains { $0.hasSuffix("at DEF") })
+    }
+
+    /// No bench DEF: the bye DEF stays, and the screen says nobody can cover.
+    /// BAL's kicker is on bye too, with no kicker behind him.
+    func testAByeStarterWithNoCoverIsCalledOut() async throws {
+        let model = try await loadedWithBUFDefense(benchDefense: false)
+        let defense = try XCTUnwrap(slot(model, "DEF"))
+        XCTAssertEqual(defense.playerID, "BUF")
+        XCTAssertTrue(defense.keptBecauseUnvalued)
+        let name = try XCTUnwrap(defense.name)
+        XCTAssertTrue(model.unplayableWithoutCover.contains("\(name) (Bye) at DEF"))
+        XCTAssertTrue(model.unplayableWithoutCover.contains("Kicker One (Bye) at K"))
+    }
+
+    /// An Out linebacker in an IDP slot is replaced by the healthy one on the
+    /// bench, though no production basis can value either.
+    func testAnOutLinebackerIsCoveredByTheBenchLinebacker() async throws {
+        Fixture.extraPlayers = #""lb2":{"full_name":"Linebacker Two","position":"LB","team":"MIN","active":true},"#
+        defer { Fixture.extraPlayers = "" }
+        let rosters = Fixture.rosters.replacingOccurrences(of: #""PHI","lb1","dl1"],"#, with: #""PHI","lb1","dl1","lb2"],"#)
+        XCTAssertNotEqual(rosters, Fixture.rosters)
+        let model = try await loaded(injuries: ["lb1": "Out"], rosters: rosters)
+        // lb1 starts in the first IDP_FLEX slot (index 9).
+        let lb = try XCTUnwrap(model.lineup.first { $0.index == 9 })
+        XCTAssertEqual(lb.name, "Linebacker Two")
+        XCTAssertTrue(lb.changed)
+        XCTAssertFalse(lb.keptBecauseUnvalued)
+        XCTAssertTrue(model.sits.contains { $0.name == "Linebacker One" && $0.injury == "Out" })
+        XCTAssertTrue(model.swaps.contains { $0.slot == "IDP_FLEX" && $0.outName == "Linebacker One" && $0.inName == "Linebacker Two" })
+        XCTAssertTrue(model.unplayableWithoutCover.isEmpty)
+    }
+
+    func testSlotTokensGetShortLabels() {
+        XCTAssertEqual(["SUPER_FLEX", "REC_FLEX", "WRTE_FLEX", "WRRB_FLEX", "IDP_FLEX", "FLEX", "QB"].map(SlotLabel.short),
+                       ["SF", "W/T", "W/T", "W/R", "IDP", "FLEX", "QB"])
     }
 
     /// A player in the user's IR slot cannot be started from there.

@@ -5,6 +5,7 @@
  */
 import type { CommandCenterProjection } from '@core/CommandCenterProjection'
 import { optimizeLineup, type LineupProposal } from '@core/LineupOptimizer'
+import { accepts } from '@core/RosterSlots'
 import { hasWeeklyProductionData } from '@core/Position'
 import { weekLines, type TeamGameLine } from '@core/Schedule'
 import type { SeasonProfile } from '@core/SeasonProfile'
@@ -150,7 +151,8 @@ export interface ProposedSlot {
   /**
    * True when the basis could value nobody for this slot, so the current
    * starter is shown as kept rather than the slot drawn as empty. A DEF slot
-   * on a production basis is the usual case.
+   * on a production basis is the usual case. Never true for a starter who
+   * can't play while a bench player who can is eligible — he is covered.
    */
   keptBecauseUnvalued: boolean
   changed: boolean
@@ -158,6 +160,17 @@ export interface ProposedSlot {
   isLocked: boolean
   /** The player's injury standing for this week. */
   availability: StartAvailability
+}
+
+/** The short slot names lineup rows show: `SUPER_FLEX` reads "SF" (Swift `SlotLabel.short`). */
+export function slotLabel(token: string): string {
+  switch (token) {
+    case 'SUPER_FLEX': return 'SF'
+    case 'REC_FLEX': case 'WRTE_FLEX': return 'W/T'
+    case 'WRRB_FLEX': return 'W/R'
+    case 'IDP_FLEX': return 'IDP'
+    default: return token
+  }
 }
 
 /** The next moment some of your starters lock. */
@@ -212,10 +225,11 @@ export class SitStartModel extends Observable {
   moves: SlotMove[] = []
 
   /**
-   * Slots where the current starter is Out, Doubtful or on IR and nobody on
-   * the bench can be valued to replace him — "Name (Out) at RB".
+   * Slots where the current starter is on bye, Out, Doubtful or on IR and
+   * nobody eligible on the bench can play instead — "Name (Out) at RB",
+   * "Name (Bye) at DEF".
    */
-  injuredWithoutCover: string[] = []
+  unplayableWithoutCover: string[] = []
 
   /** Bench players whose game has already kicked off — left out of every proposal. */
   lockedBench: string[] = []
@@ -346,14 +360,74 @@ export class SitStartModel extends Observable {
 
   /**
    * What would actually take the field under a proposal: the proposed player
-   * where the basis picked one, otherwise whoever starts now.
+   * where the basis picked one, then a bench cover for a starter who can't
+   * play, otherwise whoever starts now.
    */
-  effectiveLineup(proposal: LineupProposal, context: LeagueContext): Set<string> {
+  effectiveLineup(proposal: LineupProposal, context: LeagueContext, basis: LineupBasis = this.basis): Set<string> {
     const current = context.userTeam?.rawStarters ?? []
+    const cover = this.covers(proposal, basis, context)
     const out = new Set<string>()
     proposal.proposedIDs.forEach((proposed, index) => {
-      const chosen = proposed ?? (index < current.length ? current[index] : undefined)
+      const chosen = proposed ?? cover.get(index) ?? (index < current.length ? current[index] : undefined)
       if (chosen !== undefined && chosen !== EMPTY_STARTER_SLOT) out.add(chosen)
+    })
+    return out
+  }
+
+  /**
+   * Why a player scores nothing this week whatever the basis says — "Bye",
+   * or his Out / Doubtful / IR status — or `undefined` when he can play.
+   */
+  unplayableReason(id: string, context: LeagueContext): string | undefined {
+    const team = this.team(id, context)
+    if (team !== undefined && context.byeCalendar.isOnBye(team, context.currentWeek)) return 'Bye'
+    const availability = startAvailability(id, context)
+    return availability.kind === 'unavailable' ? availability.label : undefined
+  }
+
+  /**
+   * Bench cover, by slot index, for slots the basis left to an incumbent who
+   * can't play (or left empty). The basis can't value anyone there — a DEF
+   * slot on a production basis — but any player who plays beats a certain
+   * zero. Preference: valued on the basis, then projected points, then
+   * roster order.
+   */
+  covers(proposal: LineupProposal, basis: LineupBasis, context: LeagueContext): Map<number, string> {
+    const out = new Map<number, string>()
+    const team = context.userTeam
+    if (!team) return out
+    const current = team.rawStarters
+    const slots = context.template.starters
+    const incumbent = (index: number): string | undefined => {
+      const id = index < current.length ? current[index] : undefined
+      return id === EMPTY_STARTER_SLOT ? undefined : id
+    }
+    const proposedAt = (index: number) => (index < proposal.proposedIDs.length ? proposal.proposedIDs[index] : undefined)
+    const taken = new Set<string>()
+    slots.forEach((_, index) => {
+      const id = proposedAt(index) ?? incumbent(index)
+      if (id !== undefined) taken.add(id)
+    })
+    const ranked = team.roster.map((e) => e.id)
+      .filter((id) => !context.isLocked(id) && this.unplayableReason(id, context) === undefined)
+      .map((id, order) => ({ id, value: this.value(id, basis, context), projected: context.projectedPoints(id), order }))
+      .sort((a, b) => {
+        if ((a.value !== undefined) !== (b.value !== undefined)) return a.value !== undefined ? -1 : 1
+        if (a.value !== undefined && b.value !== undefined && a.value !== b.value) return b.value - a.value
+        if ((a.projected !== undefined) !== (b.projected !== undefined)) return a.projected !== undefined ? -1 : 1
+        if (a.projected !== undefined && b.projected !== undefined && a.projected !== b.projected) return b.projected - a.projected
+        return a.order - b.order
+      })
+      .map((c) => c.id)
+
+    slots.forEach((slot, index) => {
+      if (proposedAt(index) !== undefined) return
+      const sitting = incumbent(index)
+      if (sitting !== undefined && (context.isLocked(sitting) || this.unplayableReason(sitting, context) === undefined)) return
+      const pick = ranked.find((id) => !taken.has(id) && accepts(slot, context.position(id)))
+      if (pick === undefined) return
+      out.set(index, pick)
+      taken.add(pick)
     })
     return out
   }
@@ -365,6 +439,7 @@ export class SitStartModel extends Observable {
     const basis = this.basis
     const active = this.optimize(basis, context)
     this.proposal = active
+    const cover = this.covers(active, basis, context)
 
     const name = (id: string | undefined) => (id === undefined ? undefined : context.playerName(id) ?? id)
     const current = team.rawStarters
@@ -373,22 +448,24 @@ export class SitStartModel extends Observable {
       const proposed = index < active.proposedIDs.length ? active.proposedIDs[index] : undefined
       const incumbent = index < current.length ? current[index] : undefined
       const incumbentID = incumbent === EMPTY_STARTER_SLOT ? undefined : incumbent
-      const shown = proposed ?? incumbentID
+      const chosen = proposed ?? cover.get(index)
+      const shown = chosen ?? incumbentID
       return {
         index,
         slot: slot.token,
         playerID: shown,
         name: name(shown),
         value: shown === undefined ? undefined : this.value(shown, basis, context),
-        keptBecauseUnvalued: proposed === undefined && incumbentID !== undefined,
-        changed: proposed !== undefined && proposed !== incumbentID,
+        keptBecauseUnvalued: chosen === undefined && incumbentID !== undefined,
+        changed: chosen !== undefined && chosen !== incumbentID,
         isLocked: shown === undefined ? false : context.isLocked(shown),
         availability: shown === undefined ? { kind: 'clear' } : startAvailability(shown, context),
       }
     })
-    this.injuredWithoutCover = this.lineup.flatMap((slot) => {
-      if (!slot.keptBecauseUnvalued || slot.isLocked || slot.availability.kind !== 'unavailable' || slot.name === undefined) return []
-      return [`${slot.name} (${slot.availability.label}) at ${slot.slot}`]
+    this.unplayableWithoutCover = this.lineup.flatMap((slot) => {
+      if (!slot.keptBecauseUnvalued || slot.isLocked || slot.playerID === undefined || slot.name === undefined) return []
+      const reason = this.unplayableReason(slot.playerID, context)
+      return reason === undefined ? [] : [`${slot.name} (${reason}) at ${slotLabel(slot.slot)}`]
     })
 
     this.swaps = active.swaps.map((swap) => ({
@@ -397,6 +474,17 @@ export class SitStartModel extends Observable {
       inName: name(swap.inID) ?? swap.inID,
       delta: swap.delta,
     }))
+    for (const index of [...cover.keys()].sort((a, b) => a - b)) {
+      const id = cover.get(index)!
+      const out = index < current.length && current[index] !== EMPTY_STARTER_SLOT ? current[index] : undefined
+      this.swaps.push({
+        slot: context.template.starters[index]!.token,
+        outName: name(out),
+        inName: name(id) ?? id,
+        // The player sat scores nothing this week, so the cover gains his whole value.
+        delta: Math.round((this.value(id, basis, context) ?? 0) * 10) / 10,
+      })
+    }
 
     this.buildChanges(current, context)
     this.buildLocks(current, team, context)
@@ -406,7 +494,7 @@ export class SitStartModel extends Observable {
     const mine = this.effectiveLineup(active, context)
     this.disagreeingBases = LINEUP_BASES
       .filter((b) => b !== basis)
-      .filter((b) => !setsEqual(this.effectiveLineup(this.optimize(b, context), context), mine))
+      .filter((b) => !setsEqual(this.effectiveLineup(this.optimize(b, context), context, b), mine))
     this.changed()
   }
 

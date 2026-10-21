@@ -173,7 +173,7 @@ public struct SitStartView: View {
                 .foregroundStyle(tint)
             ForEach(Array(changes.enumerated()), id: \.element.id) { offset, change in
                 HStack(spacing: 8) {
-                    Text(change.slot)
+                    Text(SlotLabel.short(change.slot))
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -250,7 +250,7 @@ public struct SitStartView: View {
                 .filter(\.canDecide).map { ($0.index, $0) })
             ForEach(model.lineup) { slot in
                 HStack(spacing: 8) {
-                    Text(slot.slot)
+                    Text(SlotLabel.short(slot.slot))
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -304,9 +304,9 @@ public struct SitStartView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 4)
             }
-            if !model.injuredWithoutCover.isEmpty {
+            if !model.unplayableWithoutCover.isEmpty {
                 Label {
-                    Text("Nobody on your bench can replace \(model.injuredWithoutCover.joined(separator: ", ")). Check the waiver wire before kickoff.")
+                    Text("Nobody on your bench can replace \(model.unplayableWithoutCover.joined(separator: ", ")). Check the waiver wire before kickoff.")
                         .fixedSize(horizontal: false, vertical: true)
                 } icon: {
                     Image(systemName: "cross.case.fill").foregroundStyle(Palette.sit)
