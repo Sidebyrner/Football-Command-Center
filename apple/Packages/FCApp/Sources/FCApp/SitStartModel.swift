@@ -130,7 +130,8 @@ public struct ProposedSlot: Hashable, Sendable, Identifiable {
     public let value: Double?
     /// True when the basis could value nobody for this slot, so the current
     /// starter is shown as kept rather than the slot drawn as empty. A DEF slot
-    /// on a production basis is the usual case.
+    /// on a production basis is the usual case. Never true for a starter who
+    /// can't play while a bench player who can is eligible — he is covered.
     public let keptBecauseUnvalued: Bool
     public let changed: Bool
     /// His game has kicked off, so Sleeper won't let this slot change.
@@ -139,6 +140,19 @@ public struct ProposedSlot: Hashable, Sendable, Identifiable {
     public var availability: StartAvailability = .clear
 
     public var id: Int { index }
+}
+
+/// The short slot names lineup rows show: `SUPER_FLEX` reads "SF".
+public enum SlotLabel {
+    public static func short(_ token: String) -> String {
+        switch token {
+        case "SUPER_FLEX": return "SF"
+        case "REC_FLEX", "WRTE_FLEX": return "W/T"
+        case "WRRB_FLEX": return "W/R"
+        case "IDP_FLEX": return "IDP"
+        default: return token
+        }
+    }
 }
 
 /// The next moment some of your starters lock.
@@ -176,9 +190,10 @@ public final class SitStartModel: ObservableObject {
     @Published public private(set) var sits: [LineupChange] = []
     @Published public private(set) var moves: [SlotMove] = []
 
-    /// Slots where the current starter is Out, Doubtful or on IR and nobody on
-    /// the bench can be valued to replace him — "Name (Out) at RB".
-    @Published public private(set) var injuredWithoutCover: [String] = []
+    /// Slots where the current starter is on bye, Out, Doubtful or on IR and
+    /// nobody eligible on the bench can play instead — "Name (Out) at RB",
+    /// "Name (Bye) at DEF".
+    @Published public private(set) var unplayableWithoutCover: [String] = []
 
     /// Bench players whose game has already kicked off — they can't be started
     /// this week, so they are left out of every proposal.
@@ -332,16 +347,75 @@ public final class SitStartModel: ObservableObject {
     }
 
     /// What would actually take the field under a proposal: the proposed player
-    /// where the basis picked one, otherwise whoever starts now. Comparing
-    /// these — rather than raw proposals — stops an unvalued DEF slot from
-    /// reading as a disagreement between bases.
-    func effectiveLineup(_ proposal: LineupProposal, context: LeagueContext) -> Set<String> {
+    /// where the basis picked one, then a bench cover for a starter who can't
+    /// play, otherwise whoever starts now. Comparing these — rather than raw
+    /// proposals — stops an unvalued DEF slot from reading as a disagreement
+    /// between bases.
+    func effectiveLineup(_ proposal: LineupProposal, context: LeagueContext, basis: LineupBasis? = nil) -> Set<String> {
         let current = context.userTeam?.rawStarters ?? []
+        let cover = covers(proposal, basis: basis ?? self.basis, context: context)
         var out: Set<String> = []
         for index in proposal.proposedIDs.indices {
-            let chosen = proposal.proposedIDs[index]
+            let chosen = proposal.proposedIDs[index] ?? cover[index]
                 ?? (current.indices.contains(index) ? current[index] : nil)
             if let chosen, chosen != SleeperRoster.emptyStarterSlot { out.insert(chosen) }
+        }
+        return out
+    }
+
+    /// Why a player scores nothing this week whatever the basis says — "Bye",
+    /// or his Out / Doubtful / IR status — or `nil` when he can play.
+    func unplayableReason(_ id: String, context: LeagueContext) -> String? {
+        if let team = team(of: id, in: context),
+           context.byeCalendar.isOnBye(team: team, week: context.currentWeek) {
+            return "Bye"
+        }
+        if case .unavailable(let status) = StartAvailability.of(id, context: context) { return status }
+        return nil
+    }
+
+    /// Bench cover, by slot index, for slots the basis left to an incumbent who
+    /// can't play (or left empty). The basis can't value anyone there — a DEF
+    /// slot on a production basis — but any player who plays beats a certain
+    /// zero. Preference: valued on the basis, then projected points, then
+    /// roster order.
+    func covers(_ proposal: LineupProposal, basis: LineupBasis, context: LeagueContext) -> [Int: String] {
+        guard let team = context.userTeam else { return [:] }
+        let current = team.rawStarters
+        let slots = context.template.starters
+        func incumbent(_ index: Int) -> String? {
+            guard current.indices.contains(index), current[index] != SleeperRoster.emptyStarterSlot else { return nil }
+            return current[index]
+        }
+        var taken = Set(slots.indices.compactMap { index in
+            (proposal.proposedIDs.indices.contains(index) ? proposal.proposedIDs[index] : nil) ?? incumbent(index)
+        })
+        let candidates = team.roster.map(\.id).filter {
+            !context.isLocked($0) && unplayableReason($0, context: context) == nil
+        }
+        let keyed = candidates.enumerated().map { order, id in
+            (id: id, value: value(of: id, basis: basis, context: context),
+             projected: context.projectedPoints(id), order: order)
+        }
+        let ranked = keyed.sorted { a, b in
+            if (a.value != nil) != (b.value != nil) { return a.value != nil }
+            if let va = a.value, let vb = b.value, va != vb { return va > vb }
+            if (a.projected != nil) != (b.projected != nil) { return a.projected != nil }
+            if let pa = a.projected, let pb = b.projected, pa != pb { return pa > pb }
+            return a.order < b.order
+        }.map(\.id)
+
+        var out: [Int: String] = [:]
+        for index in slots.indices {
+            let proposed = proposal.proposedIDs.indices.contains(index) ? proposal.proposedIDs[index] : nil
+            guard proposed == nil else { continue }
+            if let incumbent = incumbent(index) {
+                guard !context.isLocked(incumbent), unplayableReason(incumbent, context: context) != nil else { continue }
+            }
+            guard let pick = ranked.first(where: { !taken.contains($0) && slots[index].accepts(context.position($0)) })
+            else { continue }
+            out[index] = pick
+            taken.insert(pick)
         }
         return out
     }
@@ -350,6 +424,7 @@ public final class SitStartModel: ObservableObject {
         guard let context, let team = context.userTeam else { return }
         let active = optimize(basis, context: context)
         proposal = active
+        let cover = covers(active, basis: basis, context: context)
 
         let name: (String?) -> String? = { id in id.flatMap { context.playerName($0) ?? $0 } }
         let current = team.rawStarters
@@ -358,23 +433,24 @@ public final class SitStartModel: ObservableObject {
             let proposed = active.proposedIDs.indices.contains(index) ? active.proposedIDs[index] : nil
             let incumbent = current.indices.contains(index) ? current[index] : nil
             let incumbentID = incumbent == SleeperRoster.emptyStarterSlot ? nil : incumbent
-            let shown = proposed ?? incumbentID
+            let chosen = proposed ?? cover[index]
+            let shown = chosen ?? incumbentID
             return ProposedSlot(
                 index: index,
                 slot: context.template.starters[index].token,
                 playerID: shown,
                 name: name(shown),
                 value: shown.flatMap { value(of: $0, basis: basis, context: context) },
-                keptBecauseUnvalued: proposed == nil && incumbentID != nil,
-                changed: proposed != nil && proposed != incumbentID,
+                keptBecauseUnvalued: chosen == nil && incumbentID != nil,
+                changed: chosen != nil && chosen != incumbentID,
                 isLocked: shown.map { context.isLocked($0) } ?? false,
                 availability: shown.map { StartAvailability.of($0, context: context) } ?? .clear
             )
         }
-        injuredWithoutCover = lineup.compactMap { slot in
-            guard slot.keptBecauseUnvalued, !slot.isLocked, case .unavailable(let status) = slot.availability,
-                  let name = slot.name else { return nil }
-            return "\(name) (\(status)) at \(slot.slot)"
+        unplayableWithoutCover = lineup.compactMap { slot in
+            guard slot.keptBecauseUnvalued, !slot.isLocked, let id = slot.playerID, let name = slot.name,
+                  let reason = unplayableReason(id, context: context) else { return nil }
+            return "\(name) (\(reason)) at \(SlotLabel.short(slot.slot))"
         }
 
         swaps = active.swaps.map { swap in
@@ -383,6 +459,16 @@ public final class SitStartModel: ObservableObject {
                 outName: name(swap.outID),
                 inName: name(swap.inID) ?? swap.inID,
                 delta: swap.delta
+            )
+        } + cover.keys.sorted().compactMap { index in
+            guard let id = cover[index] else { return nil }
+            let out = current.indices.contains(index) && current[index] != SleeperRoster.emptyStarterSlot ? current[index] : nil
+            return SwapRow(
+                slot: context.template.starters[index].token,
+                outName: name(out),
+                inName: name(id) ?? id,
+                // The player sat scores nothing this week, so the cover gains his whole value.
+                delta: ((value(of: id, basis: basis, context: context) ?? 0) * 10).rounded() / 10
             )
         }
 
@@ -394,7 +480,7 @@ public final class SitStartModel: ObservableObject {
         let mine = effectiveLineup(active, context: context)
         disagreeingBases = LineupBasis.allCases
             .filter { $0 != basis }
-            .filter { effectiveLineup(optimize($0, context: context), context: context) != mine }
+            .filter { effectiveLineup(optimize($0, context: context), context: context, basis: $0) != mine }
     }
 
     private func buildLocks(current: [String], team: LeagueTeam, context: LeagueContext) {
