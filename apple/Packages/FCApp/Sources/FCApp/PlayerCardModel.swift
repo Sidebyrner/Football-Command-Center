@@ -102,8 +102,10 @@ public final class PlayerCardModel: ObservableObject, Identifiable {
     }
 
     /// The network parts: news and a season of per-player projections. Both
-    /// fail soft.
+    /// fail soft. Also the league-wide parts (defense table, grades), which
+    /// score every line of the season and so are built off the main thread.
     public func load() async {
+        await buildLeagueWideParts()
         guard let sleeper else { return }
         async let newsRead = try? sleeper.playerNews(playerID: id)
         async let projectionsRead = try? sleeper.playerProjections(playerID: id, season: context.scheduleSeason)
@@ -142,16 +144,31 @@ public final class PlayerCardModel: ObservableObject, Identifiable {
         )
 
         rotowireThisWeek = context.projectedPoints(id)
-        let defense = DefenseLookup.build(context: context)
-        commandCenter = CommandCenterProjector(context: context, defense: defense).project(id)
-
-        let grades = GradeContext.build(context: context)
-        grade = grades.grade(id)
-        chips = grades.chips(id)
-        weighted = WeightedGrade.compute(grade: grade, chips: chips, weights: weights)
 
         buildLog()
         buildCalibration()
+    }
+
+    private var didBuildLeagueWideParts = false
+
+    /// The Command Center projection and the grade both need a pass over the
+    /// whole league's season; building them in `init` stalled the main thread
+    /// every time a card opened.
+    private func buildLeagueWideParts() async {
+        guard !didBuildLeagueWideParts else { return }
+        didBuildLeagueWideParts = true
+        let context = context
+        let id = id
+        let built = await Task.detached(priority: .userInitiated) {
+            let defense = context.defenseLookup
+            let projection = CommandCenterProjector(context: context, defense: defense).project(id)
+            let grades = GradeContext.build(context: context)
+            return (projection, grades.grade(id), grades.chips(id))
+        }.value
+        commandCenter = built.0
+        grade = built.1
+        chips = built.2
+        weighted = WeightedGrade.compute(grade: grade, chips: chips, weights: weights)
     }
 
     private func buildLog() {

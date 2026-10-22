@@ -124,6 +124,7 @@ final class RBStreamScreenModelTests: XCTestCase {
         XCTAssertEqual(model.report?.incumbent?.id, Self.gibbs)
         model.toggleCompare(Self.cook)
         model.toggleCompare(Self.hampton)
+        await model.settled()
         XCTAssertEqual(model.comparison?.players.map(\.id), [Self.cook, Self.hampton])
     }
 

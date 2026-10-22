@@ -136,6 +136,7 @@ final class WRStreamScreenModelTests: XCTestCase {
 
         model.toggleCompare(Self.boston)
         model.toggleCompare(Self.tucker)
+        await model.settled()
         let comparison = try XCTUnwrap(model.comparison)
         XCTAssertEqual(comparison.players.map(\.id), [Self.boston, Self.tucker])
         XCTAssertNotNil(comparison.verdict)

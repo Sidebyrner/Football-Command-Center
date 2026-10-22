@@ -150,7 +150,7 @@ public struct WaiverBoardView: View {
                 .foregroundStyle(.secondary)
                 .card()
         } else {
-            VStack(alignment: .leading, spacing: 6) {
+            LazyVStack(alignment: .leading, spacing: 6) {
                 ForEach(Array(model.rows.prefix(60).enumerated()), id: \.element.id) { offset, row in
                     // The star sits beside the row's button, not inside it, so
                     // a tap on it never opens the add/drop sheet.

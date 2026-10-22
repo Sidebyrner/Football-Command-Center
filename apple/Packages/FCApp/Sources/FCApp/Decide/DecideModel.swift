@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import FCCore
 import FCData
@@ -44,11 +45,34 @@ public final class DecideModel {
     private let matchup: MatchupModel
     private let discovery: DiscoveryModel
 
+    /// Memoised results. Slots are read from several view bodies, and each
+    /// build values every bench player many times over; both caches are
+    /// dropped whenever a model they read from is about to change.
+    private var signalsCache: [String: [StartSignal: Double]] = [:]
+    private var slotsCache: (stamp: Int, slots: [DecideSlot])?
+    /// Compare grids by what they were built from. They read Discovery's rows
+    /// and this model's signals, so they are dropped with the other caches.
+    private var comparisonCache: [PlayerComparisonKey: PlayerComparison] = [:]
+    private var invalidation: AnyCancellable?
+
     public init(sitStart: SitStartModel, waivers: WaiverBoardModel, matchup: MatchupModel, discovery: DiscoveryModel) {
         self.sitStart = sitStart
         self.waivers = waivers
         self.matchup = matchup
         self.discovery = discovery
+        invalidation = Publishers.MergeMany(
+            sitStart.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
+            waivers.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
+            matchup.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
+            discovery.objectWillChange.map { _ in () }.eraseToAnyPublisher()
+        )
+        .sink { [weak self] in
+            MainActor.assumeIsolated {
+                self?.signalsCache.removeAll()
+                self?.slotsCache = nil
+                self?.comparisonCache.removeAll()
+            }
+        }
     }
 
     public var context: LeagueContext? { sitStart.context }
@@ -64,6 +88,7 @@ public final class DecideModel {
     /// ruled out.
     public func signals(for id: String) -> [StartSignal: Double] {
         guard let context else { return [:] }
+        if let cached = signalsCache[id] { return cached }
         var out: [StartSignal: Double] = [:]
         out[.projected] = sitStart.value(of: id, basis: .projected, context: context)
         out[.commandCenter] = sitStart.value(of: id, basis: .commandCenter, context: context)
@@ -74,6 +99,7 @@ public final class DecideModel {
         out[.floor] = sitStart.value(of: id, basis: .floor, context: context)
         out[.ceiling] = sitStart.value(of: id, basis: .ceiling, context: context)
         if !out.isEmpty { out[.usage] = discovery.row(for: id)?.expectedPoints }
+        signalsCache[id] = out
         return out
     }
 
@@ -100,10 +126,28 @@ public final class DecideModel {
         StartVerdict.compute(ids.map { input(for: $0, incumbentID: incumbentID) }, posture: posture, slot: slot)
     }
 
+    /// The comparison for `key`, built once until a model it reads changes.
+    public func comparison(_ key: PlayerComparisonKey, build: () -> PlayerComparison) -> PlayerComparison {
+        if let cached = comparisonCache[key] { return cached }
+        let built = build()
+        comparisonCache[key] = built
+        return built
+    }
+
     // MARK: - Slots
 
     public func slots() -> [DecideSlot] {
-        guard let context, let team = context.userTeam else { return [] }
+        guard let context else { return [] }
+        // Locks flip at kickoff, so a cached build lasts a minute at most.
+        let stamp = Int(context.now().timeIntervalSinceReferenceDate / 60)
+        if let cached = slotsCache, cached.stamp == stamp { return cached.slots }
+        let built = buildSlots(context: context)
+        slotsCache = (stamp, built)
+        return built
+    }
+
+    private func buildSlots(context: LeagueContext) -> [DecideSlot] {
+        guard let team = context.userTeam else { return [] }
         let starters = team.rawStarters
         let startingSet = Set(starters.filter { $0 != SleeperRoster.emptyStarterSlot })
         let reserve = Set(team.reserveIDs)
@@ -115,7 +159,9 @@ public final class DecideModel {
             let incumbent = raw == SleeperRoster.emptyStarterSlot ? nil : raw
             let others = bench
                 .filter { slot.accepts(context.position($0)) && !context.isLocked($0) }
-                .sorted { projection($0) > projection($1) }
+                .map { ($0, projection($0)) }
+                .sorted { $0.1 > $1.1 }
+                .map(\.0)
             let ids = (incumbent.map { [$0] } ?? []) + others
             let inputs = ids.map { input(for: $0, incumbentID: incumbent) }
             let verdict = StartVerdict.compute(inputs, posture: posture, slot: slot.token)

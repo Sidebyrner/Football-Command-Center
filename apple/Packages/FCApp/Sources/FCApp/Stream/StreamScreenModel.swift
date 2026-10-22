@@ -18,7 +18,14 @@ public final class StreamScreenModel<Kind: StreamKind>: ObservableObject {
     @Published public private(set) var isLoading = false
     @Published public private(set) var errorMessage: String?
     @Published public private(set) var refreshCount = 0
-    @Published public private(set) var report: StreamReport<Kind.Projection>?
+    @Published public private(set) var report: StreamReport<Kind.Projection>? {
+        didSet {
+            var index = Dictionary(report?.ranked.map { ($0.id, $0) } ?? [], uniquingKeysWith: { first, _ in first })
+            if let incumbent = report?.incumbent { index[incumbent.id] = incumbent }
+            projectionIndex = index
+            searchCache = [:]
+        }
+    }
     /// This week's teams with overrides applied, keyed by nflverse code.
     @Published public private(set) var teams: [String: Kind.Team] = [:]
     /// Auto-filled values before any override, for the editor's reset.
@@ -42,10 +49,24 @@ public final class StreamScreenModel<Kind: StreamKind>: ObservableObject {
     public static var compareLimit: Int { 4 }
 
     private(set) var candidates: [Kind.Candidate] = []
+    /// `report`'s projections by id. `projection(for:)` was a linear scan of
+    /// the report, called inside the picker's sort comparator.
+    private var projectionIndex: [String: Kind.Projection] = [:]
+    /// Picker results by query and limit, dropped when the report changes.
+    /// The picker asks from its view body on every render.
+    private var searchCache: [String: [StreamPickerRow]] = [:]
+    /// Active players at this stream's positions, fixed per context.
+    private var cachedPool: [IndexedPlayer]?
     private var defense: DefenseLookup?
     private let loader: LeagueContextLoader
     private let store: StreamStore
     private var lastRequest: (leagueID: String, rosterID: Int, season: Int?)?
+    /// The latest rebuild started by a synchronous edit (compare), so tests
+    /// and callers can wait for it with `settled()`.
+    private var rebuildTask: Task<Void, Never>?
+    /// Bumped per rebuild; a rebuild that finishes after a newer one started
+    /// drops its result rather than overwrite fresher state.
+    private var rebuildGeneration = 0
 
     public init(loader: LeagueContextLoader, store: StreamStore? = nil) {
         self.loader = loader
@@ -71,16 +92,18 @@ public final class StreamScreenModel<Kind: StreamKind>: ObservableObject {
                 leagueID: leagueID, userRosterID: userRosterID, season: season, force: force
             )
             self.context = context
+            cachedPool = nil
+            searchCache = [:]
             let settings = context.league.scoringSettings ?? [:]
             scoring = Kind.scoring(sleeperSettings: settings)
             unmodelledScoringKeys = Kind.unmodelledKeys(sleeperSettings: settings)
 
             let defense = await Task.detached(priority: .userInitiated) {
-                DefenseLookup.build(context: context)
+                context.defenseLookup
             }.value
             self.defense = defense
             overrides = await store.overrides(leagueID: leagueID, season: context.scheduleSeason, week: context.currentWeek)
-            rebuild()
+            await rebuild()
             await autoSnapshotIfFirstToday()
             snapshots = await store.snapshots(leagueID: leagueID)
         } catch {
@@ -97,22 +120,57 @@ public final class StreamScreenModel<Kind: StreamKind>: ObservableObject {
 
     // MARK: - Pipeline
 
-    /// Context → candidates → report. Cheap; runs again after every edit.
-    private func rebuild() {
+    /// Context → candidates → report; runs again after every edit.
+    ///
+    /// Autofill, candidates and projections run off the main thread: all
+    /// seven stream models did this on main at launch and on every compare
+    /// toggle or override, which stalled touches.
+    private func rebuild() async {
         guard let context, let defense else { return }
-        autoTeams = Kind.autofill(context: context, defense: defense)
-        teams = Kind.apply(overrides.teams, to: autoTeams)
-        candidates = Kind.candidates(
-            context: context, teams: teams, players: overrides.players,
-            alwaysInclude: Set(compareIDs).union([overrides.incumbentID].compactMap { $0 })
-        )
-        recompute()
+        rebuildGeneration += 1
+        let generation = rebuildGeneration
+        let overrides = overrides
+        let alwaysInclude = Set(compareIDs).union([overrides.incumbentID].compactMap { $0 })
+        let scoring = scoring, risk = risk, horizon = horizon
+        let built = await Task.detached(priority: .userInitiated) {
+            let autoTeams = Kind.autofill(context: context, defense: defense)
+            let teams = Kind.apply(overrides.teams, to: autoTeams)
+            let candidates = Kind.candidates(
+                context: context, teams: teams, players: overrides.players, alwaysInclude: alwaysInclude
+            )
+            let projections = candidates.map { Kind.project($0, scoring: scoring, risk: risk, horizon: horizon) }
+            return (autoTeams, teams, candidates, projections)
+        }.value
+        guard generation == rebuildGeneration else { return }
+        autoTeams = built.0
+        teams = built.1
+        candidates = built.2
+        // Risk or horizon changed while this ran: the projections are stale.
+        if scoring == self.scoring, risk == self.risk, horizon == self.horizon {
+            publishReport(projections: built.3)
+        } else {
+            recompute()
+        }
+    }
+
+    /// Starts a rebuild from a synchronous edit; `settled()` waits for it.
+    private func scheduleRebuild() {
+        rebuildTask = Task { await rebuild() }
+    }
+
+    /// Waits for the latest rebuild a synchronous edit started.
+    public func settled() async {
+        await rebuildTask?.value
     }
 
     /// Re-runs the engine on the candidates already built — risk or starter change.
     private func recompute() {
         guard context != nil else { return }
         let projections = candidates.map { Kind.project($0, scoring: scoring, risk: risk, horizon: horizon) }
+        publishReport(projections: projections)
+    }
+
+    private func publishReport(projections: [Kind.Projection]) {
         report = StreamDecision.report(projections: projections, incumbentID: incumbentID(among: projections))
         applyFilters()
     }
@@ -139,8 +197,11 @@ public final class StreamScreenModel<Kind: StreamKind>: ObservableObject {
 
     /// The chosen starter, or by default the weakest one the user is starting
     /// this week — the one a stream would replace.
+    ///
+    /// Read from the report rather than re-projecting every candidate, which
+    /// this did on each access from a view body.
     public var incumbentID: String? {
-        incumbentID(among: candidates.map { Kind.project($0, scoring: scoring, risk: risk, horizon: horizon) })
+        report?.incumbent?.id
     }
 
     private func incumbentID(among projections: [Kind.Projection]) -> String? {
@@ -159,7 +220,7 @@ public final class StreamScreenModel<Kind: StreamKind>: ObservableObject {
     public func setIncumbent(_ id: String?) async {
         overrides.incumbentID = id
         await saveOverrides()
-        rebuild()
+        await rebuild()
     }
 
     /// Whose player the starter to beat is, when he is not the user's.
@@ -178,26 +239,28 @@ public final class StreamScreenModel<Kind: StreamKind>: ObservableObject {
     public func searchPlayers(_ query: String, limit: Int = 25) -> [StreamPickerRow] {
         guard let context else { return [] }
         let trimmed = query.trimmingCharacters(in: .whitespaces)
+        let cacheKey = "\(limit)|\(trimmed)"
+        if let cached = searchCache[cacheKey] { return cached }
         let players: [IndexedPlayer]
         if trimmed.isEmpty {
             let ranked = (report?.ranked ?? []) + [report?.incumbent].compactMap { $0 }
             players = ranked.sorted { $0.expPts > $1.expPts }.prefix(limit).compactMap { $0.playerID.flatMap { context.players[$0] } }
         } else {
-            let scored = pool.compactMap { player -> (IndexedPlayer, Int)? in
+            let scored = pool.compactMap { player -> (player: IndexedPlayer, score: Int, expPts: Double)? in
                 let team = player.nflverseTeam
                 let extra = [team, NFLTeams.name(abbreviation: team)].compactMap { $0 }
-                return FuzzyNameMatch.score(query: trimmed, name: player.name, extra: extra).map { (player, $0) }
+                return FuzzyNameMatch.score(query: trimmed, name: player.name, extra: extra)
+                    .map { (player, $0, projection(for: player.id)?.expPts ?? -1) }
             }
             players = scored
                 .sorted { a, b in
-                    if a.1 != b.1 { return a.1 > b.1 }
-                    let pa = projection(for: a.0.id)?.expPts ?? -1, pb = projection(for: b.0.id)?.expPts ?? -1
-                    return pa != pb ? pa > pb : a.0.name < b.0.name
+                    if a.score != b.score { return a.score > b.score }
+                    return a.expPts != b.expPts ? a.expPts > b.expPts : a.player.name < b.player.name
                 }
                 .prefix(limit)
-                .map(\.0)
+                .map(\.player)
         }
-        return players.map { player in
+        let rows = players.map { player in
             StreamPickerRow(
                 id: player.id, name: player.name, team: player.nflverseTeam, platform: player.position,
                 roleLabel: projection(for: player.id)?.roleLabel ?? Kind.roleLabel(for: player),
@@ -205,12 +268,17 @@ public final class StreamScreenModel<Kind: StreamKind>: ObservableObject {
                 projected: projection(for: player.id)?.expPts
             )
         }
+        searchCache[cacheKey] = rows
+        return rows
     }
 
     /// Active players at this stream's positions on an NFL team.
     private var pool: [IndexedPlayer] {
         guard let context else { return [] }
-        return Kind.positions.flatMap { context.players.players(at: $0) }.filter { $0.team != nil }
+        if let cachedPool { return cachedPool }
+        let pool = Kind.positions.flatMap { context.players.players(at: $0) }.filter { $0.team != nil }
+        cachedPool = pool
+        return pool
     }
 
     /// His last few completed games, newest first, scored in this league.
@@ -221,7 +289,7 @@ public final class StreamScreenModel<Kind: StreamKind>: ObservableObject {
 
     /// The current projection for any player in the report, starter included.
     public func projection(for id: String) -> Kind.Projection? {
-        report?.projection(for: id)
+        projectionIndex[id]
     }
 
     // MARK: - Compare
@@ -239,12 +307,12 @@ public final class StreamScreenModel<Kind: StreamKind>: ObservableObject {
             guard canAddToCompare else { return }
             compareIDs.append(id)
         }
-        if projection(for: id) == nil || !compareIDs.contains(id) { rebuild() }
+        if projection(for: id) == nil || !compareIDs.contains(id) { scheduleRebuild() }
     }
 
     public func clearCompare() {
         compareIDs = []
-        rebuild()
+        scheduleRebuild()
     }
 
     /// The compared players, in the order added, with every head-to-head.
@@ -258,19 +326,19 @@ public final class StreamScreenModel<Kind: StreamKind>: ObservableObject {
     public func setTeamOverride(_ change: Kind.TeamOverride?, team: String) async {
         if let change, !change.isEmpty { overrides.teams[team] = change } else { overrides.teams[team] = nil }
         await saveOverrides()
-        rebuild()
+        await rebuild()
     }
 
     public func setPlayerOverride(_ change: Kind.PlayerOverride?, playerID: String) async {
         if let change, !change.isEmpty { overrides.players[playerID] = change } else { overrides.players[playerID] = nil }
         await saveOverrides()
-        rebuild()
+        await rebuild()
     }
 
     public func resetAllOverrides() async {
         overrides = Overrides(incumbentID: overrides.incumbentID)
         await saveOverrides()
-        rebuild()
+        await rebuild()
     }
 
     /// Imports a context file in the reference tool's shape. Returns how many
@@ -280,7 +348,7 @@ public final class StreamScreenModel<Kind: StreamKind>: ObservableObject {
         let incoming = try Kind.parseImport(data)
         overrides = overrides.merging(incoming)
         await saveOverrides()
-        rebuild()
+        await rebuild()
         return (incoming.teams.count, incoming.players.count)
     }
 

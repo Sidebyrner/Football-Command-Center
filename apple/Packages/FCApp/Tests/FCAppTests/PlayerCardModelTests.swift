@@ -68,6 +68,7 @@ final class PlayerCardModelTests: XCTestCase {
     func testGradeRanksAgainstThePositionCohortAndChipsStaySeparate() async throws {
         let (context, sleeper) = try await context()
         let model = PlayerCardModel(playerID: Self.smithNjigba, context: context, sleeper: sleeper)
+        await model.load()
         let grade = try XCTUnwrap(model.grade)
         XCTAssertNotNil(grade.score)
         XCTAssertGreaterThan(grade.cohortSize, 11)
@@ -88,6 +89,7 @@ final class PlayerCardModelTests: XCTestCase {
         var saved: [String: Double]?
         let model = PlayerCardModel(playerID: Self.smithNjigba, context: context, sleeper: sleeper,
                                     weights: [:], onWeightsChange: { saved = $0 })
+        await model.load()
         XCTAssertFalse(model.showWeighted)
         XCTAssertEqual(model.weight(for: WeightedGrade.gradeKey), WeightedGrade.defaultGradeWeight)
         let before = try XCTUnwrap(model.weighted)

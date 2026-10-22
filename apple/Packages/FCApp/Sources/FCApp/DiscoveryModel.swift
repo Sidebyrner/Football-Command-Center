@@ -88,15 +88,18 @@ public final class DiscoveryModel: ObservableObject {
             } else {
                 trendingUnavailable = true
             }
-            let builder = RowBuilder(context: context, trending: trending)
-            // Scoring a season of rows is the expensive part; keep it off the main thread.
-            let defense = await Task.detached(priority: .userInitiated) { DefenseLookup.build(context: context) }.value
+            // Building every row scans the whole player pool and the season's
+            // stat lines; all of it stays off the main thread.
+            let built = await Task.detached(priority: .userInitiated) {
+                let builder = RowBuilder(context: context, trending: trending)
+                return (builder, context.defenseLookup, builder.acquirableRows(includeNoData: true))
+            }.value
             self.context = context
-            self.builder = builder
-            self.defense = defense
+            self.builder = built.0
+            self.defense = built.1
             metrics = PlayerMetricsIndex(context: context)
             rowCache = [:]
-            allRows = builder.acquirableRows(includeNoData: true)
+            allRows = built.2
             fallBackToAValuedSort()
             applyFilters()
         } catch {

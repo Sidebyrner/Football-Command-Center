@@ -99,6 +99,31 @@ final class ContextSharingTests: XCTestCase {
         XCTAssertEqual(forced, 2, "force rebuilds regardless")
     }
 
+    /// One pull-to-refresh forces a load from every screen at once; they
+    /// share one assembly, and the ones just behind it take its result.
+    func testConcurrentForcedLoadsShareOneAssembly() async throws {
+        let context = try await sampleContext()
+        let memo = ContextMemo(maxAge: 3_600)
+        let counter = Counter()
+        let key = ContextMemo.Key(leagueID: "L1", rosterID: 1, season: 2025)
+        let make: @Sendable () async throws -> LeagueContext = {
+            await counter.increment()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            return context
+        }
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for _ in 0..<16 {
+                group.addTask { _ = try await memo.value(for: key, force: true, make: make) }
+            }
+            try await group.waitForAll()
+        }
+        _ = try await memo.value(for: key, force: true, make: make)
+
+        let count = await counter.value
+        XCTAssertEqual(count, 1)
+    }
+
     func testAnEntryOlderThanMaxAgeIsRebuilt() async throws {
         let context = try await sampleContext()
         let memo = ContextMemo(maxAge: 0)

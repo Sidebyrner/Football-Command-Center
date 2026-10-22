@@ -203,7 +203,18 @@ public final class SitStartModel: ObservableObject {
     /// The Command Center projector, built once per load with both
     /// defense-vs-position tables. Scoring a season is the slow part, so it is
     /// built off the main thread.
-    private var projector: CommandCenterProjector?
+    private var projector: CommandCenterProjector? {
+        didSet { valueCache.removeAll() }
+    }
+    /// `value(of:basis:)` results for the loaded context. Decide, the header
+    /// cards and every optimizer pass ask for the same players over and over,
+    /// often from view bodies, and each answer scores stat lines; cleared
+    /// whenever anything it reads is replaced.
+    private var valueCache: [ValueKey: Double?] = [:]
+    private struct ValueKey: Hashable {
+        let id: String
+        let basis: LineupBasis
+    }
     /// Where the projected basis' numbers come from, for the screen.
     @Published public private(set) var projectionSourceLabel: String?
 
@@ -242,6 +253,7 @@ public final class SitStartModel: ObservableObject {
                 leagueID: leagueID, userRosterID: userRosterID, season: season, force: force
             )
             self.context = context
+            valueCache.removeAll()
 
             let byGSIS = Dictionary(
                 context.seasonProfiles.map { ($0.gsisID, $0) }, uniquingKeysWith: { first, _ in first }
@@ -252,7 +264,7 @@ public final class SitStartModel: ObservableObject {
             lines = GameLines.week(context.schedule, week: context.currentWeek)
             projectionSourceLabel = context.inSeason.projectionSourceLabel
             let defense = await Task.detached(priority: .userInitiated) {
-                DefenseLookup.build(context: context)
+                context.defenseLookup
             }.value
             projector = CommandCenterProjector(context: context, defense: defense)
             recompute()
@@ -271,6 +283,14 @@ public final class SitStartModel: ObservableObject {
     /// THE BASIS, as a function the optimizer calls. `nil` means "cannot value",
     /// which the optimizer reports and never scores as zero.
     func value(of id: String, basis: LineupBasis, context: LeagueContext) -> Double? {
+        let key = ValueKey(id: id, basis: basis)
+        if let cached = valueCache[key] { return cached }
+        let computed = computeValue(of: id, basis: basis, context: context)
+        valueCache[key] = computed
+        return computed
+    }
+
+    private func computeValue(of id: String, basis: LineupBasis, context: LeagueContext) -> Double? {
         // A player on bye scores exactly zero whatever he is worth, so no basis
         // may recommend starting him. The web app did not check this.
         if let team = team(of: id, in: context),

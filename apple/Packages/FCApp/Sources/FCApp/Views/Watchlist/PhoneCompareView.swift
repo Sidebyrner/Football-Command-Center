@@ -69,8 +69,12 @@ struct PhoneCompareView<Source: CompareSource>: View {
         let decide = services.decide
         let signals: ((String) -> [StartSignal: Double])? = thisWeek ? { decide.signals(for: $0) } : nil
         let baselineID: String? = thisWeek ? nil : source.compareBaselineID
-        let comparison = PlayerComparison.build(cards: cards, rows: discovery.row(for:), defense: discovery.defense,
-                                                lastN: 4, baselineID: baselineID, signals: signals)
+        let comparison = decide.comparison(
+            PlayerComparisonKey(cards: cards, lastN: 4, baselineID: baselineID, thisWeek: thisWeek)
+        ) {
+            PlayerComparison.build(cards: cards, rows: discovery.row(for:), defense: discovery.defense,
+                                   lastN: 4, baselineID: baselineID, signals: signals)
+        }
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 Picker("Question", selection: $lens) {

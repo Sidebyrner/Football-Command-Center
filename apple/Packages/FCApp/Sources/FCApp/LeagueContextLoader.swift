@@ -130,6 +130,7 @@ public struct LeagueContextLoader: Sendable {
             kickoffs: KickoffCalendar(schedule: schedule.value)
         )
         let userRoster = rosters.value.first { $0.rosterID == userRosterID }
+        let sleeperIDsByGSIS = crosswalk.value.sleeperIDsByGSIS()
 
         var context = LeagueContext(
             league: league.value,
@@ -149,7 +150,8 @@ public struct LeagueContextLoader: Sendable {
             seasonWeeks: weeks(in: schedule.value),
             seasonProfiles: seasonProfiles,
             baselines: baselines,
-            sleeperIDsByGSIS: crosswalk.value.sleeperIDsByGSIS(),
+            sleeperIDsByGSIS: sleeperIDsByGSIS,
+            gsisIDsBySleeper: LeagueContext.reverseCrosswalk(sleeperIDsByGSIS),
             availabilityBySleeperID: availability(teams: teams, userRosterID: userRosterID),
             unsupportedPositions: unsupportedStartingPositions(template: template),
             players: players.value,
@@ -167,6 +169,8 @@ public struct LeagueContextLoader: Sendable {
         context.leagueFacts = LeagueFacts.from(league: league.value, userRoster: userRoster?.settings)
         context.inSeason = inSeason
         context.provider = provider()
+        // Last, because it reads `inSeason`.
+        context.defense = DefenseLookup.build(context: context)
         return context
     }
 
@@ -375,8 +379,17 @@ actor ContextMemo {
     }
 
     private let maxAge: TimeInterval
-    private var entries: [Key: (builtAt: Date, context: LeagueContext)] = [:]
-    private var inFlight: [Key: Task<LeagueContext, Error>] = [:]
+    /// The last good build per key, and whether it was a forced re-read.
+    private var entries: [Key: (builtAt: Date, forced: Bool, context: LeagueContext)] = [:]
+    /// The build running per key. `id` lets a finished build clear only its
+    /// own slot, never one a forced request has since replaced it with.
+    private var inFlight: [Key: (id: UUID, forced: Bool, task: Task<LeagueContext, Error>)] = [:]
+
+    /// How recent a forced build must be for another forced request to take
+    /// it as-is. One pull-to-refresh fans out to every screen's model, each
+    /// forcing a load; the ones that ask just after the first finishes take
+    /// its result instead of starting the whole assembly again.
+    static let forcedReuseWindow: TimeInterval = 5
 
     init(maxAge: TimeInterval) {
         self.maxAge = maxAge
@@ -387,21 +400,28 @@ actor ContextMemo {
         force: Bool,
         make: @escaping @Sendable () async throws -> LeagueContext
     ) async throws -> LeagueContext {
-        if !force, let entry = entries[key], Date().timeIntervalSince(entry.builtAt) < maxAge {
-            return entry.context
+        if let entry = entries[key] {
+            let age = Date().timeIntervalSince(entry.builtAt)
+            if force ? (entry.forced && age < Self.forcedReuseWindow) : age < maxAge {
+                return entry.context
+            }
         }
-        if !force, let running = inFlight[key] {
-            return try await running.value
+        // A forced request shares only a forced build: an ordinary one may be
+        // reading from caches the refresh is meant to skip. Without sharing,
+        // one refresh ran about sixteen full assemblies at once.
+        if let running = inFlight[key], running.forced || !force {
+            return try await running.task.value
         }
 
+        let id = UUID()
         let task = Task { try await make() }
-        inFlight[key] = task
-        defer { inFlight[key] = nil }
+        inFlight[key] = (id, force, task)
+        defer { if inFlight[key]?.id == id { inFlight[key] = nil } }
 
         // A failure is not memoised: the next screen to ask should try again,
         // not inherit the error.
         let context = try await task.value
-        entries[key] = (Date(), context)
+        entries[key] = (Date(), force, context)
         return context
     }
 }

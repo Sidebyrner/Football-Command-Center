@@ -178,6 +178,13 @@ public final class WaiverBoardModel: ObservableObject {
     @Published public var playingThisWeekOnly = false { didSet { applyFilters() } }
 
     private var allRows: [WaiverRow] = []
+    /// `pairEffect` results by add and drop id, cleared on load. The add/drop
+    /// sheet asks for every drop on each render, and each one ran two lineup
+    /// optimisations on the main thread.
+    private var pairEffectCache: [String: PairEffect] = [:]
+    /// Your best lineup total before any claim — the same for every pair, so
+    /// worked out once per load rather than once per drop.
+    private var lineupBeforeClaim: Double?
     private let loader: LeagueContextLoader
     private let sleeper: SleeperService?
     private var lastRequest: (leagueID: String, rosterID: Int, season: Int?)?
@@ -215,10 +222,17 @@ public final class WaiverBoardModel: ObservableObject {
                 trendingUnavailable = true
             }
 
-            let builder = RowBuilder(context: context, trending: trending)
-            projectedLines = builder.projectedLines
-            allRows = builder.acquirableRows()
-            dropCandidates = builder.dropCandidates()
+            // Every row scans the player pool and the season's stat lines;
+            // keep it off the main thread.
+            let built = await Task.detached(priority: .userInitiated) {
+                let builder = RowBuilder(context: context, trending: trending)
+                return (builder.projectedLines, builder.acquirableRows(), builder.dropCandidates())
+            }.value
+            pairEffectCache = [:]
+            lineupBeforeClaim = nil
+            projectedLines = built.0
+            allRows = built.1
+            dropCandidates = built.2
             facts = Self.buildFacts(context: context)
             fallBackToAValuedSort()
             applyFilters()
@@ -316,6 +330,8 @@ public final class WaiverBoardModel: ObservableObject {
         guard add.projected != nil else {
             return PairEffect(addID: add.id, dropID: drop.id, before: nil, after: nil, delta: nil, basisLabel: label, note: "\(add.name) has no projection this week.")
         }
+        let cacheKey = add.id + "|" + drop.id
+        if let cached = pairEffectCache[cacheKey] { return cached }
         let locked = Set(mine.roster.map(\.id).filter { context.isLocked($0) })
         // Out, Doubtful and IR players can't be in this week's lineup — the
         // same rule Sit/Start uses — so neither side of the pair counts them.
@@ -330,18 +346,21 @@ public final class WaiverBoardModel: ObservableObject {
             ).proposedTotal
         }
         let current = mine.roster.map(\.id)
-        let before = best(current) ?? 0
+        let before = lineupBeforeClaim ?? best(current) ?? 0
+        lineupBeforeClaim = before
         let after = best(current.filter { $0 != drop.id } + [add.id]) ?? 0
         var note: String?
         if case .unavailable(let status) = StartAvailability.of(add.id, context: context) {
             note = "\(add.name) is \(status), so he can't help this week's lineup — a stash, not a start."
         }
-        return PairEffect(
+        let effect = PairEffect(
             addID: add.id, dropID: drop.id,
             before: before, after: after,
             delta: ((after - before) * 10).rounded() / 10,
             basisLabel: label, note: note
         )
+        pairEffectCache[cacheKey] = effect
+        return effect
     }
 
     // MARK: - Facts
@@ -381,7 +400,7 @@ public final class WaiverBoardModel: ObservableObject {
 
 /// Turns a league context into board rows. Pure once built; kept separate so
 /// the joins — Sleeper id to gsis id, per-week team target totals — happen once.
-struct RowBuilder {
+struct RowBuilder: Sendable {
     let context: LeagueContext
     let trending: [String: Int]
     let projectedLines: [Position: PositionBaseline]

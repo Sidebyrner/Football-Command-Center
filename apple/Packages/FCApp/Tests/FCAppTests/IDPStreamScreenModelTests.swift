@@ -212,6 +212,7 @@ final class IDPStreamScreenModelTests: XCTestCase {
         model.toggleCompare(Self.bolton)
         model.toggleCompare(Self.johnson)   // under the snap floor: projected on add
         model.toggleCompare(Self.curl)
+        await model.settled()
         XCTAssertEqual(model.compareIDs, [Self.bolton, Self.johnson, Self.curl])
         let comparison = try XCTUnwrap(model.comparison)
         XCTAssertEqual(comparison.players.map(\.id), [Self.bolton, Self.johnson, Self.curl])
@@ -220,14 +221,17 @@ final class IDPStreamScreenModelTests: XCTestCase {
 
         model.toggleCompare(Self.carter)
         model.toggleCompare(Self.nubin)
+        await model.settled()
         XCTAssertEqual(model.compareIDs.count, IDPStreamScreenModel.compareLimit)
         XCTAssertFalse(model.compareIDs.contains(Self.nubin))
         XCTAssertFalse(model.canAddToCompare)
 
         model.toggleCompare(Self.johnson)
+        await model.settled()
         XCTAssertEqual(model.compareIDs, [Self.bolton, Self.curl, Self.carter])
         XCTAssertNil(model.projection(for: Self.johnson), "forced inclusion ends with the comparison")
         model.clearCompare()
+        await model.settled()
         XCTAssertNil(model.comparison)
     }
 

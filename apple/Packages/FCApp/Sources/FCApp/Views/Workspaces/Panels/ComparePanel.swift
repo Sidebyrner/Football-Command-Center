@@ -47,8 +47,12 @@ struct ComparePanel: View {
         // Read so a finished load re-renders the panel with the loaded cards.
         let _ = loadedGeneration
         let baseline = group == LinkBus.watchlistGroup ? services.watchlist.baselineID : nil
-        let comparison = PlayerComparison.build(cards: cards, rows: discovery.row(for:), defense: discovery.defense, lastN: rows,
-                                                baselineID: baseline)
+        let comparison = services.decide.comparison(
+            PlayerComparisonKey(cards: cards, lastN: rows, baselineID: baseline, thisWeek: false)
+        ) {
+            PlayerComparison.build(cards: cards, rows: discovery.row(for:), defense: discovery.defense, lastN: rows,
+                                   baselineID: baseline)
+        }
         PanelScroll {
             header(comparison, group: group, context: context)
             if comparison.players.isEmpty {

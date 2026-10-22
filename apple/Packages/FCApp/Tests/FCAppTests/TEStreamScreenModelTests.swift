@@ -145,6 +145,7 @@ final class TEStreamScreenModelTests: XCTestCase {
         let model = await model(try await transport())
         model.toggleCompare(Self.schultz)
         model.toggleCompare(Self.kelce)
+        await model.settled()
         let comparison = try XCTUnwrap(model.comparison)
         XCTAssertEqual(comparison.players.map(\.id), [Self.schultz, Self.kelce])
         XCTAssertNotNil(comparison.verdict)

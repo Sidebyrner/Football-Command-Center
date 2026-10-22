@@ -106,6 +106,10 @@ public struct LeagueContext: Sendable {
     public let baselines: [Position: PositionBaseline]
     /// gsis id → Sleeper id, for putting a production row back on a roster.
     public let sleeperIDsByGSIS: [String: String]
+    /// Reverse of `sleeperIDsByGSIS`. Stored, not computed: it is read per
+    /// player inside loops (every practice-report lookup), and rebuilding a
+    /// ~6,400-entry dictionary on each read stalled the main thread.
+    public let gsisIDsBySleeper: [String: String]
     /// Where each rostered Sleeper id sits.
     public let availabilityBySleeperID: [String: Availability]
     /// Positions in this league's starting lineup that the weekly file has no
@@ -128,6 +132,17 @@ public struct LeagueContext: Sendable {
     /// Projections, current-season Sleeper stats, practice reports, depth
     /// charts, usage and team context. Every part optional; see `InSeasonData`.
     public var inSeason: InSeasonData = .empty
+    /// Defense-vs-position, built once by the loader after `inSeason` is set.
+    /// Scoring a season of rows is expensive, and about eleven screens each
+    /// built their own copy of the same table for the same context.
+    public var defense: DefenseLookup?
+
+    /// The shared `defense` table, or one built on the spot for a context
+    /// assembled outside the loader (tests). Callers still run this off the
+    /// main thread, since the fallback is the expensive build.
+    public var defenseLookup: DefenseLookup {
+        defense ?? DefenseLookup.build(context: self)
+    }
 
     /// What a starting position can be valued from in this context. DEF and
     /// IDP have no nflverse rows, but once Sleeper's own weekly lines are in
@@ -147,8 +162,9 @@ public struct LeagueContext: Sendable {
         return inSeason.practiceReports[gsis]
     }
 
-    /// Reverse of `sleeperIDsByGSIS`, built lazily-once per context.
-    public var gsisIDsBySleeper: [String: String] {
+    /// Inverts a gsis → Sleeper crosswalk, keeping the first gsis id when two
+    /// map to one Sleeper id.
+    public static func reverseCrosswalk(_ sleeperIDsByGSIS: [String: String]) -> [String: String] {
         Dictionary(sleeperIDsByGSIS.map { ($0.value, $0.key) }, uniquingKeysWith: { first, _ in first })
     }
 

@@ -60,7 +60,7 @@ struct StreamSnapshotDetailView<Kind: StreamKind>: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
+            LazyVStack(alignment: .leading, spacing: 10) {
                 if let snapshot {
                     Text("As of \(snapshot.asOf.formatted(date: .complete, time: .shortened)) · \(snapshot.risk.label)")
                         .font(.caption).foregroundStyle(.secondary)

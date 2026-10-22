@@ -53,7 +53,12 @@ public final class TradeDeskScreenModel: ObservableObject {
             )
             // Local inference on a home GPU takes seconds, not milliseconds.
             let relay = relayBaseURL.map { RelayClient(baseURL: $0, transport: URLSessionTransport(timeout: 90)) }
-            let desk = TradeWizardModel(context: context, relay: relay, prefill: prefill)
+            // Values, needs and grades scan the whole league; build them off
+            // the main thread and hand the desk the result.
+            let prepared = await Task.detached(priority: .userInitiated) {
+                TradeWizardModel.Prepared.build(context: context)
+            }.value
+            let desk = TradeWizardModel(context: context, prepared: prepared, relay: relay, prefill: prefill)
             self.desk = desk
             await desk.prepare()
         } catch {

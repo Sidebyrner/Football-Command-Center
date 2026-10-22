@@ -45,7 +45,12 @@ public struct BoardRow: Hashable, Sendable, Identifiable {
 @MainActor
 public final class PlanningModel: ObservableObject {
     @Published public private(set) var context: LeagueContext?
-    @Published public private(set) var grid: [CrunchCell] = []
+    @Published public private(set) var grid: [CrunchCell] = [] {
+        didSet { gridIndex = Dictionary(grid.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }) }
+    }
+    /// `grid` by cell id. The grid view asks for every cell by roster and
+    /// week, which was a linear scan per cell.
+    private var gridIndex: [String: CrunchCell] = [:]
     @Published public private(set) var board: [BoardRow] = []
     @Published public private(set) var isLoading = false
     @Published public private(set) var errorMessage: String?
@@ -79,6 +84,10 @@ public final class PlanningModel: ObservableObject {
 
     /// League-wide trending adds, the only data covering DEF and IDP.
     private(set) var trending: [TrendingPlayer] = []
+
+    /// The acquisition board before the week and own-player filters, built
+    /// once per load off the main thread; the filters only narrow it.
+    private var boardCandidates: [AcquisitionCandidate] = []
 
     private let loader: LeagueContextLoader
     private let sleeper: SleeperService?
@@ -119,8 +128,15 @@ public final class PlanningModel: ObservableObject {
             let context = try await loader.load(
                 leagueID: leagueID, userRosterID: userRosterID, season: season, force: force
             )
+            // Every team's bye outlook and a season-wide signal scan; both off
+            // the main thread.
+            let built = await Task.detached(priority: .userInitiated) {
+                (Self.buildGrid(context),
+                 AcquisitionSignals.board(players: context.seasonProfiles, baselines: context.baselines))
+            }.value
             self.context = context
-            self.grid = Self.buildGrid(context)
+            self.grid = built.0
+            boardCandidates = built.1
             rebuildBoard()
 
             if let sleeper, let adds = try? await sleeper.trendingAdds(force: force) {
@@ -143,7 +159,7 @@ public final class PlanningModel: ObservableObject {
 
     // MARK: - Grid
 
-    static func buildGrid(_ context: LeagueContext) -> [CrunchCell] {
+    nonisolated static func buildGrid(_ context: LeagueContext) -> [CrunchCell] {
         var cells: [CrunchCell] = []
         for team in context.teams {
             let outlook = ByeCrunch.outlook(
@@ -162,7 +178,7 @@ public final class PlanningModel: ObservableObject {
     }
 
     public func cell(rosterID: Int, week: Int) -> CrunchCell? {
-        grid.first { $0.rosterID == rosterID && $0.week == week }
+        gridIndex["\(rosterID)-\(week)"]
     }
 
     /// The user's own row, which the screen breaks out above the rest.
@@ -188,17 +204,15 @@ public final class PlanningModel: ObservableObject {
 
     // MARK: - Board
 
+    /// Narrows the prebuilt board to the selected week and ownership filter.
+    /// Cheap: the signal scan already ran at load.
     func rebuildBoard() {
         guard let context else {
             board = []
             return
         }
 
-        let candidates = AcquisitionSignals.board(
-            players: context.seasonProfiles, baselines: context.baselines
-        )
-
-        board = candidates.compactMap { candidate -> BoardRow? in
+        board = boardCandidates.compactMap { candidate -> BoardRow? in
             let sleeperID = context.sleeperIDsByGSIS[candidate.player.gsisID]
             let availability = context.availability(ofGSIS: candidate.player.gsisID)
 

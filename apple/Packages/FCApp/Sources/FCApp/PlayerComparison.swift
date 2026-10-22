@@ -308,3 +308,40 @@ public struct PlayerComparison: Sendable {
         )
     }
 }
+
+/// What a comparison was built from, so a view body can reuse the last build
+/// instead of rebuilding it — two schedules per player — on every render.
+/// Each card contributes the parts that change as it loads.
+public struct PlayerComparisonKey: Hashable {
+    struct CardState: Hashable {
+        let id: String
+        let logCount: Int
+        let newsCount: Int
+        let projected: Double?
+        let restOfSeason: Double?
+        let grade: Int?
+        let chips: Int
+        let opponent: String?
+        let hasStatus: Bool
+    }
+
+    let cards: [CardState]
+    let lastN: Int
+    let baselineID: String?
+    let thisWeek: Bool
+
+    @MainActor
+    public init(cards: [PlayerCardModel], lastN: Int, baselineID: String?, thisWeek: Bool) {
+        self.cards = cards.map { card in
+            CardState(
+                id: card.id, logCount: card.log.count, newsCount: card.news.count,
+                projected: card.rotowireThisWeek, restOfSeason: card.commandCenter?.restOfSeasonPerGame,
+                grade: card.grade?.score, chips: card.chips.count, opponent: card.status?.opponent,
+                hasStatus: card.status != nil
+            )
+        }
+        self.lastN = lastN
+        self.baselineID = baselineID
+        self.thisWeek = thisWeek
+    }
+}

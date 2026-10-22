@@ -356,7 +356,7 @@ struct StreamScreenView<Kind: StreamKind>: View {
                 .foregroundStyle(.secondary)
                 .card()
         } else {
-            VStack(alignment: .leading, spacing: 10) {
+            LazyVStack(alignment: .leading, spacing: 10) {
                 ForEach(Array(model.rows.prefix(50).enumerated()), id: \.element.id) { offset, row in
                     StreamRowView(
                         row: row,

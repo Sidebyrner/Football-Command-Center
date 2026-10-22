@@ -51,10 +51,11 @@ public final class GameDayModel: ObservableObject {
         do {
             let fetched = try await sleeper.scores(season: context.scheduleSeason, week: context.currentWeek, force: force)
             if games != fetched.value { games = fetched.value }
-            unavailable = false
+            if unavailable { unavailable = false }
+            // Written every poll: it is the freshness stamp the board shows.
             lastUpdate = context.now()
         } catch {
-            unavailable = games.isEmpty
+            if unavailable != games.isEmpty { unavailable = games.isEmpty }
         }
     }
 

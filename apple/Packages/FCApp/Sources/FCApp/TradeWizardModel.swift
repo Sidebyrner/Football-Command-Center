@@ -272,9 +272,90 @@ public final class TradeWizardModel: ObservableObject {
     private var polishGeneration = 0
     /// A player the manager asked to offer, applied to every partner picked.
     private var pendingSend: String?
+    /// The last search, reused while its query and inputs are unchanged.
+    private var lastSearch: (query: String, limit: Int, restOfSeasonReady: Bool, results: [TradeSearchResult])?
+
+    /// The parts of a desk that scan the whole league — season values, start
+    /// lines, every team's needs and grades. Built off the main thread by the
+    /// Trade Desk; building them in `init` stalled the screen on every load.
+    public struct Prepared: Sendable {
+        let profiles: [String: SeasonProfile]
+        let thisSeason: [String: Double]
+        let primaryBasis: TradeBasis
+        let startLines: [Position: PositionBaseline]
+        let needsByRoster: [Int: TeamNeeds]
+        let grades: [Int: TeamGrade]
+
+        public static func build(context: LeagueContext) -> Prepared {
+            let byGSIS = Dictionary(context.seasonProfiles.map { ($0.gsisID, $0) }, uniquingKeysWith: { first, _ in first })
+            let profiles: [String: SeasonProfile] = context.sleeperIDsByGSIS.reduce(into: [:]) { out, pair in
+                if let profile = byGSIS[pair.key] { out[pair.value] = profile }
+            }
+            let (season, games) = TradeWizardModel.thisSeasonValues(context: context)
+            let primary: TradeBasis = season.isEmpty ? .production : .thisSeason
+
+            // Start lines on the primary basis, with flex slots charged to the
+            // positions managers actually start there (superflex QBs above all).
+            let flexDemand = FlexDemand.observed(
+                template: context.template,
+                lineups: context.teams.map { team in
+                    team.rawStarters.map { $0 == SleeperRoster.emptyStarterSlot ? nil : context.position($0) }
+                }
+            )
+            var byPosition: [Position: [Double]] = [:]
+            if primary == .thisSeason {
+                let minimumGames = min(Baselines.minimumGamesForLine, TradeWizardModel.completedWeeks(context).count)
+                for (id, value) in season where (games[id] ?? 0) >= max(1, minimumGames) {
+                    if let position = context.position(id) { byPosition[position, default: []].append(value) }
+                }
+            } else {
+                for profile in context.seasonProfiles where profile.games >= Baselines.minimumGamesForLine {
+                    byPosition[profile.position, default: []].append(profile.pointsPerGame)
+                }
+            }
+            let startLines = Baselines.lines(
+                byPosition: byPosition, template: context.template,
+                teamCount: max(context.teams.count, 1), flexDemand: flexDemand
+            )
+
+            // The primary basis is this season or production, both plain lookups.
+            var primaryValues: [String: Double] = [:]
+            for team in context.teams {
+                for entry in team.roster {
+                    let value = primary == .thisSeason ? season[entry.id] : profiles[entry.id]?.pointsPerGame
+                    if let value { primaryValues[entry.id] = value }
+                }
+            }
+            var needsByRoster: [Int: TeamNeeds] = [:]
+            for team in context.teams {
+                needsByRoster[team.rosterID] = TradeWizardModel.needs(
+                    for: team, context: context, values: primaryValues, lines: startLines
+                )
+            }
+            let grades = TradeWizardModel.gradeLeague(
+                context: context, profiles: profiles, value: { primaryValues[$0] }, swapping: nil
+            )
+            return Prepared(
+                profiles: profiles, thisSeason: season, primaryBasis: primary,
+                startLines: startLines, needsByRoster: needsByRoster, grades: grades
+            )
+        }
+    }
+
+    /// Builds everything on the calling thread. Fine for tests and previews;
+    /// the Trade Desk builds `Prepared` off the main thread instead.
+    public convenience init(
+        context: LeagueContext,
+        relay: RelayClient? = nil,
+        secrets: SecretStore = KeychainSecretStore(),
+        prefill: TradeWizardPrefill? = nil
+    ) {
+        self.init(context: context, prepared: .build(context: context), relay: relay, secrets: secrets, prefill: prefill)
+    }
 
     public init(
         context: LeagueContext,
+        prepared: Prepared,
         relay: RelayClient? = nil,
         secrets: SecretStore = KeychainSecretStore(),
         prefill: TradeWizardPrefill? = nil
@@ -286,49 +367,15 @@ public final class TradeWizardModel: ObservableObject {
             deadline: context.leagueFacts.tradeDeadlineWeek ?? context.league.settings?.effectiveTradeDeadline,
             currentWeek: context.currentWeek
         )
-
-        let byGSIS = Dictionary(context.seasonProfiles.map { ($0.gsisID, $0) }, uniquingKeysWith: { first, _ in first })
-        self.profiles = context.sleeperIDsByGSIS.reduce(into: [:]) { out, pair in
-            if let profile = byGSIS[pair.key] { out[pair.value] = profile }
-        }
-        let (season, games) = Self.thisSeasonValues(context: context)
-        self.thisSeason = season
-        let primary: TradeBasis = season.isEmpty ? .production : .thisSeason
-        self.primaryBasis = primary
-        self.basis = primary
-
-        // Start lines on the primary basis, with flex slots charged to the
-        // positions managers actually start there (superflex QBs above all).
-        let flexDemand = FlexDemand.observed(
-            template: context.template,
-            lineups: context.teams.map { team in
-                team.rawStarters.map { $0 == SleeperRoster.emptyStarterSlot ? nil : context.position($0) }
-            }
-        )
-        var byPosition: [Position: [Double]] = [:]
-        if primary == .thisSeason {
-            let minimumGames = min(Baselines.minimumGamesForLine, Self.completedWeeks(context).count)
-            for (id, value) in season where (games[id] ?? 0) >= max(1, minimumGames) {
-                if let position = context.position(id) { byPosition[position, default: []].append(value) }
-            }
-        } else {
-            for profile in context.seasonProfiles where profile.games >= Baselines.minimumGamesForLine {
-                byPosition[profile.position, default: []].append(profile.pointsPerGame)
-            }
-        }
-        self.startLines = Baselines.lines(
-            byPosition: byPosition, template: context.template,
-            teamCount: max(context.teams.count, 1), flexDemand: flexDemand
-        )
-        self.myNeeds = TeamNeeds(needs: [], surplus: [])
-
-        let primaryValues = valueMap(primary)
-        for team in context.teams {
-            needsByRoster[team.rosterID] = Self.needs(for: team, context: context, values: primaryValues, lines: startLines)
-        }
-        myNeeds = needsByRoster[context.userRosterID] ?? TeamNeeds(needs: [], surplus: [])
+        self.profiles = prepared.profiles
+        self.thisSeason = prepared.thisSeason
+        self.primaryBasis = prepared.primaryBasis
+        self.basis = prepared.primaryBasis
+        self.startLines = prepared.startLines
+        self.needsByRoster = prepared.needsByRoster
+        self.myNeeds = prepared.needsByRoster[context.userRosterID] ?? TeamNeeds(needs: [], surplus: [])
+        self.grades = prepared.grades
         goals = buildGoals()
-        recomputeGrades()
 
         if let prefill { apply(prefill) }
     }
@@ -340,7 +387,7 @@ public final class TradeWizardModel: ObservableObject {
         let context = self.context
         let ids = Set(context.teams.flatMap { $0.roster.map(\.id) })
         let values = await Task.detached(priority: .userInitiated) { () -> [String: Double] in
-            let projector = CommandCenterProjector(context: context, defense: DefenseLookup.build(context: context))
+            let projector = CommandCenterProjector(context: context, defense: context.defenseLookup)
             var out: [String: Double] = [:]
             for id in ids {
                 if let value = projector.project(id)?.restOfSeasonPerGame { out[id] = value }
@@ -354,13 +401,13 @@ public final class TradeWizardModel: ObservableObject {
 
     // MARK: - Values
 
-    static func completedWeeks(_ context: LeagueContext) -> [Int] {
+    nonisolated static func completedWeeks(_ context: LeagueContext) -> [Int] {
         context.inSeason.weekStats.keys.filter { $0 < context.currentWeek }.sorted()
     }
 
     /// This season's points per game from completed weeks only, so a game in
     /// progress can't swing a trade value.
-    static func thisSeasonValues(context: LeagueContext) -> (values: [String: Double], games: [String: Int]) {
+    nonisolated static func thisSeasonValues(context: LeagueContext) -> (values: [String: Double], games: [String: Int]) {
         let scoring = context.league.scoringSettings ?? [:]
         var total: [String: Double] = [:], games: [String: Int] = [:]
         for week in completedWeeks(context) {
@@ -443,12 +490,12 @@ public final class TradeWizardModel: ObservableObject {
     // MARK: - Rosters
 
     /// A team's roster without its IR slots — the players who count as depth.
-    static func activeRoster(_ team: LeagueTeam) -> [RosterEntry] {
+    nonisolated static func activeRoster(_ team: LeagueTeam) -> [RosterEntry] {
         let reserve = Set(team.reserveIDs)
         return team.roster.filter { !reserve.contains($0.id) }
     }
 
-    static func needs(for team: LeagueTeam, context: LeagueContext, values: [String: Double],
+    nonisolated static func needs(for team: LeagueTeam, context: LeagueContext, values: [String: Double],
                       lines: [Position: PositionBaseline]) -> TeamNeeds {
         TeamNeedsBuilder.build(
             roster: activeRoster(team),
@@ -699,7 +746,12 @@ public final class TradeWizardModel: ObservableObject {
     public func search(_ query: String, limit: Int = 20) -> [TradeSearchResult] {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return [] }
-        var scored: [(TradeSearchResult, Int)] = []
+        // The search field calls this from its view body on every render.
+        if let last = lastSearch, last.query == trimmed, last.limit == limit,
+           last.restOfSeasonReady == restOfSeasonReady {
+            return last.results
+        }
+        var scored: [(id: String, starter: Bool, rival: LeagueTeam, score: Int, value: Double)] = []
         for rival in context.rivals {
             let starters = Set(rival.starterIDs)
             for entry in rival.roster {
@@ -707,14 +759,19 @@ public final class TradeWizardModel: ObservableObject {
                 let team = entry.team.flatMap { NFLTeams.nflverse($0) }
                 let extra = [team, NFLTeams.name(abbreviation: team), rival.manager].compactMap { $0 }
                 guard let score = FuzzyNameMatch.score(query: trimmed, name: name, extra: extra) else { continue }
-                scored.append((TradeSearchResult(player: player(entry.id, surplus: false, starter: starters.contains(entry.id)), rival: rival), score))
+                scored.append((entry.id, starters.contains(entry.id), rival, score, value(entry.id, primaryBasis) ?? -1))
             }
         }
-        return scored
-            .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : ($0.0.player.value(primaryBasis) ?? -1) > ($1.0.player.value(primaryBasis) ?? -1) }
+        // Rank on the score and one value, then build full players only for
+        // the rows shown — each one values every basis.
+        let results = scored
+            .sorted { $0.score != $1.score ? $0.score > $1.score : $0.value > $1.value }
             .prefix(limit)
-            .map(\.0)
+            .map { TradeSearchResult(player: player($0.id, surplus: false, starter: $0.starter), rival: $0.rival) }
+        lastSearch = (trimmed, limit, restOfSeasonReady, results)
+        return results
     }
+
 
     /// Jumps straight to a deal for one rival's player.
     public func target(_ result: TradeSearchResult) {
@@ -797,20 +854,28 @@ public final class TradeWizardModel: ObservableObject {
 
     // MARK: - Lineups and grades
 
-    /// A player's value in this week's lineup on the active basis: nothing if
-    /// his team is on bye or he can't start.
-    private func lineupValue(_ id: String, team: String?) -> Double? {
-        if context.byeCalendar.isOnBye(team: context.nflTeam(of: id) ?? team, week: context.currentWeek) { return nil }
-        if StartAvailability.of(id, context: context).blocksStart { return nil }
-        return value(id, basis)
-    }
-
     /// Best lineup points from a set of players, counting only valued starters.
     func bestLineup(ids: [String], starters: [String], teamOf: [String: String]) -> Double? {
-        let positionOf: (String) -> Position? = { self.context.position($0) ?? self.profiles[$0]?.position }
+        let basis = basis
+        return Self.bestLineup(ids: ids, starters: starters, teamOf: teamOf, context: context,
+                               profiles: profiles, value: { self.value($0, basis) })
+    }
+
+    /// `bestLineup` without the model, so `Prepared` can run it off the main
+    /// thread. A player on bye or unable to start counts nothing.
+    nonisolated static func bestLineup(
+        ids: [String], starters: [String], teamOf: [String: String], context: LeagueContext,
+        profiles: [String: SeasonProfile], value: (String) -> Double?
+    ) -> Double? {
+        func lineupValue(_ id: String) -> Double? {
+            if context.byeCalendar.isOnBye(team: context.nflTeam(of: id) ?? teamOf[id], week: context.currentWeek) { return nil }
+            if StartAvailability.of(id, context: context).blocksStart { return nil }
+            return value(id)
+        }
+        let positionOf: (String) -> Position? = { context.position($0) ?? profiles[$0]?.position }
         let proposal = LineupOptimizer.optimize(
             currentStarterIDs: starters, playerIDs: ids, template: context.template,
-            positions: positionOf, valueOf: { self.lineupValue($0, team: teamOf[$0]) },
+            positions: positionOf, valueOf: { lineupValue($0) },
             locked: Set(ids.filter { context.isLocked($0) })
         )
         var total = 0.0
@@ -818,14 +883,14 @@ public final class TradeWizardModel: ObservableObject {
         for (index, proposed) in proposal.proposedIDs.enumerated() {
             let chosen = proposed ?? (starters.indices.contains(index) ? starters[index] : nil)
             guard let chosen, chosen != SleeperRoster.emptyStarterSlot, ids.contains(chosen),
-                  let v = lineupValue(chosen, team: teamOf[chosen]) else { continue }
+                  let v = lineupValue(chosen) else { continue }
             total += v
             counted += 1
         }
         return counted > 0 ? (total * 10).rounded() / 10 : nil
     }
 
-    private func shortWeeks(_ roster: [RosterEntry], weeks: [Int]) -> Int {
+    nonisolated private static func shortWeeks(_ roster: [RosterEntry], weeks: [Int], context: LeagueContext) -> Int {
         ByeCrunch.outlook(roster: roster, template: context.template, calendar: context.byeCalendar, weeks: weeks)
             .values.filter { $0.totalShortfall > 0 }.count
     }
@@ -837,6 +902,15 @@ public final class TradeWizardModel: ObservableObject {
 
     /// League grades, optionally with a deal applied to two rosters.
     private func gradeLeague(swapping deal: (me: Int, rival: Int, sending: Set<String>, receiving: Set<String>)?) -> [Int: TeamGrade] {
+        let basis = basis
+        return Self.gradeLeague(context: context, profiles: profiles, value: { self.value($0, basis) }, swapping: deal)
+    }
+
+    /// `gradeLeague` without the model, so `Prepared` can run it off the main thread.
+    nonisolated static func gradeLeague(
+        context: LeagueContext, profiles: [String: SeasonProfile], value: (String) -> Double?,
+        swapping deal: (me: Int, rival: Int, sending: Set<String>, receiving: Set<String>)?
+    ) -> [Int: TeamGrade] {
         let weeks = context.remainingWeeks
         let inputs = context.teams.map { team -> TeamGrades.Input in
             var roster = Self.activeRoster(team)
@@ -854,8 +928,9 @@ public final class TradeWizardModel: ObservableObject {
             let teamOf = Dictionary(roster.map { ($0.id, $0.team ?? "") }, uniquingKeysWith: { first, _ in first })
             return TeamGrades.Input(
                 rosterID: team.rosterID,
-                lineupPoints: bestLineup(ids: roster.map(\.id), starters: starters, teamOf: teamOf),
-                shortWeeks: shortWeeks(roster, weeks: weeks),
+                lineupPoints: bestLineup(ids: roster.map(\.id), starters: starters, teamOf: teamOf,
+                                         context: context, profiles: profiles, value: value),
+                shortWeeks: shortWeeks(roster, weeks: weeks, context: context),
                 remainingWeeks: weeks.count
             )
         }

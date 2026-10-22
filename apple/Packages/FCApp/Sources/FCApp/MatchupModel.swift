@@ -262,7 +262,7 @@ public final class MatchupModel: ObservableObject {
             // the main thread rather than stalling the screen while it does.
             let rows = matchups.value
             let lookup = await Task.detached(priority: .userInitiated) {
-                DefenseLookup.build(context: context)
+                context.defenseLookup
             }.value
             defenseTable = lookup.nflverse
             defenseLookup = lookup
@@ -287,13 +287,16 @@ public final class MatchupModel: ObservableObject {
     /// When live scores were last refreshed, for "updated 40s ago".
     @Published public private(set) var lastLiveUpdate: Date?
 
+    /// Writes only what changed. A live tick rebuilds both sides every
+    /// minute, and an unchanged write still re-renders every view observing
+    /// this model and drops Decide's caches.
     private func apply(_ built: (mine: MatchupSide?, opponent: MatchupSide?, noOpponentReason: String?)) {
-        mySide = built.mine
-        opponentSide = built.opponent
-        noOpponentReason = built.noOpponentReason
+        if mySide != built.mine { mySide = built.mine }
+        if opponentSide != built.opponent { opponentSide = built.opponent }
+        if noOpponentReason != built.noOpponentReason { noOpponentReason = built.noOpponentReason }
         let paired = Self.pair(mine: built.mine, theirs: built.opponent)
-        comparisonBasis = paired.basis
-        pairedSlots = paired.slots
+        if comparisonBasis != paired.basis { comparisonBasis = paired.basis }
+        if pairedSlots != paired.slots { pairedSlots = paired.slots }
         if opponentSide == nil, mode == .opponent { mode = .mine }
     }
 

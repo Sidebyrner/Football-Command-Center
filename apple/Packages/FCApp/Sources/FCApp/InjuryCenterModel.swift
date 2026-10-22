@@ -174,12 +174,26 @@ public final class InjuryCenterModel: ObservableObject {
     /// Recent news per player on your roster's injury list, fetched
     /// fail-soft; absent when Sleeper's news route could not be read.
     @Published public private(set) var news: [String: [SleeperPlayerNews]] = [:]
-    @Published public var basis: ReplacementBasis = .projected
+    @Published public var basis: ReplacementBasis = .projected { didSet { prepareCandidates() } }
     @Published public private(set) var refreshCount = 0
 
     private let loader: LeagueContextLoader
     private let sleeper: SleeperService
     private var lastRequest: (leagueID: String, rosterID: Int, season: Int?)?
+    /// Replacement lists by injured player and basis, cleared on load. The
+    /// sheet asks on every render, and each list is about a dozen lineup
+    /// optimisations over the whole player pool.
+    private var candidateCache: [CandidateKey: [ReplacementCandidate]] = [:]
+    /// The background fill of `candidateCache` for the current basis.
+    private var candidateWarmup: Task<Void, Never>?
+    /// Bumped per load, so a warmup for an older context is dropped.
+    private var loadGeneration = 0
+
+    private struct CandidateKey: Hashable {
+        let injuredID: String
+        let basis: ReplacementBasis
+        let limit: Int
+    }
 
     public init(loader: LeagueContextLoader, sleeper: SleeperService) {
         self.loader = loader
@@ -204,10 +218,19 @@ public final class InjuryCenterModel: ObservableObject {
             let context = try await loader.load(
                 leagueID: leagueID, userRosterID: userRosterID, season: season, force: force
             )
+            // Openings walk every rostered player in the league against the
+            // depth charts; all three lists are built off the main thread.
+            let built = await Task.detached(priority: .userInitiated) {
+                (Self.buildRoster(context: context), Self.buildOpenings(context: context),
+                 Self.buildRivalInjuries(context: context))
+            }.value
             self.context = context
-            roster = Self.buildRoster(context: context)
-            openings = Self.buildOpenings(context: context)
-            rivalInjuries = Self.buildRivalInjuries(context: context)
+            candidateCache = [:]
+            loadGeneration += 1
+            roster = built.0
+            openings = built.1
+            rivalInjuries = built.2
+            prepareCandidates()
             await loadNews(for: roster.prefix(8).map(\.id), force: force)
         } catch {
             errorMessage = String(describing: error)
@@ -218,7 +241,7 @@ public final class InjuryCenterModel: ObservableObject {
 
     /// Every one of the user's players with an injury signal, worst first,
     /// starters before bench, soonest kickoff first.
-    static func buildRoster(context: LeagueContext) -> [InjuredPlayer] {
+    nonisolated static func buildRoster(context: LeagueContext) -> [InjuredPlayer] {
         guard let team = context.userTeam else { return [] }
         var out: [InjuredPlayer] = []
         for entry in team.roster {
@@ -265,7 +288,7 @@ public final class InjuryCenterModel: ObservableObject {
     /// For every rostered player in the league with a game designation, the
     /// next names on his team's official depth chart and what they have been
     /// doing. Absent when no depth chart file is loaded.
-    static func buildOpenings(context: LeagueContext, maxBehind: Int = 3) -> [InjuryOpening] {
+    nonisolated static func buildOpenings(context: LeagueContext, maxBehind: Int = 3) -> [InjuryOpening] {
         guard let depth = context.inSeason.depthCharts else { return [] }
         let gsisBySleeper = context.gsisIDsBySleeper
         var out: [InjuryOpening] = []
@@ -340,7 +363,7 @@ public final class InjuryCenterModel: ObservableObject {
     // MARK: - Rivals
 
     /// Rivals' tagged starters, flagged when you hold a spare at that position.
-    static func buildRivalInjuries(context: LeagueContext) -> [RivalInjury] {
+    nonisolated static func buildRivalInjuries(context: LeagueContext) -> [RivalInjury] {
         guard let mine = context.userTeam else { return [] }
         let required = context.template.dedicatedCounts()
         let starting = Set(mine.starterIDs)
@@ -389,7 +412,7 @@ public final class InjuryCenterModel: ObservableObject {
     // MARK: - Replacement Finder
 
     /// Value of a player on one basis; `nil` means the basis cannot value him.
-    func value(of id: String, basis: ReplacementBasis, context: LeagueContext) -> Double? {
+    nonisolated static func value(of id: String, basis: ReplacementBasis, context: LeagueContext) -> Double? {
         switch basis {
         case .projected:
             return context.projectedPoints(id)
@@ -409,7 +432,39 @@ public final class InjuryCenterModel: ObservableObject {
     /// anyone on bye or already locked. Players the basis cannot value are
     /// left out rather than scored as zero.
     public func candidates(for injured: InjuredPlayer, limit: Int = 12) -> [ReplacementCandidate] {
-        guard let context, let mine = context.userTeam else { return [] }
+        guard let context else { return [] }
+        let key = CandidateKey(injuredID: injured.id, basis: basis, limit: limit)
+        if let cached = candidateCache[key] { return cached }
+        let built = Self.buildCandidates(for: injured, basis: basis, limit: limit, context: context)
+        candidateCache[key] = built
+        return built
+    }
+
+    /// Fills the replacement lists for every injured player on the current
+    /// basis off the main thread, so opening the sheet finds them ready.
+    private func prepareCandidates() {
+        guard let context, !roster.isEmpty else { return }
+        candidateWarmup?.cancel()
+        let basis = basis
+        let generation = loadGeneration
+        let injured = roster.filter { candidateCache[CandidateKey(injuredID: $0.id, basis: basis, limit: 12)] == nil }
+        guard !injured.isEmpty else { return }
+        candidateWarmup = Task {
+            let built = await Task.detached(priority: .utility) {
+                injured.map { ($0.id, Self.buildCandidates(for: $0, basis: basis, limit: 12, context: context)) }
+            }.value
+            guard !Task.isCancelled, generation == loadGeneration else { return }
+            for (id, list) in built {
+                let key = CandidateKey(injuredID: id, basis: basis, limit: 12)
+                if candidateCache[key] == nil { candidateCache[key] = list }
+            }
+        }
+    }
+
+    nonisolated static func buildCandidates(
+        for injured: InjuredPlayer, basis: ReplacementBasis, limit: Int, context: LeagueContext
+    ) -> [ReplacementCandidate] {
+        guard let mine = context.userTeam else { return [] }
         let eligible: Set<Position> = {
             if let token = injured.slotToken,
                let slot = context.template.starters.first(where: { $0.token == token }) {
@@ -436,7 +491,7 @@ public final class InjuryCenterModel: ObservableObject {
             if context.byeCalendar.isOnBye(team: team, week: context.currentWeek) { continue }
             if context.isLocked(player.id) { continue }
             if InjurySeverity.from(tag: player.injuryStatus, report: context.practiceReport(sleeperID: player.id)) <= .doubtful { continue }
-            guard let value = value(of: player.id, basis: basis, context: context) else { continue }
+            guard let value = Self.value(of: player.id, basis: basis, context: context) else { continue }
             pool.append(Scored(id: player.id, value: value, availability: availability))
         }
         pool.sort { $0.value > $1.value }
@@ -455,7 +510,7 @@ public final class InjuryCenterModel: ObservableObject {
                 // either — the same rule Sit/Start uses.
                 valueOf: {
                     StartAvailability.of($0, context: context).blocksStart
-                        ? nil : self.value(of: $0, basis: self.basis, context: context)
+                        ? nil : Self.value(of: $0, basis: basis, context: context)
                 },
                 locked: locked
             ).proposedTotal
